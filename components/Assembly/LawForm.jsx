@@ -47,13 +47,13 @@ export default function LawForm({ onSuccess }) {
 
     const cleanDuty = studentDuty.trim().replace(/\.$/, '');
     if (
-      !cleanDuty.endsWith('해야한다') &&
-      !cleanDuty.endsWith('해야 한다') &&
-      !cleanDuty.endsWith('할 수 있다') &&
-      !cleanDuty.endsWith('하면 안된다') &&
-      !cleanDuty.endsWith('하면 안 된다')
+      !cleanDuty.endsWith('수 있다') &&
+      !cleanDuty.endsWith('야 한다') &&
+      !cleanDuty.endsWith('야한다') &&
+      !cleanDuty.endsWith('면 안된다') &&
+      !cleanDuty.endsWith('면 안 된다')
     ) {
-      alert("학생들이 해야 할 일은 '~해야한다.', '~할 수 있다.', '~하면 안된다.' 중 하나로 끝나야 합니다.");
+      alert("학생들이 해야 할 일은 '~수 있다.', '~야 한다.', '~면 안된다.' 중 하나로 끝나야 합니다.");
       return;
     }
     

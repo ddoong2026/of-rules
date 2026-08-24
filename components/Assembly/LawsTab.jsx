@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/components/AuthProvider';
 import LawForm from './LawForm';
 import styles from './AssemblyTabs.module.css';
-import { CheckCircle, XCircle, ScrollText } from 'lucide-react';
+import { CheckCircle, XCircle, ScrollText, Trash2 } from 'lucide-react';
 
 export default function LawsTab() {
   const [laws, setLaws] = useState([]);
@@ -37,7 +37,7 @@ export default function LawsTab() {
   }, []);
 
   const handleVote = async (lawId, isFor) => {
-    if (!user || role?.role !== 'ASSEMBLY') return alert('국회의원만 투표할 수 있습니다.');
+    if (!user || !['ASSEMBLY', 'TEACHER'].includes(role?.role)) return alert('국회의원과 교사만 투표할 수 있습니다.');
     
     const { error } = await supabase
       .from('law_votes')
@@ -61,6 +61,14 @@ export default function LawsTab() {
     }
   };
 
+  const handleDeleteLaw = async (lawId) => {
+    if (!confirm('정말로 이 법률안을 삭제하시겠습니까?')) return;
+    const { error } = await supabase.from('laws').delete().eq('id', lawId);
+    if (error) {
+      alert('오류가 발생했습니다: ' + error.message);
+    }
+  };
+
   const getStatusBadge = (status) => {
     switch(status) {
       case 'PROPOSED': return <span className={`${styles.badge} ${styles.badgePrimary}`}>발의됨</span>;
@@ -75,7 +83,7 @@ export default function LawsTab() {
     <div>
       <div className={styles.tabHeader}>
         <h2>입법 현황</h2>
-        {role?.role === 'ASSEMBLY' && (
+        {['ASSEMBLY', 'TEACHER'].includes(role?.role) && (
           <button className="glass-button" onClick={() => setShowForm(!showForm)}>
             {showForm ? '목록으로' : '법률안 발의'}
           </button>
@@ -108,21 +116,34 @@ export default function LawsTab() {
                     <span>관련부처: {law.target_department}</span>
                   </div>
                   
-                  {law.status === 'PROPOSED' && role?.role === 'ASSEMBLY' ? (
-                    <div style={{display: 'flex', gap: '0.5rem'}}>
-                      <button className={styles.actionBtn} onClick={() => handleVote(law.id, true)} style={{color: '#15803d'}}>
-                        <CheckCircle size={16} /> 찬성 ({law.votes_for})
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    {role?.role === 'TEACHER' && (
+                      <button 
+                        className={styles.actionBtn} 
+                        onClick={() => handleDeleteLaw(law.id)}
+                        style={{ color: 'var(--danger)', padding: '0.5rem', marginRight: '0.5rem' }}
+                        title="법률안 삭제"
+                      >
+                        <Trash2 size={16} />
                       </button>
-                      <button className={styles.actionBtn} onClick={() => handleVote(law.id, false)} style={{color: '#b91c1c'}}>
-                        <XCircle size={16} /> 반대 ({law.votes_against})
-                      </button>
-                    </div>
-                  ) : (
-                    <div style={{fontSize: '0.9rem', fontWeight: 'bold'}}>
-                      <span style={{color: '#15803d', marginRight: '1rem'}}>찬성 {law.votes_for}</span>
-                      <span style={{color: '#b91c1c'}}>반대 {law.votes_against}</span>
-                    </div>
-                  )}
+                    )}
+                    
+                    {law.status === 'PROPOSED' && ['ASSEMBLY', 'TEACHER'].includes(role?.role) ? (
+                      <div style={{display: 'flex', gap: '0.5rem'}}>
+                        <button className={styles.actionBtn} onClick={() => handleVote(law.id, true)} style={{color: '#15803d'}}>
+                          <CheckCircle size={16} /> 찬성 ({law.votes_for})
+                        </button>
+                        <button className={styles.actionBtn} onClick={() => handleVote(law.id, false)} style={{color: '#b91c1c'}}>
+                          <XCircle size={16} /> 반대 ({law.votes_against})
+                        </button>
+                      </div>
+                    ) : (
+                      <div style={{fontSize: '0.9rem', fontWeight: 'bold'}}>
+                        <span style={{color: '#15803d', marginRight: '1rem'}}>찬성 {law.votes_for}</span>
+                        <span style={{color: '#b91c1c'}}>반대 {law.votes_against}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             ))

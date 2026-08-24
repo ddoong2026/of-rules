@@ -5,12 +5,12 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/components/AuthProvider';
 import PetitionForm from './PetitionForm';
 import styles from './AssemblyTabs.module.css';
-import { MessageSquare, ThumbsUp } from 'lucide-react';
+import { MessageSquare, ThumbsUp, Trash2 } from 'lucide-react';
 
 export default function PetitionsTab() {
   const [petitions, setPetitions] = useState([]);
   const [showForm, setShowForm] = useState(false);
-  const { user } = useAuth();
+  const { user, role } = useAuth();
 
   const fetchPetitions = async () => {
     const { data, error } = await supabase
@@ -56,6 +56,14 @@ export default function PetitionsTab() {
     }
   };
 
+  const handleDelete = async (petitionId) => {
+    if (!confirm('정말로 이 청원을 삭제하시겠습니까?')) return;
+    const { error } = await supabase.from('petitions').delete().eq('id', petitionId);
+    if (error) {
+      alert('오류가 발생했습니다: ' + error.message);
+    }
+  };
+
   const getStatusBadge = (status) => {
     switch(status) {
       case 'PENDING': return <span className={`${styles.badge} ${styles.badgeGray}`}>동의 진행중</span>;
@@ -93,13 +101,25 @@ export default function PetitionsTab() {
                     <span className={styles.author}><MessageSquare size={16} /> {petition.users?.name || '익명'}</span>
                     <span className={styles.date}>{new Date(petition.created_at).toLocaleDateString()}</span>
                   </div>
-                  <button 
-                    className={`${styles.actionBtn} ${petition.status !== 'PENDING' ? styles.disabled : ''}`} 
-                    onClick={() => handleAgree(petition.id)}
-                    disabled={petition.status !== 'PENDING'}
-                  >
-                    <ThumbsUp size={16} /> 동의 ({petition.agree_count})
-                  </button>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    {role?.role === 'TEACHER' && (
+                      <button 
+                        className={styles.actionBtn} 
+                        onClick={() => handleDelete(petition.id)}
+                        style={{ color: 'var(--danger)', padding: '0.5rem' }}
+                        title="청원 삭제"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                    <button 
+                      className={`${styles.actionBtn} ${petition.status !== 'PENDING' ? styles.disabled : ''}`} 
+                      onClick={() => handleAgree(petition.id)}
+                      disabled={petition.status !== 'PENDING'}
+                    >
+                      <ThumbsUp size={16} /> 동의 ({petition.agree_count})
+                    </button>
+                  </div>
                 </div>
               </div>
             ))

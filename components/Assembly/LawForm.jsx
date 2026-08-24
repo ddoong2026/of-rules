@@ -44,6 +44,19 @@ export default function LawForm({ onSuccess }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    const cleanDuty = studentDuty.trim().replace(/\.$/, '');
+    if (
+      !cleanDuty.endsWith('해야한다') &&
+      !cleanDuty.endsWith('해야 한다') &&
+      !cleanDuty.endsWith('할 수 있다') &&
+      !cleanDuty.endsWith('하면 안된다') &&
+      !cleanDuty.endsWith('하면 안 된다')
+    ) {
+      alert("학생들이 해야 할 일은 '~해야한다.', '~할 수 있다.', '~하면 안된다.' 중 하나로 끝나야 합니다.");
+      return;
+    }
+    
     setLoading(true);
     
     let finalContent = content;

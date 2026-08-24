@@ -26,6 +26,21 @@ export default function LawForm({ onSuccess }) {
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
 
+  const generateTemplate = () => {
+    let template = '';
+    const subject = title ? title : '[규칙 대상(예: 학생들은 줄을 서거나 이동할 때 장난을 치면 안된다)]';
+    
+    if (lawType === 'penalty') {
+      template = `${subject}. 이를 어길 시 ${penaltyType} ${actionValue || '[수치]'}이며, 관련 부처는 ${department}로 한다.`;
+    } else if (lawType === 'reward') {
+      template = `${subject}. 이를 지킬 시 ${actionValue || '[보상]'}을(를) 보상으로 지급하며, 관련 부처는 ${department}로 한다.`;
+    } else {
+      template = `${subject}. 관련 부처는 ${department}로 한다.`;
+    }
+    
+    setContent(template);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -157,7 +172,16 @@ export default function LawForm({ onSuccess }) {
         )}
 
         <div className={styles.inputGroup}>
-          <label>주요 내용</label>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+            <label style={{ marginBottom: 0 }}>주요 내용</label>
+            <button 
+              type="button" 
+              onClick={generateTemplate}
+              style={{ fontSize: '0.8rem', padding: '0.2rem 0.5rem', borderRadius: '4px', background: 'var(--primary)', color: 'white', border: 'none', cursor: 'pointer' }}
+            >
+              내용 자동 완성
+            </button>
+          </div>
           <textarea 
             className={`glass-input ${styles.textarea}`} 
             value={content}

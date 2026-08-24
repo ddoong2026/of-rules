@@ -10,6 +10,7 @@ import { CheckCircle, XCircle, ScrollText, Trash2 } from 'lucide-react';
 export default function LawsTab() {
   const [laws, setLaws] = useState([]);
   const [showForm, setShowForm] = useState(false);
+  const [expandedLawId, setExpandedLawId] = useState(null);
   const { user, role } = useAuth();
 
   const fetchLaws = async () => {
@@ -78,6 +79,20 @@ export default function LawsTab() {
     }
   };
 
+  const handlePromulgate = async (lawId) => {
+    if (role?.role !== 'TEACHER') return alert('선생님만 법률을 공포할 수 있습니다.');
+    if (!confirm('이 법률을 공포하여 시행하시겠습니까?')) return;
+    
+    const { error } = await supabase
+      .from('laws')
+      .update({ status: 'PROMULGATED' })
+      .eq('id', lawId);
+      
+    if (error) {
+      alert('오류가 발생했습니다: ' + error.message);
+    }
+  };
+
   const getStatusBadge = (status) => {
     switch(status) {
       case 'PROPOSED': return <span className={`${styles.badge} ${styles.badgePrimary}`}>발의됨</span>;
@@ -107,19 +122,27 @@ export default function LawsTab() {
             <p className={styles.empty}>발의된 법률안이 없습니다.</p>
           ) : (
             laws.map(law => (
-              <div key={law.id} className={styles.card}>
+              <div 
+                key={law.id} 
+                className={styles.card}
+                onClick={() => setExpandedLawId(expandedLawId === law.id ? null : law.id)}
+                style={{ cursor: 'pointer' }}
+              >
                 <div className={styles.cardHeader}>
                   <h3 className={styles.cardTitle}>{law.title}</h3>
                   {getStatusBadge(law.status)}
                 </div>
                 
-                <div className={styles.cardContent}>
+                <div 
+                  className={styles.cardContent} 
+                  style={{ WebkitLineClamp: expandedLawId === law.id ? 'unset' : 3 }}
+                >
                   <strong>제안 이유:</strong> {law.reason}
                   <br /><br />
                   <strong>주요 내용:</strong> {law.content}
                 </div>
                 
-                <div className={styles.cardFooter}>
+                <div className={styles.cardFooter} onClick={(e) => e.stopPropagation()}>
                   <div className={styles.meta}>
                     <span className={styles.author}><ScrollText size={16} /> 발의: {law.users?.name}</span>
                     <span>관련부처: {law.target_department}</span>
@@ -138,18 +161,38 @@ export default function LawsTab() {
                     )}
                     
                     {law.status === 'PROPOSED' && ['ASSEMBLY', 'TEACHER'].includes(role?.role) ? (
-                      <div style={{display: 'flex', gap: '0.5rem'}}>
-                        <button className={styles.actionBtn} onClick={() => handleVote(law.id, true)} style={{color: '#15803d'}}>
+                      <div style={{display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end'}}>
+                        <button className={styles.actionBtn} onClick={() => handleVote(law.id, true)} style={{color: '#15803d', padding: '0.2rem 0.5rem'}}>
                           <CheckCircle size={16} /> 찬성 ({law.votes_for})
                         </button>
-                        <button className={styles.actionBtn} onClick={() => handleVote(law.id, false)} style={{color: '#b91c1c'}}>
+                        <button className={styles.actionBtn} onClick={() => handleVote(law.id, false)} style={{color: '#b91c1c', padding: '0.2rem 0.5rem'}}>
                           <XCircle size={16} /> 반대 ({law.votes_against})
                         </button>
+                        {role?.role === 'TEACHER' && (
+                          <button 
+                            className={styles.actionBtn} 
+                            onClick={() => handlePromulgate(law.id)} 
+                            style={{color: '#854d0e', background: '#fef08a', padding: '0.2rem 0.5rem', borderRadius: '4px', border: '1px solid #eab308'}}
+                          >
+                            법률 공포
+                          </button>
+                        )}
                       </div>
                     ) : (
-                      <div style={{fontSize: '0.9rem', fontWeight: 'bold'}}>
-                        <span style={{color: '#15803d', marginRight: '1rem'}}>찬성 {law.votes_for}</span>
-                        <span style={{color: '#b91c1c'}}>반대 {law.votes_against}</span>
+                      <div style={{fontSize: '0.9rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '1rem'}}>
+                        <div>
+                          <span style={{color: '#15803d', marginRight: '1rem'}}>찬성 {law.votes_for}</span>
+                          <span style={{color: '#b91c1c'}}>반대 {law.votes_against}</span>
+                        </div>
+                        {law.status === 'PROPOSED' && role?.role === 'TEACHER' && (
+                          <button 
+                            className={styles.actionBtn} 
+                            onClick={() => handlePromulgate(law.id)} 
+                            style={{color: '#854d0e', background: '#fef08a', padding: '0.2rem 0.5rem', borderRadius: '4px', border: '1px solid #eab308'}}
+                          >
+                            법률 공포
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>

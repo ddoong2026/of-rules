@@ -14,6 +14,7 @@ const PENALTY_TYPES = ['봉사', '벌금', '방과후 지도', '상담'];
 
 export default function LawForm({ onSuccess }) {
   const [title, setTitle] = useState('');
+  const [studentDuty, setStudentDuty] = useState('');
   const [reason, setReason] = useState('');
   const [content, setContent] = useState('');
   const [department, setDepartment] = useState(DEPARTMENTS[0]);
@@ -28,14 +29,14 @@ export default function LawForm({ onSuccess }) {
 
   const generateTemplate = () => {
     let template = '';
-    const subject = title ? title : '[규칙 대상(예: 학생들은 줄을 서거나 이동할 때 장난을 치면 안된다)]';
+    const dutyText = studentDuty ? studentDuty : '[학생들이 해야할 일(예: 학생들은 줄을 서거나 이동할 때 장난을 치면 안된다)]';
     
     if (lawType === 'penalty') {
-      template = `${subject}. 이를 어길 시 ${penaltyType} ${actionValue || '[수치]'}이며, 관련 부처는 ${department}로 한다.`;
+      template = `${dutyText}. 이를 어길 시 ${penaltyType} ${actionValue || '[수치]'}이며, 관련 부처는 ${department}로 한다.`;
     } else if (lawType === 'reward') {
-      template = `${subject}. 이를 지킬 시 ${actionValue || '[보상]'}을(를) 보상으로 지급하며, 관련 부처는 ${department}로 한다.`;
+      template = `${dutyText}. 이를 지킬 시 ${actionValue || '[보상]'}을(를) 보상으로 지급하며, 관련 부처는 ${department}로 한다.`;
     } else {
-      template = `${subject}. 관련 부처는 ${department}로 한다.`;
+      template = `${dutyText}. 관련 부처는 ${department}로 한다.`;
     }
     
     setContent(template);
@@ -85,6 +86,18 @@ export default function LawForm({ onSuccess }) {
             className="glass-input" 
             value={title}
             onChange={(e) => setTitle(e.target.value)}
+            required
+          />
+        </div>
+
+        <div className={styles.inputGroup}>
+          <label>학생들이 해야할 일 (규칙 내용)</label>
+          <input 
+            type="text" 
+            className="glass-input" 
+            value={studentDuty}
+            onChange={(e) => setStudentDuty(e.target.value)}
+            placeholder="예: 학생들은 줄을 서거나 이동할 때 장난을 치면 안된다"
             required
           />
         </div>

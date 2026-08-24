@@ -42,6 +42,20 @@ export default function PetitionsTab() {
   const handleAgree = async (petitionId) => {
     if (!user) return alert('로그인이 필요합니다.');
     
+    if (role?.role === 'TEACHER') {
+      const petition = petitions.find(p => p.id === petitionId);
+      const newCount = petition.agree_count + 1;
+      const newStatus = newCount >= 4 && petition.status === 'PENDING' ? 'IN_ASSEMBLY' : petition.status;
+      
+      const { error } = await supabase
+        .from('petitions')
+        .update({ agree_count: newCount, status: newStatus })
+        .eq('id', petitionId);
+        
+      if (error) alert('오류가 발생했습니다: ' + error.message);
+      return;
+    }
+
     // Check if already voted (this logic should ideally check DB or be handled by constraint)
     const { error } = await supabase
       .from('petition_agreements')

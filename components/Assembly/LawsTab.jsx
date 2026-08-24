@@ -39,6 +39,18 @@ export default function LawsTab() {
   const handleVote = async (lawId, isFor) => {
     if (!user || !['ASSEMBLY', 'TEACHER'].includes(role?.role)) return alert('국회의원과 교사만 투표할 수 있습니다.');
     
+    if (role?.role === 'TEACHER') {
+      const law = laws.find(l => l.id === lawId);
+      await supabase
+        .from('laws')
+        .update({ 
+          votes_for: isFor ? law.votes_for + 1 : law.votes_for,
+          votes_against: !isFor ? law.votes_against + 1 : law.votes_against
+        })
+        .eq('id', lawId);
+      return;
+    }
+
     const { error } = await supabase
       .from('law_votes')
       .insert([{ law_id: lawId, assembly_member_id: user.id, vote: isFor }]);
@@ -47,9 +59,6 @@ export default function LawsTab() {
       if (error.code === '23505') alert('이미 투표하셨습니다.');
       else alert('오류: ' + error.message);
     } else {
-      // 투표 수 업데이트 (Phase 1에서는 클라이언트에서 간단히 호출하거나 DB Trigger/Function이 더 좋음)
-      // 여기서는 빠른 구현을 위해 클라이언트에서 RPC나 직접 업데이트 호출
-      // 실제로는 PostgreSQL Function으로 처리하는 것이 안전합니다.
       const law = laws.find(l => l.id === lawId);
       await supabase
         .from('laws')

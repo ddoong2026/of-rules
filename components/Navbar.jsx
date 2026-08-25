@@ -46,6 +46,7 @@ export default function Navbar() {
         <Link href="/assembly" className={styles.link}>국회</Link>
         <Link href="/government" className={styles.link}>정부</Link>
         <Link href="/court" className={styles.link}>법원</Link>
+        <Link href="/economy" className={styles.link}>은행/상점</Link>
         {role?.role === 'TEACHER' && (
           <Link href="/teacher" className={styles.link} style={{color: 'var(--primary)', fontWeight: 'bold'}}>교사 대시보드</Link>
         )}

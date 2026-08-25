@@ -152,14 +152,6 @@ export default function Map3D() {
           <h2>규칙의 나라에 오신 것을 환영합니다!</h2>
           <p>원하는 기관을 클릭하여 이동하세요.</p>
         </div>
-        
-        <button 
-          className="glass-button" 
-          style={{ position: 'absolute', bottom: '2rem', right: '2rem', padding: '1rem 2rem', fontSize: '1.2rem', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', gap: '0.5rem', zIndex: 10 }}
-          onClick={() => router.push('/economy')}
-        >
-          🏦 은행 / 상점 (수페)
-        </button>
       </div>
     </div>
   );

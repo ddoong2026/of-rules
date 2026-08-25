@@ -258,7 +258,7 @@ export default function TeacherDashboard() {
           className={`${styles.tabBtn} ${activeTab === 'economy' ? styles.active : ''}`}
           onClick={() => setActiveTab('economy')}
         >
-          💰 경제 관리 (수페)
+          💰 경제 관리
         </button>
       </div>
 
@@ -436,7 +436,7 @@ export default function TeacherDashboard() {
                   className="glass-input" 
                   value={currencyName}
                   onChange={(e) => setCurrencyName(e.target.value)}
-                  placeholder="예: 미소, 수페, 원"
+                  placeholder="예: 미소, 원"
                   style={{ maxWidth: '200px' }}
                 />
                 <button 

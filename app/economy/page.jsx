@@ -29,7 +29,7 @@ export default function EconomyPage() {
       <header className={styles.header}>
         <h1 className={styles.title}>🏦 경제 활동</h1>
         <p className={styles.subtitle}>
-          수페 상점, 예금, 주식 투자를 통해 자산을 관리하세요.
+          상점, 예금, 주식 투자를 통해 자산을 관리하세요.
         </p>
       </header>
 
@@ -38,7 +38,7 @@ export default function EconomyPage() {
           className={`${styles.tabBtn} ${activeTab === 'shop' ? styles.active : ''}`}
           onClick={() => setActiveTab('shop')}
         >
-          🛒 수페 상점
+          🛒 상점
         </button>
         <button 
           className={`${styles.tabBtn} ${activeTab === 'bank' ? styles.active : ''}`}

@@ -4,8 +4,7 @@ import { useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import ReceivedLawsTab from '@/components/Government/ReceivedLawsTab';
 import DecreesTab from '@/components/Government/DecreesTab';
-import FinanceTab from '@/components/Government/FinanceTab';
-import TaxTab from '@/components/Government/TaxTab';
+import EconomyGridTab from '@/components/Government/EconomyGridTab';
 import styles from './government.module.css';
 
 export default function GovernmentPage() {
@@ -48,24 +47,17 @@ export default function GovernmentPage() {
           명령(Decree) 현황
         </button>
         <button 
-          className={`${styles.tabBtn} ${activeTab === 'finance' ? styles.active : ''}`}
-          onClick={() => setActiveTab('finance')}
+          className={`${styles.tabBtn} ${activeTab === 'economy' ? styles.active : ''}`}
+          onClick={() => setActiveTab('economy')}
         >
-          재정경제부 (월급지급)
-        </button>
-        <button 
-          className={`${styles.tabBtn} ${activeTab === 'tax' ? styles.active : ''}`}
-          onClick={() => setActiveTab('tax')}
-        >
-          국세청/은행 (세금/벌금)
+          경제 및 징수 (장관/법무부/재무부)
         </button>
       </div>
 
       <div className={styles.content}>
         {activeTab === 'laws' && <ReceivedLawsTab />}
         {activeTab === 'decrees' && <DecreesTab />}
-        {activeTab === 'finance' && <FinanceTab />}
-        {activeTab === 'tax' && <TaxTab />}
+        {activeTab === 'economy' && <EconomyGridTab />}
       </div>
     </div>
   );

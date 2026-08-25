@@ -3,6 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { supabase } from '@/lib/supabase';
+import LawsAdminTab from '@/components/Teacher/LawsAdminTab';
+import DecreesAdminTab from '@/components/Teacher/DecreesAdminTab';
+import ActivityLogsTab from '@/components/Teacher/ActivityLogsTab';
 import styles from './teacher.module.css';
 
 const ROLES = [
@@ -259,6 +262,12 @@ export default function TeacherDashboard() {
           onClick={() => setActiveTab('economy')}
         >
           💰 경제 관리
+        </button>
+        <button 
+          className={`${styles.tabBtn} ${activeTab === 'logs' ? styles.active : ''}`}
+          onClick={() => setActiveTab('logs')}
+        >
+          📋 활동 기록
         </button>
       </div>
 
@@ -531,6 +540,7 @@ export default function TeacherDashboard() {
             </div>
           </div>
         )}
+        {activeTab === 'logs' && <ActivityLogsTab />}
       </div>
     </div>
   );

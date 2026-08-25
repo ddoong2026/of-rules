@@ -1,8 +1,8 @@
 'use client';
 
-import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, Text, useCursor, Html, useGLTF, useTexture, Cloud } from '@react-three/drei';
-import { useState, Suspense, useRef } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { OrbitControls, Text, useCursor, Html, useGLTF, useTexture, Cloud, Stars } from '@react-three/drei';
+import { useEffect, useState, Suspense, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import * as THREE from 'three';
 import styles from './Map3D.module.css';
@@ -88,11 +88,33 @@ function Building({ position, label, path, onClick, scale = 1 }) {
   );
 }
 
-function TimeMachine({ position, scale = 1, onZoomStart, onZoomComplete }) {
+function BackgroundEffect({ zoomStage }) {
+  const { scene } = useThree();
+  
+  useEffect(() => {
+    if (!scene.background) {
+      scene.background = new THREE.Color('#f3f4f6'); // default light background matching grid
+    }
+  }, [scene]);
+
+  useFrame((state, delta) => {
+    if (scene.background) {
+      const targetColor = zoomStage > 0 ? new THREE.Color('#000510') : new THREE.Color('#f3f4f6');
+      scene.background.lerp(targetColor, delta * 1.5);
+    }
+  });
+
+  return (
+    <>
+      {zoomStage > 0 && <Stars radius={150} depth={50} count={3000} factor={4} saturation={0} fade speed={1} />}
+    </>
+  );
+}
+
+function TimeMachine({ position, scale = 1, onZoomStart, onZoomComplete, zoomStage, setZoomStage }) {
   const { scene } = useGLTF('/models/timemachin.glb');
   const meshRef = useRef();
   const [hovered, setHovered] = useState(false);
-  const [zoomStage, setZoomStage] = useState(0); // 0: none, 1: focus, 2: enter
   useCursor(hovered, 'pointer', 'auto');
 
   useFrame((state, delta) => {
@@ -101,8 +123,8 @@ function TimeMachine({ position, scale = 1, onZoomStart, onZoomComplete }) {
     }
     
     if (zoomStage === 1) {
-      // Pan camera to center and zoom out to fit both model and text
-      const focusPos = new THREE.Vector3(position[0], position[1] + 5, position[2] + 70); 
+      // Pan camera to center and zoom in a bit more
+      const focusPos = new THREE.Vector3(position[0], position[1] + 5, position[2] + 55); 
       state.camera.position.lerp(focusPos, delta * 4);
       state.camera.lookAt(position[0], position[1] + 5, position[2] - 10);
     } else if (zoomStage === 2) {
@@ -148,7 +170,7 @@ function TimeMachine({ position, scale = 1, onZoomStart, onZoomComplete }) {
       <primitive object={scene.clone()} scale={scale} />
       <Text
         position={[0, 15, 0]} 
-        fontSize={4.5}
+        fontSize={3.2}
         color="#fbbf24"
         anchorX="center"
         anchorY="middle"
@@ -163,11 +185,12 @@ function TimeMachine({ position, scale = 1, onZoomStart, onZoomComplete }) {
 
 export default function Map3D() {
   const router = useRouter();
-  const [isZooming, setIsZooming] = useState(false);
+  const [zoomStage, setZoomStage] = useState(0);
 
   return (
     <div className={styles.canvasContainer}>
       <Canvas camera={{ position: [0, 40, 60], fov: 45 }}>
+        <BackgroundEffect zoomStage={zoomStage} />
         {/* Lighting */}
         <ambientLight intensity={1.5} />
         <directionalLight position={[50, 100, 50]} intensity={2} castShadow />
@@ -214,14 +237,16 @@ export default function Map3D() {
           <TimeMachine 
             position={[0, 110, -50]} 
             scale={35} 
-            onZoomStart={() => setIsZooming(true)}
+            zoomStage={zoomStage}
+            setZoomStage={setZoomStage}
+            onZoomStart={() => setZoomStage(1)}
             onZoomComplete={() => router.push('/fieldtrip')}
           />
         </Suspense>
 
         {/* Controls */}
         <OrbitControls 
-          enabled={!isZooming}
+          enabled={zoomStage === 0}
           enablePan={true}
           minPolarAngle={Math.PI / 6}
           maxPolarAngle={Math.PI / 2.2}

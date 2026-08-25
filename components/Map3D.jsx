@@ -90,6 +90,7 @@ function Building({ position, label, path, onClick, scale = 1 }) {
 
 function BackgroundEffect({ zoomStage }) {
   const { scene } = useThree();
+  const starsRef = useRef();
   
   useEffect(() => {
     if (!scene.background) {
@@ -102,12 +103,15 @@ function BackgroundEffect({ zoomStage }) {
       const targetColor = zoomStage > 0 ? new THREE.Color('#000510') : new THREE.Color('#f3f4f6');
       scene.background.lerp(targetColor, delta * 1.5);
     }
+    if (starsRef.current) {
+      starsRef.current.rotation.y += delta * 0.05; // Counter-clockwise rotation
+    }
   });
 
   return (
-    <>
+    <group ref={starsRef}>
       {zoomStage > 0 && <Stars radius={150} depth={50} count={3000} factor={4} saturation={0} fade speed={1} />}
-    </>
+    </group>
   );
 }
 

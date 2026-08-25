@@ -217,7 +217,7 @@ export default function Map3D() {
         style={{
           position: 'absolute',
           top: 0, left: 0, right: 0, bottom: 0,
-          background: 'linear-gradient(to bottom, #1a0b2e 0%, #4a0e1c 50%, #8b3200 100%)',
+          background: 'linear-gradient(to bottom, #000510 0%, #000510 60%, #10061e 80%, #240510 92%, #3a1000 100%)',
           opacity: zoomStage > 0 ? 1 : 0,
           transition: 'opacity 1.5s ease-in-out',
           zIndex: 0

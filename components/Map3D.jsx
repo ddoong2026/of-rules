@@ -101,8 +101,8 @@ function TimeMachine({ position, scale = 1, onZoomStart, onZoomComplete }) {
     }
     
     if (zoomStage === 1) {
-      // Focus slightly below the center of the machine, zoomed out a bit to show text
-      const focusPos = new THREE.Vector3(position[0], position[1] - 5, position[2] + 60); 
+      // Raise camera Y and revert Z to angle downwards towards the model and text
+      const focusPos = new THREE.Vector3(position[0], position[1] + 15, position[2] + 40); 
       state.camera.position.lerp(focusPos, delta * 4);
       state.camera.lookAt(position[0], position[1] - 5, position[2] - 10);
     } else if (zoomStage === 2) {

@@ -20,7 +20,14 @@ const DEPARTMENTS = [
 export default function TeacherDashboard() {
   const { user, role, loading: authLoading } = useAuth();
   
-  const [activeTab, setActiveTab] = useState('create'); // 'create' | 'manage'
+  const [activeTab, setActiveTab] = useState('create'); // 'create' | 'manage' | 'economy'
+
+  // --- Economy Tab State ---
+  const [currencyName, setCurrencyName] = useState('미소');
+  const [shopItems, setShopItems] = useState([]);
+  const [newItemName, setNewItemName] = useState('');
+  const [newItemPrice, setNewItemPrice] = useState('');
+  const [isSavingEconomy, setIsSavingEconomy] = useState(false);
 
   // --- Create Tab State ---
   const [grade, setGrade] = useState('1');
@@ -38,10 +45,60 @@ export default function TeacherDashboard() {
   const [updateResult, setUpdateResult] = useState(null);
 
   useEffect(() => {
-    if (activeTab === 'manage' && role?.role === 'TEACHER') {
-      fetchStudents();
+    if (role?.role === 'TEACHER') {
+      if (activeTab === 'manage') fetchStudents();
+      if (activeTab === 'economy') fetchEconomyData();
     }
   }, [activeTab, role]);
+
+  const fetchEconomyData = async () => {
+    const { data: curData } = await supabase.from('settings').select('value').eq('key', 'currency_name').single();
+    if (curData) setCurrencyName(curData.value);
+
+    const { data: items } = await supabase.from('shop_items').select('*').order('created_at', { ascending: false });
+    if (items) setShopItems(items);
+  };
+
+  const handleSaveCurrency = async () => {
+    setIsSavingEconomy(true);
+    await supabase.from('settings').upsert({ key: 'currency_name', value: currencyName });
+    alert('화폐 단위가 저장되었습니다.');
+    setIsSavingEconomy(false);
+  };
+
+  const handleAddShopItem = async (e) => {
+    e.preventDefault();
+    if (!newItemName || !newItemPrice) return;
+    setIsSavingEconomy(true);
+    
+    const { error } = await supabase.from('shop_items').insert([{
+      name: newItemName,
+      price: parseInt(newItemPrice, 10),
+      description: '',
+      stock: -1
+    }]);
+
+    if (!error) {
+      setNewItemName('');
+      setNewItemPrice('');
+      fetchEconomyData();
+    } else {
+      alert('상품 등록 중 오류가 발생했습니다.');
+    }
+    setIsSavingEconomy(false);
+  };
+
+  const handleToggleItemActive = async (id, currentStatus) => {
+    await supabase.from('shop_items').update({ is_active: !currentStatus }).eq('id', id);
+    fetchEconomyData();
+  };
+
+  const handleDeleteItem = async (id) => {
+    if (confirm('이 상품을 삭제하시겠습니까?')) {
+      await supabase.from('shop_items').delete().eq('id', id);
+      fetchEconomyData();
+    }
+  };
 
   const fetchStudents = async () => {
     setIsLoadingStudents(true);
@@ -196,6 +253,12 @@ export default function TeacherDashboard() {
           onClick={() => setActiveTab('manage')}
         >
           🛠 학생 직업 관리
+        </button>
+        <button 
+          className={`${styles.tabBtn} ${activeTab === 'economy' ? styles.active : ''}`}
+          onClick={() => setActiveTab('economy')}
+        >
+          💰 경제 관리 (수페)
         </button>
       </div>
 
@@ -360,6 +423,112 @@ export default function TeacherDashboard() {
                 )}
               </div>
             )}
+          </div>
+        )}
+
+        {activeTab === 'economy' && (
+          <div className={styles.manageSection}>
+            <div style={{ marginBottom: '2rem' }}>
+              <h3 style={{ marginBottom: '1rem', color: 'var(--primary)' }}>화폐 단위 설정</h3>
+              <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                <input 
+                  type="text" 
+                  className="glass-input" 
+                  value={currencyName}
+                  onChange={(e) => setCurrencyName(e.target.value)}
+                  placeholder="예: 미소, 수페, 원"
+                  style={{ maxWidth: '200px' }}
+                />
+                <button 
+                  className="glass-button" 
+                  style={{ background: 'var(--primary)', color: 'white', padding: '0.6rem 1.2rem' }}
+                  onClick={handleSaveCurrency}
+                  disabled={isSavingEconomy}
+                >
+                  {isSavingEconomy ? '저장 중...' : '저장'}
+                </button>
+              </div>
+            </div>
+
+            <hr style={{ borderColor: 'rgba(0,0,0,0.1)', margin: '2rem 0' }} />
+
+            <div>
+              <h3 style={{ marginBottom: '1rem', color: 'var(--primary)' }}>상점 아이템 관리</h3>
+              
+              <form onSubmit={handleAddShopItem} style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', alignItems: 'center' }}>
+                <input 
+                  type="text" 
+                  className="glass-input" 
+                  placeholder="아이템 이름 (예: 자리 변경권)"
+                  value={newItemName}
+                  onChange={(e) => setNewItemName(e.target.value)}
+                  required
+                />
+                <input 
+                  type="number" 
+                  className="glass-input" 
+                  placeholder="가격"
+                  value={newItemPrice}
+                  onChange={(e) => setNewItemPrice(e.target.value)}
+                  min="0"
+                  style={{ maxWidth: '150px' }}
+                  required
+                />
+                <button 
+                  type="submit"
+                  className="glass-button" 
+                  style={{ background: 'var(--secondary)', color: 'white' }}
+                  disabled={isSavingEconomy}
+                >
+                  추가
+                </button>
+              </form>
+
+              <div className={styles.tableWrapper}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>아이템명</th>
+                      <th>가격</th>
+                      <th>상태</th>
+                      <th>관리</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {shopItems.map(item => (
+                      <tr key={item.id} style={{ opacity: item.is_active ? 1 : 0.5 }}>
+                        <td>{item.name}</td>
+                        <td style={{ textAlign: 'center' }}>{item.price.toLocaleString()} {currencyName}</td>
+                        <td style={{ textAlign: 'center' }}>
+                          {item.is_active ? <span style={{ color: '#15803d', fontWeight: 'bold' }}>판매 중</span> : <span style={{ color: '#b91c1c' }}>단종됨</span>}
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <button 
+                            className="glass-button" 
+                            style={{ padding: '0.3rem 0.6rem', fontSize: '0.8rem', marginRight: '0.5rem' }}
+                            onClick={() => handleToggleItemActive(item.id, item.is_active)}
+                          >
+                            {item.is_active ? '판매중지' : '판매재개'}
+                          </button>
+                          <button 
+                            className="glass-button" 
+                            style={{ padding: '0.3rem 0.6rem', fontSize: '0.8rem', background: '#fee2e2', color: '#b91c1c' }}
+                            onClick={() => handleDeleteItem(item.id)}
+                          >
+                            삭제
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {shopItems.length === 0 && (
+                      <tr>
+                        <td colSpan="4" style={{ textAlign: 'center', padding: '1.5rem' }}>등록된 아이템이 없습니다.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         )}
       </div>

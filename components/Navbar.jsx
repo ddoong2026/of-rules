@@ -9,7 +9,7 @@ import Inbox from './Inbox';
 import styles from './Navbar.module.css';
 
 export default function Navbar() {
-  const { user, role, loading } = useAuth();
+  const { user, role, currency, loading } = useAuth();
   const [petOn, setPetOn] = useState(false);
 
   const handleLogout = async () => {
@@ -71,10 +71,15 @@ export default function Navbar() {
             )}
             <Inbox />
             <div className={styles.userProfile}>
-            <div className={styles.userInfo}>
-              <span className={styles.userName}>{role?.name || user.email}</span>
-              <span className={styles.userRole}>{getRoleLabel(role)}</span>
-            </div>
+              {role?.balance !== undefined && (
+                <div style={{ marginRight: '1rem', fontWeight: 'bold', color: 'var(--primary)', background: '#f3f4f6', padding: '0.3rem 0.8rem', borderRadius: '20px' }}>
+                  {role.balance.toLocaleString()} {currency}
+                </div>
+              )}
+              <div className={styles.userInfo}>
+                <span className={styles.userName}>{role?.name || user.email}</span>
+                <span className={styles.userRole}>{getRoleLabel(role)}</span>
+              </div>
             <button onClick={handleLogout} className={styles.logoutBtn} title="로그아웃">
               <LogOut size={18} />
             </button>

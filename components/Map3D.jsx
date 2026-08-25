@@ -123,10 +123,10 @@ function TimeMachine({ position, scale = 1, onZoomStart, onZoomComplete, zoomSta
     }
     
     if (zoomStage === 1) {
-      // Pan camera to center and zoom in a bit more
-      const focusPos = new THREE.Vector3(position[0], position[1] + 5, position[2] + 55); 
+      // Pan camera slightly lower and zoom in closer
+      const focusPos = new THREE.Vector3(position[0], position[1] + 2, position[2] + 45); 
       state.camera.position.lerp(focusPos, delta * 4);
-      state.camera.lookAt(position[0], position[1] + 5, position[2] - 10);
+      state.camera.lookAt(position[0], position[1] + 2, position[2] - 10);
     } else if (zoomStage === 2) {
       // Animate camera deep into the dark part of the cave
       const targetPos = new THREE.Vector3(position[0], position[1] - 3, position[2] - 10);
@@ -255,12 +255,14 @@ export default function Map3D() {
         />
       </Canvas>
       
-      <div className={styles.overlay}>
-        <div className="glass-panel" style={{ padding: '1rem', textAlign: 'center' }}>
-          <h2>규칙의 나라에 오신 것을 환영합니다!</h2>
-          <p>원하는 기관을 클릭하여 이동하세요.</p>
+      {zoomStage === 0 && (
+        <div className={styles.overlay}>
+          <div className="glass-panel" style={{ padding: '1rem', textAlign: 'center' }}>
+            <h2>규칙의 나라에 오신 것을 환영합니다!</h2>
+            <p>원하는 기관을 클릭하여 이동하세요.</p>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

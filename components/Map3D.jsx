@@ -101,8 +101,8 @@ function TimeMachine({ position, scale = 1, onZoomStart, onZoomComplete }) {
     }
     
     if (zoomStage === 1) {
-      // Pan camera upwards to show text without tilting
-      const focusPos = new THREE.Vector3(position[0], position[1] + 5, position[2] + 40); 
+      // Pan camera to center and zoom out to fit both model and text
+      const focusPos = new THREE.Vector3(position[0], position[1] + 5, position[2] + 70); 
       state.camera.position.lerp(focusPos, delta * 4);
       state.camera.lookAt(position[0], position[1] + 5, position[2] - 10);
     } else if (zoomStage === 2) {
@@ -148,7 +148,7 @@ function TimeMachine({ position, scale = 1, onZoomStart, onZoomComplete }) {
       <primitive object={scene.clone()} scale={scale} />
       <Text
         position={[0, 15, 0]} 
-        fontSize={6}
+        fontSize={4.5}
         color="#fbbf24"
         anchorX="center"
         anchorY="middle"

@@ -187,6 +187,18 @@ export default function Map3D() {
   const router = useRouter();
   const [zoomStage, setZoomStage] = useState(0);
 
+  useEffect(() => {
+    if (zoomStage > 0) {
+      window.dispatchEvent(new Event('hideNavbarForce'));
+    } else {
+      window.dispatchEvent(new Event('showNavbarForce'));
+    }
+    
+    return () => {
+      window.dispatchEvent(new Event('showNavbarForce'));
+    };
+  }, [zoomStage]);
+
   return (
     <div className={styles.canvasContainer}>
       <Canvas camera={{ position: [0, 40, 60], fov: 45 }}>

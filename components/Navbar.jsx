@@ -19,6 +19,7 @@ export default function Navbar() {
     let lastScrollY = window.scrollY;
 
     const handleScroll = () => {
+      if (window.__navbarForceHidden) return;
       const currentScrollY = window.scrollY;
       if (currentScrollY > 50 && currentScrollY > lastScrollY) {
         // Scrolling down
@@ -31,17 +32,32 @@ export default function Navbar() {
     };
 
     const handleMouseMove = (e) => {
+      if (window.__navbarForceHidden) return;
       if (e.clientY <= 60) {
         setIsVisible(true);
       }
     };
 
+    const handleHideForce = () => {
+      window.__navbarForceHidden = true;
+      setIsVisible(false);
+    };
+
+    const handleShowForce = () => {
+      window.__navbarForceHidden = false;
+      setIsVisible(true);
+    };
+
     window.addEventListener('scroll', handleScroll, { passive: true });
     window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('hideNavbarForce', handleHideForce);
+    window.addEventListener('showNavbarForce', handleShowForce);
 
     return () => {
       window.removeEventListener('scroll', handleScroll);
       window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('hideNavbarForce', handleHideForce);
+      window.removeEventListener('showNavbarForce', handleShowForce);
     };
   }, []);
 

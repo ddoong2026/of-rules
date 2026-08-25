@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { useGLTF, useAnimations } from '@react-three/drei';
 import { SkeletonUtils } from 'three-stdlib';
+import * as THREE from 'three';
 
 function PetModel() {
   const group = useRef();
@@ -15,39 +16,116 @@ function PetModel() {
   
   const { actions } = useAnimations(animations, group);
   
-  const [direction, setDirection] = useState(1); // 1 = right, -1 = left
-  const speed = 2.5; 
-  const bound = 25; // How far it walks left/right
+  const [isMoving, setIsMoving] = useState(false);
+  const [isDancing, setIsDancing] = useState(false);
+  const speed = 10; // Movement speed
+  
+  // Track global mouse position and keyboard
+  const mouseX = useRef(0);
+  const keys = useRef({ space: false });
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      // Normalize X to -1 to 1
+      mouseX.current = (e.clientX / window.innerWidth) * 2 - 1;
+    };
+    
+    const handleKeyDown = (e) => {
+      if (e.key === ' ') keys.current.space = true;
+    };
+    
+    const handleKeyUp = (e) => {
+      if (e.key === ' ') keys.current.space = false;
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, []);
   
   useEffect(() => {
     if (!actions || Object.keys(actions).length === 0) return;
     const actionNames = Object.keys(actions);
     
-    // Find walk or run animation
+    // Find animations
     const walkName = actionNames.find(n => n.toLowerCase().includes('walk') || n.toLowerCase().includes('run')) || actionNames[0];
+    const danceName = actionNames.find(n => n.toLowerCase().includes('dance')) || actionNames[0];
+    const idleName = actionNames.find(n => n.toLowerCase().includes('idle')) || (actionNames.length > 1 ? actionNames.find(n => n !== walkName && n !== danceName) : walkName);
     
-    if (actions[walkName]) {
-      actions[walkName].reset().fadeIn(0.2).play();
+    const walkAction = actions[walkName];
+    const idleAction = actions[idleName];
+    const danceAction = actions[danceName];
+
+    if (isDancing) {
+      walkAction?.fadeOut(0.2);
+      idleAction?.fadeOut(0.2);
+      danceAction?.reset().fadeIn(0.2).play();
+    } else if (isMoving) {
+      danceAction?.fadeOut(0.2);
+      idleAction?.fadeOut(0.2);
+      walkAction?.reset().fadeIn(0.2).play();
+    } else {
+      walkAction?.fadeOut(0.2);
+      danceAction?.fadeOut(0.2);
+      idleAction?.reset().fadeIn(0.2).play();
     }
-  }, [actions]);
+  }, [isMoving, isDancing, actions]);
 
   useFrame((state, delta) => {
-    if (group.current) {
-      group.current.position.x += speed * direction * delta;
+    if (!group.current) return;
+    
+    const { space } = keys.current;
+    
+    // Calculate target X position in 3D space based on mouseX and viewport width
+    // state.viewport.width gives the width of the visible frustum at z=0
+    const targetX = mouseX.current * (state.viewport.width / 2 - 2); // -2 padding
+    
+    const currentX = group.current.position.x;
+    const diff = targetX - currentX;
+    const distance = Math.abs(diff);
+    
+    const threshold = 0.5; // stop moving if close enough
+    
+    if (space) {
+      if (!isDancing) setIsDancing(true);
+      if (isMoving) setIsMoving(false);
+    } else {
+      if (isDancing) setIsDancing(false);
       
-      // Turn around when hitting boundaries
-      if (group.current.position.x > bound) {
-        setDirection(-1);
-        group.current.rotation.y = -Math.PI / 2; // Face left
-      } else if (group.current.position.x < -bound) {
-        setDirection(1);
-        group.current.rotation.y = Math.PI / 2; // Face right
+      if (distance > threshold) {
+        if (!isMoving) setIsMoving(true);
+        
+        // Move towards target
+        const direction = Math.sign(diff);
+        group.current.position.x += direction * speed * delta;
+        
+        // Clamp position so it doesn't overshoot in one frame
+        if (direction > 0 && group.current.position.x > targetX) {
+          group.current.position.x = targetX;
+        } else if (direction < 0 && group.current.position.x < targetX) {
+          group.current.position.x = targetX;
+        }
+        
+        // Rotate to face direction
+        // +direction means moving right (Math.PI/2), -direction means moving left (-Math.PI/2)
+        const targetRotation = direction > 0 ? Math.PI / 2 : -Math.PI / 2;
+        group.current.rotation.y = THREE.MathUtils.lerp(group.current.rotation.y, targetRotation, 10 * delta);
+        
+      } else {
+        if (isMoving) setIsMoving(false);
+        // Look at screen when idle
+        group.current.rotation.y = THREE.MathUtils.lerp(group.current.rotation.y, 0, 10 * delta);
       }
     }
   });
 
   return (
-    <group ref={group} position={[-bound + 2, -2.5, 0]} rotation={[0, Math.PI / 2, 0]}>
+    <group ref={group} position={[0, -2.5, 0]} rotation={[0, 0, 0]}>
       <primitive object={clonedScene} scale={2} />
     </group>
   );

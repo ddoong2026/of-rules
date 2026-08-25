@@ -1,10 +1,49 @@
 'use client';
 
-import { Canvas } from '@react-three/fiber';
-import { OrbitControls, Text, useCursor, Html, useGLTF } from '@react-three/drei';
-import { useState, Suspense } from 'react';
+import { Canvas, useFrame } from '@react-three/fiber';
+import { OrbitControls, Text, useCursor, Html, useGLTF, useTexture } from '@react-three/drei';
+import { useState, Suspense, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import * as THREE from 'three';
 import styles from './Map3D.module.css';
+
+function Flag({ position }) {
+  const texture = useTexture('/flag.jpg');
+  const meshRef = useRef();
+  
+  useFrame((state) => {
+    if (meshRef.current) {
+      const time = state.clock.getElapsedTime();
+      const positionAttribute = meshRef.current.geometry.attributes.position;
+      const vertex = new THREE.Vector3();
+      for (let i = 0; i < positionAttribute.count; i++) {
+        vertex.fromBufferAttribute(positionAttribute, i);
+        // waveX is 0 at the left edge (x = -5) and 10 at the right edge (x = 5)
+        const waveX = vertex.x + 5; 
+        vertex.z = Math.sin(waveX * 0.5 - time * 5) * (waveX * 0.15);
+        positionAttribute.setXYZ(i, vertex.x, vertex.y, vertex.z);
+      }
+      meshRef.current.geometry.attributes.position.needsUpdate = true;
+      meshRef.current.geometry.computeVertexNormals();
+    }
+  });
+
+  return (
+    <group position={position}>
+      {/* Flag pole */}
+      <mesh position={[-5.1, 15, 0]}>
+        <cylinderGeometry args={[0.3, 0.3, 30, 16]} />
+        <meshStandardMaterial color="#6b7280" metalness={0.6} roughness={0.4} />
+      </mesh>
+      
+      {/* Flag cloth */}
+      <mesh ref={meshRef} position={[0, 26, 0]}>
+        <planeGeometry args={[10, 6, 20, 20]} />
+        <meshStandardMaterial map={texture} side={THREE.DoubleSide} />
+      </mesh>
+    </group>
+  );
+}
 
 function Building({ position, label, path, onClick, scale = 1 }) {
   const [hovered, setHovered] = useState(false);
@@ -70,6 +109,8 @@ export default function Map3D() {
         <gridHelper args={[150, 100, '#d1d5db', '#f3f4f6']} position={[0, -0.09, 0]} />
 
         <Suspense fallback={null}>
+          <Flag position={[0, 0, 0]} />
+          
           {/* Buildings - Kept Large but map is normal */}
           <Building 
             position={[-40, 12, -15]} 

@@ -3,8 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { supabase } from '@/lib/supabase';
-import LawsAdminTab from '@/components/Teacher/LawsAdminTab';
-import DecreesAdminTab from '@/components/Teacher/DecreesAdminTab';
 import ActivityLogsTab from '@/components/Teacher/ActivityLogsTab';
 import styles from './teacher.module.css';
 

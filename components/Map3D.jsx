@@ -93,16 +93,10 @@ function BackgroundEffect({ zoomStage }) {
   const starsRef = useRef();
   
   useEffect(() => {
-    if (!scene.background) {
-      scene.background = new THREE.Color('#f3f4f6'); // default light background matching grid
-    }
+    scene.background = null; // Transparent to show CSS background
   }, [scene]);
 
   useFrame((state, delta) => {
-    if (scene.background) {
-      const targetColor = zoomStage > 0 ? new THREE.Color('#000510') : new THREE.Color('#f3f4f6');
-      scene.background.lerp(targetColor, delta * 1.5);
-    }
     if (starsRef.current) {
       starsRef.current.rotation.y += delta * 0.05; // Counter-clockwise rotation
     }
@@ -215,10 +209,21 @@ export default function Map3D() {
         position: zoomStage > 0 ? 'fixed' : 'relative',
         top: zoomStage > 0 ? 0 : 'auto',
         left: 0,
-        zIndex: zoomStage > 0 ? 90 : 1
+        zIndex: zoomStage > 0 ? 90 : 1,
+        backgroundColor: '#f3f4f6'
       }}
     >
-      <Canvas camera={{ position: [0, 40, 60], fov: 45 }}>
+      <div 
+        style={{
+          position: 'absolute',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'linear-gradient(to bottom, #1a0b2e 0%, #4a0e1c 50%, #8b3200 100%)',
+          opacity: zoomStage > 0 ? 1 : 0,
+          transition: 'opacity 1.5s ease-in-out',
+          zIndex: 0
+        }}
+      />
+      <Canvas style={{ position: 'relative', zIndex: 1 }} camera={{ position: [0, 40, 60], fov: 45 }}>
         <BackgroundEffect zoomStage={zoomStage} />
         {/* Lighting */}
         <ambientLight intensity={1.5} />

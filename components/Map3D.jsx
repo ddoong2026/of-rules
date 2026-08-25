@@ -110,7 +110,7 @@ function BackgroundEffect({ zoomStage }) {
 
   return (
     <group ref={starsRef}>
-      {zoomStage > 0 && <Stars radius={150} depth={50} count={3000} factor={10} saturation={0} fade speed={1} />}
+      {zoomStage > 0 && <Stars radius={150} depth={50} count={3000} factor={4} saturation={0} fade speed={1} />}
     </group>
   );
 }
@@ -118,24 +118,10 @@ function BackgroundEffect({ zoomStage }) {
 function TimeMachine({ position, scale = 1, onZoomStart, onZoomComplete, zoomStage, setZoomStage }) {
   const { scene } = useGLTF('/models/timemachin.glb');
   const meshRef = useRef();
-  const partsRef = useRef([]);
   const [hovered, setHovered] = useState(false);
   useCursor(hovered, 'pointer', 'auto');
 
   const clonedScene = useMemo(() => scene.clone(), [scene]);
-
-  useEffect(() => {
-    partsRef.current = [];
-    clonedScene.traverse((child) => {
-      if (child.isMesh) {
-        // Calculate an outward vector relative to the model's center for radial explosion
-        const originalPos = child.position.clone();
-        let direction = originalPos.clone().normalize();
-        if (direction.lengthSq() === 0) direction.set(0, 1, 0); // fallback if at exact center
-        partsRef.current.push({ mesh: child, originalPos, direction });
-      }
-    });
-  }, [clonedScene]);
 
   useFrame((state, delta) => {
     if (meshRef.current) {
@@ -152,15 +138,6 @@ function TimeMachine({ position, scale = 1, onZoomStart, onZoomComplete, zoomSta
       const targetPos = new THREE.Vector3(position[0], position[1] - 3, position[2] - 10);
       state.camera.position.lerp(targetPos, delta * 3.5);
       state.camera.lookAt(position[0], position[1] - 3, position[2] - 100);
-
-      // Radial explosion of the parts
-      partsRef.current.forEach((part) => {
-        // Move outwards quickly
-        part.mesh.position.add(part.direction.clone().multiplyScalar(delta * 20));
-        // Add some random rotation to pieces
-        part.mesh.rotation.x += delta;
-        part.mesh.rotation.y += delta;
-      });
     }
   });
 
@@ -186,16 +163,15 @@ function TimeMachine({ position, scale = 1, onZoomStart, onZoomComplete, zoomSta
       onPointerOut={() => setHovered(false)}
     >
       <Cloud 
-        position={[0, -5, 0]}
-        scale={scale * 0.1}
-        width={100}
-        depth={100}
-        segments={60}
-        volume={100}
-        opacity={0.8}
-        speed={0.1}
+        position={[0, -5, 0]} // Positioned slightly lower
+        scale={scale * 0.1} // Increased base scale
+        opacity={0.6} 
+        speed={0.4} 
+        width={100} // Much wider X area
+        depth={100} // Much deeper Z area
+        segments={60} // More particles to fill the area
         color="#ffffff"
-        seed={1}
+        seed={1} // Static seed to prevent shape regeneration on re-renders
       />
       
       <primitive object={clonedScene} scale={scale} />

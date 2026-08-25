@@ -88,9 +88,11 @@ function Building({ position, label, path, onClick, scale = 1 }) {
   );
 }
 
-function TimeMachine({ position, scale = 1 }) {
+function TimeMachine({ position, scale = 1, onClick }) {
   const { scene } = useGLTF('/models/timemachin.glb');
   const meshRef = useRef();
+  const [hovered, setHovered] = useState(false);
+  useCursor(hovered, 'pointer', 'auto');
 
   useFrame((state) => {
     if (meshRef.current) {
@@ -99,7 +101,13 @@ function TimeMachine({ position, scale = 1 }) {
   });
 
   return (
-    <group position={position} ref={meshRef}>
+    <group 
+      position={position} 
+      ref={meshRef}
+      onClick={onClick}
+      onPointerOver={(e) => { e.stopPropagation(); setHovered(true); }}
+      onPointerOut={() => setHovered(false)}
+    >
       <primitive object={scene.clone()} scale={scale} />
       <Text
         position={[0, 15, 0]} 
@@ -165,7 +173,11 @@ export default function Map3D() {
           />
           
           {/* Time Machine high in the sky */}
-          <TimeMachine position={[0, 90, 0]} scale={35} />
+          <TimeMachine 
+            position={[0, 90, 0]} 
+            scale={35} 
+            onClick={() => router.push('/fieldtrip')}
+          />
         </Suspense>
 
         {/* Controls */}

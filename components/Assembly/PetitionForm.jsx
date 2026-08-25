@@ -27,6 +27,7 @@ export default function PetitionForm({ onSuccess }) {
     if (error) {
       alert('오류가 발생했습니다: ' + error.message);
     } else {
+      window.dispatchEvent(new CustomEvent('show-pet'));
       onSuccess();
     }
   };

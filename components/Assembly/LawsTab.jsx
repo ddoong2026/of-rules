@@ -56,7 +56,10 @@ export default function LawsTab({ initialData, clearInitialData }) {
         })
         .eq('id', lawId);
       if (error) alert('오류: ' + error.message);
-      else fetchLaws();
+      else {
+        window.dispatchEvent(new CustomEvent('show-pet'));
+        fetchLaws();
+      }
       return;
     }
 
@@ -77,7 +80,10 @@ export default function LawsTab({ initialData, clearInitialData }) {
         })
         .eq('id', lawId);
       if (updateError) alert('오류: ' + updateError.message);
-      else fetchLaws();
+      else {
+        window.dispatchEvent(new CustomEvent('show-pet'));
+        fetchLaws();
+      }
     }
   };
 

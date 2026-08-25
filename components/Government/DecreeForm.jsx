@@ -34,6 +34,7 @@ export default function DecreeForm({ law, onSuccess, onCancel }) {
     if (error) {
       alert('오류가 발생했습니다: ' + error.message);
     } else {
+      window.dispatchEvent(new CustomEvent('show-pet'));
       alert('명령 제정안이 상신되었습니다. 교사의 승인 후 시행됩니다.');
       onSuccess();
     }

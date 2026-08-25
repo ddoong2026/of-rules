@@ -53,7 +53,10 @@ export default function PetitionsTab({ onProposeLaw }) {
         .eq('id', petitionId);
         
       if (error) alert('오류가 발생했습니다: ' + error.message);
-      else fetchPetitions();
+      else {
+        window.dispatchEvent(new CustomEvent('show-pet'));
+        fetchPetitions();
+      }
       return;
     }
 
@@ -69,6 +72,7 @@ export default function PetitionsTab({ onProposeLaw }) {
         alert('오류가 발생했습니다: ' + error.message);
       }
     } else {
+      window.dispatchEvent(new CustomEvent('show-pet'));
       fetchPetitions();
     }
   };

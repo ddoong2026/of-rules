@@ -94,7 +94,6 @@ function TimeMachine({ position, scale = 1 }) {
 
   useFrame((state) => {
     if (meshRef.current) {
-      meshRef.current.rotation.y += 0.005; // Slow rotation
       meshRef.current.position.y = position[1] + Math.sin(state.clock.elapsedTime) * 2; // Hover effect
     }
   });
@@ -102,6 +101,17 @@ function TimeMachine({ position, scale = 1 }) {
   return (
     <group position={position} ref={meshRef}>
       <primitive object={scene.clone()} scale={scale} />
+      <Text
+        position={[0, 15, 0]} 
+        fontSize={12}
+        color="#fbbf24"
+        anchorX="center"
+        anchorY="middle"
+        outlineWidth={0.3}
+        outlineColor="#000000"
+      >
+        타임머신 발견!
+      </Text>
     </group>
   );
 }
@@ -155,7 +165,7 @@ export default function Map3D() {
           />
           
           {/* Time Machine high in the sky */}
-          <TimeMachine position={[0, 150, 0]} scale={20} />
+          <TimeMachine position={[0, 90, 0]} scale={35} />
         </Suspense>
 
         {/* Controls */}

@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 import Link from 'next/link';
 import { useAuth } from './AuthProvider';
@@ -11,6 +11,39 @@ import styles from './Navbar.module.css';
 export default function Navbar() {
   const { user, role, currency, treasury, loading } = useAuth();
   const [petOn, setPetOn] = useState(false);
+  
+  // Navbar visibility state
+  const [isVisible, setIsVisible] = useState(true);
+
+  useEffect(() => {
+    let lastScrollY = window.scrollY;
+
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      if (currentScrollY > 50 && currentScrollY > lastScrollY) {
+        // Scrolling down
+        setIsVisible(false);
+      } else if (currentScrollY === 0) {
+        // At top
+        setIsVisible(true);
+      }
+      lastScrollY = currentScrollY;
+    };
+
+    const handleMouseMove = (e) => {
+      if (e.clientY <= 60) {
+        setIsVisible(true);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    window.addEventListener('mousemove', handleMouseMove);
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('mousemove', handleMouseMove);
+    };
+  }, []);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -35,7 +68,7 @@ export default function Navbar() {
   };
 
   return (
-    <nav className={styles.navbar}>
+    <nav className={`${styles.navbar} ${isVisible ? '' : styles.hidden}`}>
       <div className={styles.logo}>
         <Link href="/">
           <span className={styles.brand}>규칙의나라</span>

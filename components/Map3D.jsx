@@ -1,7 +1,7 @@
 'use client';
 
 import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, Text, useCursor, Html, useGLTF, useTexture } from '@react-three/drei';
+import { OrbitControls, Text, useCursor, Html, useGLTF, useTexture, Cloud } from '@react-three/drei';
 import { useState, Suspense, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import * as THREE from 'three';
@@ -88,26 +88,52 @@ function Building({ position, label, path, onClick, scale = 1 }) {
   );
 }
 
-function TimeMachine({ position, scale = 1, onClick }) {
+function TimeMachine({ position, scale = 1, onZoomStart, onZoomComplete }) {
   const { scene } = useGLTF('/models/timemachin.glb');
   const meshRef = useRef();
   const [hovered, setHovered] = useState(false);
+  const [zooming, setZooming] = useState(false);
   useCursor(hovered, 'pointer', 'auto');
 
-  useFrame((state) => {
+  useFrame((state, delta) => {
     if (meshRef.current) {
       meshRef.current.position.y = position[1] + Math.sin(state.clock.elapsedTime) * 2; // Hover effect
     }
+    
+    if (zooming) {
+      // Animate camera into the cloud/machine
+      const targetPos = new THREE.Vector3(position[0], position[1], position[2] + 15);
+      state.camera.position.lerp(targetPos, delta * 4);
+      state.camera.lookAt(position[0], position[1], position[2]);
+    }
   });
+
+  const handleDoubleClick = (e) => {
+    e.stopPropagation();
+    setZooming(true);
+    onZoomStart();
+    setTimeout(() => {
+      onZoomComplete();
+    }, 1500); // 1.5 seconds zoom animation before routing
+  };
 
   return (
     <group 
       position={position} 
       ref={meshRef}
-      onDoubleClick={onClick}
+      onDoubleClick={handleDoubleClick}
       onPointerOver={(e) => { e.stopPropagation(); setHovered(true); }}
       onPointerOut={() => setHovered(false)}
     >
+      <Cloud 
+        position={[0, 0, 0]} 
+        opacity={0.3} 
+        speed={0.2} // Animation speed
+        width={30}  // Width of the full cloud
+        depth={1.5} // Z-dir depth
+        segments={20} // Number of particles
+        color="#ffffff"
+      />
       <primitive object={scene.clone()} scale={scale} />
       <Text
         position={[0, 15, 0]} 
@@ -126,6 +152,7 @@ function TimeMachine({ position, scale = 1, onClick }) {
 
 export default function Map3D() {
   const router = useRouter();
+  const [isZooming, setIsZooming] = useState(false);
 
   return (
     <div className={styles.canvasContainer}>
@@ -172,21 +199,23 @@ export default function Map3D() {
             onClick={() => router.push('/court')}
           />
           
-          {/* Time Machine high in the sky */}
+          {/* Time Machine high in the sky and further back */}
           <TimeMachine 
-            position={[0, 110, 0]} 
+            position={[0, 110, -50]} 
             scale={35} 
-            onClick={() => router.push('/fieldtrip')}
+            onZoomStart={() => setIsZooming(true)}
+            onZoomComplete={() => router.push('/fieldtrip')}
           />
         </Suspense>
 
         {/* Controls */}
         <OrbitControls 
+          enabled={!isZooming}
           enablePan={true}
           minPolarAngle={Math.PI / 6}
           maxPolarAngle={Math.PI / 2.2}
           minDistance={20}
-          maxDistance={120}
+          maxDistance={250}
         />
       </Canvas>
       

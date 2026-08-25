@@ -200,7 +200,16 @@ export default function Map3D() {
   }, [zoomStage]);
 
   return (
-    <div className={styles.canvasContainer}>
+    <div 
+      className={styles.canvasContainer}
+      style={{
+        height: zoomStage > 0 ? '100vh' : 'calc(100vh - 70px)',
+        position: zoomStage > 0 ? 'fixed' : 'relative',
+        top: zoomStage > 0 ? 0 : 'auto',
+        left: 0,
+        zIndex: zoomStage > 0 ? 90 : 1
+      }}
+    >
       <Canvas camera={{ position: [0, 40, 60], fov: 45 }}>
         <BackgroundEffect zoomStage={zoomStage} />
         {/* Lighting */}

@@ -14,7 +14,7 @@ export default function RulebookTab() {
         .from('laws')
         .select('*')
         .eq('status', 'PROMULGATED')
-        .order('updated_at', { ascending: false });
+        .order('created_at', { ascending: true });
       
       if (data) setLaws(data);
     };

@@ -135,6 +135,7 @@ export default function RoamingPet() {
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
   const [visible, setVisible] = useState(false);
+  const [teacherOverride, setTeacherOverride] = useState(false);
   
   useEffect(() => {
     setMounted(true);
@@ -148,15 +149,24 @@ export default function RoamingPet() {
       }, 10000); // 10 seconds
     };
     
+    const handleToggleOverride = (e) => {
+      setTeacherOverride(e.detail);
+    };
+    
     window.addEventListener('show-pet', handleShowPet);
+    window.addEventListener('toggle-pet-override', handleToggleOverride);
+    
     return () => {
       window.removeEventListener('show-pet', handleShowPet);
+      window.removeEventListener('toggle-pet-override', handleToggleOverride);
       if (timeoutId) clearTimeout(timeoutId);
     };
   }, []);
   
+  const isActuallyVisible = teacherOverride || visible;
+
   // 메인 3D 지도 화면(/) 에서는 펫을 숨기고, 나머지 화면(국회, 정부, 법원 등)에서만 렌더링
-  if (!mounted || pathname === '/' || !visible) return null;
+  if (!mounted || pathname === '/' || !isActuallyVisible) return null;
 
   return (
     <div style={{

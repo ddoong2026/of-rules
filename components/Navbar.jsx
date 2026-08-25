@@ -1,17 +1,25 @@
 'use client';
+import { useState } from 'react';
 
 import Link from 'next/link';
 import { useAuth } from './AuthProvider';
 import { supabase } from '@/lib/supabase';
-import { LogOut, User } from 'lucide-react';
+import { LogOut, User, ToggleLeft, ToggleRight } from 'lucide-react';
 import Inbox from './Inbox';
 import styles from './Navbar.module.css';
 
 export default function Navbar() {
   const { user, role, loading } = useAuth();
+  const [petOn, setPetOn] = useState(false);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
+  };
+
+  const togglePet = () => {
+    const newState = !petOn;
+    setPetOn(newState);
+    window.dispatchEvent(new CustomEvent('toggle-pet-override', { detail: newState }));
   };
 
   const getRoleLabel = (r) => {
@@ -47,6 +55,20 @@ export default function Navbar() {
           <div className={styles.loading}>로딩중...</div>
         ) : user ? (
           <div style={{ display: 'flex', alignItems: 'center' }}>
+            {role?.role === 'TEACHER' && (
+              <button 
+                onClick={togglePet} 
+                title="펫 켜기/끄기" 
+                style={{ 
+                  background: 'none', border: 'none', cursor: 'pointer', 
+                  marginRight: '1rem', display: 'flex', alignItems: 'center', gap: '0.2rem',
+                  color: petOn ? 'var(--primary)' : '#9ca3af' 
+                }}
+              >
+                {petOn ? <ToggleRight size={24} /> : <ToggleLeft size={24} />}
+                <span style={{ fontSize: '0.8rem' }}>펫</span>
+              </button>
+            )}
             <Inbox />
             <div className={styles.userProfile}>
             <div className={styles.userInfo}>

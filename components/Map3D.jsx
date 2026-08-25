@@ -183,6 +183,7 @@ function TimeMachine({ position, scale = 1, onZoomStart, onZoomComplete, zoomSta
         anchorY="middle"
         outlineWidth={0.3}
         outlineColor="#000000"
+        font="/fonts/RIDIBatang.woff"
       >
         타임머신 발견!
       </Text>

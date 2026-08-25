@@ -139,7 +139,7 @@ export default function Map3D() {
 
         {/* Controls */}
         <OrbitControls 
-          enablePan={false}
+          enablePan={true}
           minPolarAngle={Math.PI / 6}
           maxPolarAngle={Math.PI / 2.2}
           minDistance={20}

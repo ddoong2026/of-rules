@@ -92,7 +92,7 @@ function TimeMachine({ position, scale = 1, onZoomStart, onZoomComplete }) {
   const { scene } = useGLTF('/models/timemachin.glb');
   const meshRef = useRef();
   const [hovered, setHovered] = useState(false);
-  const [zooming, setZooming] = useState(false);
+  const [zoomStage, setZoomStage] = useState(0); // 0: none, 1: focus, 2: enter
   useCursor(hovered, 'pointer', 'auto');
 
   useFrame((state, delta) => {
@@ -100,23 +100,30 @@ function TimeMachine({ position, scale = 1, onZoomStart, onZoomComplete }) {
       meshRef.current.position.y = position[1] + Math.sin(state.clock.elapsedTime) * 2; // Hover effect
     }
     
-    if (zooming) {
+    if (zoomStage === 1) {
+      // Focus on the front of the machine
+      const focusPos = new THREE.Vector3(position[0], position[1] + 15, position[2] + 40); 
+      state.camera.position.lerp(focusPos, delta * 4);
+      state.camera.lookAt(position[0], position[1] + 5, position[2] - 20);
+    } else if (zoomStage === 2) {
       // Animate camera deep into the dark part of the cave
-      // Adjusting Y and Z to hit the center of the cave opening
       const targetPos = new THREE.Vector3(position[0], position[1] + 5, position[2] - 10);
       state.camera.position.lerp(targetPos, delta * 3.5);
-      // Always look deep inside the cave
       state.camera.lookAt(position[0], position[1] + 5, position[2] - 100);
     }
   });
 
   const handleClick = (e) => {
     e.stopPropagation();
-    setZooming(true);
-    onZoomStart();
-    setTimeout(() => {
-      onZoomComplete();
-    }, 1500); // 1.5 seconds zoom animation before routing
+    if (zoomStage === 0) {
+      setZoomStage(1);
+      onZoomStart(); // Disable OrbitControls
+    } else if (zoomStage === 1) {
+      setZoomStage(2);
+      setTimeout(() => {
+        onZoomComplete();
+      }, 1500); // 1.5 seconds zoom animation before routing
+    }
   };
 
   return (
@@ -129,12 +136,12 @@ function TimeMachine({ position, scale = 1, onZoomStart, onZoomComplete }) {
     >
       {/* High quality clouds at the base */}
       <Cloud 
-        position={[0, -2, 0]} // Positioned at the bottom
-        scale={scale * 0.05} // Scale relative to TimeMachine
+        position={[0, -4, 0]} // Positioned slightly lower
+        scale={scale * 0.05}
         opacity={0.6} 
         speed={0.4} 
-        width={10} 
-        depth={1.5} 
+        width={30} // Expanded X area
+        depth={10} // Expanded Z area
         segments={20} 
         color="#ffffff"
       />

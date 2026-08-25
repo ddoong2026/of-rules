@@ -101,15 +101,15 @@ function TimeMachine({ position, scale = 1, onZoomStart, onZoomComplete }) {
     }
     
     if (zoomStage === 1) {
-      // Focus slightly below the center of the machine
-      const focusPos = new THREE.Vector3(position[0], position[1] - 5, position[2] + 40); 
+      // Focus slightly below the center of the machine, zoomed out a bit to show text
+      const focusPos = new THREE.Vector3(position[0], position[1] - 5, position[2] + 60); 
       state.camera.position.lerp(focusPos, delta * 4);
       state.camera.lookAt(position[0], position[1] - 5, position[2] - 10);
     } else if (zoomStage === 2) {
       // Animate camera deep into the dark part of the cave
-      const targetPos = new THREE.Vector3(position[0], position[1] + 5, position[2] - 10);
+      const targetPos = new THREE.Vector3(position[0], position[1] - 3, position[2] - 10);
       state.camera.position.lerp(targetPos, delta * 3.5);
-      state.camera.lookAt(position[0], position[1] + 5, position[2] - 100);
+      state.camera.lookAt(position[0], position[1] - 3, position[2] - 100);
     }
   });
 

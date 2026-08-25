@@ -53,6 +53,7 @@ export default function PetitionsTab() {
         .eq('id', petitionId);
         
       if (error) alert('오류가 발생했습니다: ' + error.message);
+      else fetchPetitions();
       return;
     }
 
@@ -67,6 +68,8 @@ export default function PetitionsTab() {
       } else {
         alert('오류가 발생했습니다: ' + error.message);
       }
+    } else {
+      fetchPetitions();
     }
   };
 
@@ -75,6 +78,8 @@ export default function PetitionsTab() {
     const { error } = await supabase.from('petitions').delete().eq('id', petitionId);
     if (error) {
       alert('오류가 발생했습니다: ' + error.message);
+    } else {
+      fetchPetitions();
     }
   };
 

@@ -46,6 +46,7 @@ export default function DecreesTab() {
       .eq('id', decreeId);
       
     if (error) alert('오류가 발생했습니다: ' + error.message);
+    else fetchDecrees();
   };
   
   const handleDelete = async (decreeId) => {
@@ -57,6 +58,7 @@ export default function DecreesTab() {
       .eq('id', decreeId);
       
     if (error) alert('오류가 발생했습니다: ' + error.message);
+    else fetchDecrees();
   };
 
   const getStatusBadge = (status) => {

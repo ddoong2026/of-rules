@@ -42,13 +42,15 @@ export default function LawsTab() {
     
     if (role?.role === 'TEACHER') {
       const law = laws.find(l => l.id === lawId);
-      await supabase
+      const { error } = await supabase
         .from('laws')
         .update({ 
           votes_for: isFor ? law.votes_for + 1 : law.votes_for,
           votes_against: !isFor ? law.votes_against + 1 : law.votes_against
         })
         .eq('id', lawId);
+      if (error) alert('오류: ' + error.message);
+      else fetchLaws();
       return;
     }
 
@@ -61,13 +63,15 @@ export default function LawsTab() {
       else alert('오류: ' + error.message);
     } else {
       const law = laws.find(l => l.id === lawId);
-      await supabase
+      const { error: updateError } = await supabase
         .from('laws')
         .update({ 
           votes_for: isFor ? law.votes_for + 1 : law.votes_for,
           votes_against: !isFor ? law.votes_against + 1 : law.votes_against
         })
         .eq('id', lawId);
+      if (updateError) alert('오류: ' + updateError.message);
+      else fetchLaws();
     }
   };
 
@@ -76,6 +80,8 @@ export default function LawsTab() {
     const { error } = await supabase.from('laws').delete().eq('id', lawId);
     if (error) {
       alert('오류가 발생했습니다: ' + error.message);
+    } else {
+      fetchLaws();
     }
   };
 
@@ -90,6 +96,8 @@ export default function LawsTab() {
       
     if (error) {
       alert('오류가 발생했습니다: ' + error.message);
+    } else {
+      fetchLaws();
     }
   };
 

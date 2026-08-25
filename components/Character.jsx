@@ -11,11 +11,12 @@ export function Character() {
   const { actions } = useAnimations(animations, groupRef);
   
   // Track pressed keys
-  const keys = useRef({ w: false, a: false, s: false, d: false });
+  const keys = useRef({ w: false, a: false, s: false, d: false, space: false });
   const [isMoving, setIsMoving] = useState(false);
+  const [isDancing, setIsDancing] = useState(false);
 
-  // Desired camera offset relative to the character
-  const cameraOffset = new THREE.Vector3(0, 5, -15); // Behind and slightly above
+  // Desired camera offset relative to the world
+  const cameraOffset = new THREE.Vector3(0, 10, -20); // Behind and above
   const lookAtOffset = new THREE.Vector3(0, 2, 0); // Look slightly above the character's feet
 
   useEffect(() => {
@@ -25,6 +26,7 @@ export function Character() {
         case 'a': case 'arrowleft': keys.current.a = true; break;
         case 's': case 'arrowdown': keys.current.s = true; break;
         case 'd': case 'arrowright': keys.current.d = true; break;
+        case ' ': keys.current.space = true; break;
       }
     };
     
@@ -34,6 +36,7 @@ export function Character() {
         case 'a': case 'arrowleft': keys.current.a = false; break;
         case 's': case 'arrowdown': keys.current.s = false; break;
         case 'd': case 'arrowright': keys.current.d = false; break;
+        case ' ': keys.current.space = false; break;
       }
     };
 
@@ -54,45 +57,71 @@ export function Character() {
     
     // Find animation by name matching (fallback to whatever is available)
     const walkName = actionNames.find(n => n.toLowerCase().includes('walk') || n.toLowerCase().includes('run')) || actionNames[0];
-    const idleName = actionNames.find(n => n.toLowerCase().includes('idle')) || (actionNames.length > 1 ? actionNames.find(n => n !== walkName) : walkName);
+    const danceName = actionNames.find(n => n.toLowerCase().includes('dance')) || actionNames[0];
+    const idleName = actionNames.find(n => n.toLowerCase().includes('idle')) || (actionNames.length > 1 ? actionNames.find(n => n !== walkName && n !== danceName) : walkName);
 
     const walkAction = actions[walkName];
     const idleAction = actions[idleName];
+    const danceAction = actions[danceName];
 
-    if (isMoving) {
+    if (isDancing) {
+      walkAction?.fadeOut(0.2);
+      idleAction?.fadeOut(0.2);
+      danceAction?.reset().fadeIn(0.2).play();
+    } else if (isMoving) {
+      danceAction?.fadeOut(0.2);
       idleAction?.fadeOut(0.2);
       walkAction?.reset().fadeIn(0.2).play();
     } else {
       walkAction?.fadeOut(0.2);
+      danceAction?.fadeOut(0.2);
       idleAction?.reset().fadeIn(0.2).play();
     }
-  }, [isMoving, actions]);
+  }, [isMoving, isDancing, actions]);
 
   useFrame((state, delta) => {
     if (!groupRef.current) return;
 
     const speed = 25 * delta; 
-    const rotationSpeed = 3 * delta; 
 
-    const { w, a, s, d } = keys.current;
+    const { w, a, s, d, space } = keys.current;
     
-    // Update moving state for animation
-    const currentlyMoving = w || s;
+    // Update moving and dancing state for animation
+    const currentlyMoving = (w || s || a || d) && !space;
     if (isMoving !== currentlyMoving) {
       setIsMoving(currentlyMoving);
     }
+    if (isDancing !== space) {
+      setIsDancing(space);
+    }
 
-    // Rotate character
-    if (a) groupRef.current.rotation.y += rotationSpeed;
-    if (d) groupRef.current.rotation.y -= rotationSpeed;
+    // --- Mouse Follow Logic ---
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(state.pointer, state.camera);
+    
+    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+    const target = new THREE.Vector3();
+    
+    raycaster.ray.intersectPlane(plane, target);
+    
+    if (target && !space) {
+      // Calculate angle towards mouse cursor
+      // atan2(x, z) because we rotate on Y axis.
+      const angle = Math.atan2(target.x - groupRef.current.position.x, target.z - groupRef.current.position.z);
+      groupRef.current.rotation.y = angle;
+    }
 
-    // Forward direction relative to character rotation
-    const direction = new THREE.Vector3(0, 0, 1);
-    direction.applyQuaternion(groupRef.current.quaternion);
-
-    // Move character forward/backward
-    if (w) groupRef.current.position.addScaledVector(direction, speed);
-    if (s) groupRef.current.position.addScaledVector(direction, -speed);
+    // --- Movement Logic (World-relative) ---
+    const moveDir = new THREE.Vector3(0, 0, 0);
+    if (w) moveDir.z += 1;
+    if (s) moveDir.z -= 1;
+    if (a) moveDir.x += 1; // +X is left relative to camera facing +Z
+    if (d) moveDir.x -= 1; // -X is right relative to camera facing +Z
+    
+    if (moveDir.lengthSq() > 0 && !space) {
+      moveDir.normalize();
+      groupRef.current.position.addScaledVector(moveDir, speed);
+    }
 
     // Limit boundaries (optional, to prevent falling off the 150x150 map)
     groupRef.current.position.x = THREE.MathUtils.clamp(groupRef.current.position.x, -70, 70);
@@ -101,10 +130,8 @@ export function Character() {
     // --- Camera Follow Logic ---
     const currentPosition = groupRef.current.position.clone();
     
-    // Calculate ideal camera position (rotated by character's orientation)
-    const idealCameraPos = currentPosition.clone().add(
-      cameraOffset.clone().applyQuaternion(groupRef.current.quaternion)
-    );
+    // Fixed camera offset relative to the world
+    const idealCameraPos = currentPosition.clone().add(cameraOffset);
     
     // Lerp camera position for smooth following
     state.camera.position.lerp(idealCameraPos, 0.1);
@@ -116,14 +143,9 @@ export function Character() {
 
   return (
     <group ref={groupRef} position={[0, 0, 0]}>
-      {/* 
-        We might need to adjust the scale or rotation of the imported model. 
-        Assuming it faces +Z by default.
-      */}
       <primitive object={scene} scale={2} />
     </group>
   );
 }
 
-// Preload the character model
 useGLTF.preload('/models/charactor.glb');

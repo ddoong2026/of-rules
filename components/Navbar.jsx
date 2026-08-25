@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useAuth } from './AuthProvider';
 import { supabase } from '@/lib/supabase';
 import { LogOut, User } from 'lucide-react';
+import Inbox from './Inbox';
 import styles from './Navbar.module.css';
 
 export default function Navbar() {
@@ -45,7 +46,9 @@ export default function Navbar() {
         {loading ? (
           <div className={styles.loading}>로딩중...</div>
         ) : user ? (
-          <div className={styles.userProfile}>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <Inbox />
+            <div className={styles.userProfile}>
             <div className={styles.userInfo}>
               <span className={styles.userName}>{role?.name || user.email}</span>
               <span className={styles.userRole}>{getRoleLabel(role)}</span>
@@ -53,6 +56,7 @@ export default function Navbar() {
             <button onClick={handleLogout} className={styles.logoutBtn} title="로그아웃">
               <LogOut size={18} />
             </button>
+          </div>
           </div>
         ) : (
           <Link href="/login" className="glass-button">

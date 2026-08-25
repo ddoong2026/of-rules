@@ -10,7 +10,7 @@ const DEPARTMENTS = [
   '법무부', '보건복지부', '기후에너지환경부', '칠판용사', '감사원', '국회', '일반 국민'
 ];
 
-const PENALTY_TYPES = ['봉사', '벌금', '방과후 지도', '상담'];
+const PENALTY_TYPES = ['봉사', '벌금', '방과후 지도', '상담', '기타 (직접입력)'];
 
 export default function LawForm({ onSuccess, onCancel, initialData }) {
   const [title, setTitle] = useState(initialData?.title || '');
@@ -22,6 +22,7 @@ export default function LawForm({ onSuccess, onCancel, initialData }) {
   // New states for Penalty/Reward
   const [lawType, setLawType] = useState('none'); // 'none', 'penalty', 'reward'
   const [penaltyType, setPenaltyType] = useState(PENALTY_TYPES[0]);
+  const [customPenaltyType, setCustomPenaltyType] = useState('');
   const [actionValue, setActionValue] = useState('');
   
   const [loading, setLoading] = useState(false);
@@ -32,7 +33,8 @@ export default function LawForm({ onSuccess, onCancel, initialData }) {
     const dutyText = studentDuty ? studentDuty : '[학생들이 해야할 일(예: 학생들은 줄을 서거나 이동할 때 장난을 치면 안된다)]';
     
     if (lawType === 'penalty') {
-      template = `${dutyText}. 이를 어길 시 ${penaltyType} ${actionValue || '[수치]'}이며, 관련 부처는 ${department}로 한다.`;
+      const actualPenalty = penaltyType === '기타 (직접입력)' ? customPenaltyType : penaltyType;
+      template = `${dutyText}. 이를 어길 시 ${actualPenalty} ${actionValue || '[수치]'}이며, 관련 부처는 ${department}로 한다.`;
     } else if (lawType === 'reward') {
       template = `${dutyText}. 이를 지킬 시 ${actionValue || '[보상]'}을(를) 보상으로 지급하며, 관련 부처는 ${department}로 한다.`;
     } else {
@@ -61,7 +63,8 @@ export default function LawForm({ onSuccess, onCancel, initialData }) {
     
     let finalContent = content;
     if (lawType === 'penalty') {
-      finalContent = `[처벌 규정]\n종류: ${penaltyType}\n수치/횟수: ${actionValue}\n\n${content}`;
+      const actualPenalty = penaltyType === '기타 (직접입력)' ? customPenaltyType : penaltyType;
+      finalContent = `[처벌 규정]\n종류: ${actualPenalty}\n수치/횟수: ${actionValue}\n\n${content}`;
     } else if (lawType === 'reward') {
       finalContent = `[보상 규정]\n내용 및 수치: ${actionValue}\n\n${content}`;
     }
@@ -170,6 +173,18 @@ export default function LawForm({ onSuccess, onCancel, initialData }) {
                 <option key={type} value={type}>{type}</option>
               ))}
             </select>
+            
+            {penaltyType === '기타 (직접입력)' && (
+              <input 
+                type="text" 
+                className="glass-input" 
+                value={customPenaltyType}
+                onChange={(e) => setCustomPenaltyType(e.target.value)}
+                placeholder="처벌 종류를 직접 입력하세요"
+                style={{ marginBottom: '1rem' }}
+                required
+              />
+            )}
             
             <label style={{ color: 'var(--danger)' }}>횟수 또는 수치 (예: 1회, 1000돈)</label>
             <input 

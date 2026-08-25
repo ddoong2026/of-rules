@@ -101,10 +101,10 @@ function TimeMachine({ position, scale = 1, onZoomStart, onZoomComplete }) {
     }
     
     if (zoomStage === 1) {
-      // Focus on the front of the machine
-      const focusPos = new THREE.Vector3(position[0], position[1] + 15, position[2] + 40); 
+      // Focus on the front of the machine (centered vertically on the model)
+      const focusPos = new THREE.Vector3(position[0], position[1], position[2] + 40); 
       state.camera.position.lerp(focusPos, delta * 4);
-      state.camera.lookAt(position[0], position[1] + 5, position[2] - 20);
+      state.camera.lookAt(position[0], position[1], position[2] - 10);
     } else if (zoomStage === 2) {
       // Animate camera deep into the dark part of the cave
       const targetPos = new THREE.Vector3(position[0], position[1] + 5, position[2] - 10);
@@ -134,15 +134,14 @@ function TimeMachine({ position, scale = 1, onZoomStart, onZoomComplete }) {
       onPointerOver={(e) => { e.stopPropagation(); setHovered(true); }}
       onPointerOut={() => setHovered(false)}
     >
-      {/* High quality clouds at the base */}
       <Cloud 
-        position={[0, -4, 0]} // Positioned slightly lower
-        scale={scale * 0.05}
+        position={[0, -5, 0]} // Positioned slightly lower
+        scale={scale * 0.1} // Increased base scale
         opacity={0.6} 
         speed={0.4} 
-        width={30} // Expanded X area
-        depth={10} // Expanded Z area
-        segments={20} 
+        width={100} // Much wider X area
+        depth={100} // Much deeper Z area
+        segments={60} // More particles to fill the area
         color="#ffffff"
       />
       

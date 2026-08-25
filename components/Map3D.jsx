@@ -1,7 +1,7 @@
 'use client';
 
 import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, Text, useCursor, Html, useGLTF, useTexture, Cloud } from '@react-three/drei';
+import { OrbitControls, Text, useCursor, Html, useGLTF, useTexture } from '@react-three/drei';
 import { useState, Suspense, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import * as THREE from 'three';
@@ -88,6 +88,43 @@ function Building({ position, label, path, onClick, scale = 1 }) {
   );
 }
 
+function CloudEffect({ scale }) {
+  const groupRef = useRef();
+  useFrame((state) => {
+    if (groupRef.current) {
+      groupRef.current.rotation.y = state.clock.elapsedTime * 0.1;
+    }
+  });
+
+  // Create a fixed array of cloud positions so it doesn't mismatch on hydration
+  const cloudPositions = [
+    [-1, -0.2, 1],
+    [1, 0.5, -1],
+    [0, -0.5, 1.5],
+    [-1.2, 0.8, -0.5],
+    [1.5, -0.2, 0.5],
+    [0, 1.2, 0],
+    [-1.5, -0.5, -1]
+  ];
+
+  return (
+    <group ref={groupRef} scale={scale}>
+      {cloudPositions.map((pos, i) => (
+        <mesh key={i} position={pos}>
+          <sphereGeometry args={[1.2, 16, 16]} />
+          <meshStandardMaterial 
+            color="#ffffff" 
+            transparent 
+            opacity={0.5} 
+            roughness={1} 
+            depthWrite={false}
+          />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
 function TimeMachine({ position, scale = 1, onZoomStart, onZoomComplete }) {
   const { scene } = useGLTF('/models/timemachin.glb');
   const meshRef = useRef();
@@ -101,14 +138,14 @@ function TimeMachine({ position, scale = 1, onZoomStart, onZoomComplete }) {
     }
     
     if (zooming) {
-      // Animate camera into the cloud/machine
-      const targetPos = new THREE.Vector3(position[0], position[1], position[2] + 15);
-      state.camera.position.lerp(targetPos, delta * 4);
-      state.camera.lookAt(position[0], position[1], position[2]);
+      // Animate camera deep into/past the machine
+      const targetPos = new THREE.Vector3(position[0], position[1], position[2] - 20);
+      state.camera.position.lerp(targetPos, delta * 3.5);
+      state.camera.lookAt(position[0], position[1], position[2] - 50);
     }
   });
 
-  const handleDoubleClick = (e) => {
+  const handleClick = (e) => {
     e.stopPropagation();
     setZooming(true);
     onZoomStart();
@@ -121,19 +158,11 @@ function TimeMachine({ position, scale = 1, onZoomStart, onZoomComplete }) {
     <group 
       position={position} 
       ref={meshRef}
-      onDoubleClick={handleDoubleClick}
+      onClick={handleClick}
       onPointerOver={(e) => { e.stopPropagation(); setHovered(true); }}
       onPointerOut={() => setHovered(false)}
     >
-      <Cloud 
-        position={[0, 0, 0]} 
-        opacity={0.3} 
-        speed={0.2} // Animation speed
-        width={30}  // Width of the full cloud
-        depth={1.5} // Z-dir depth
-        segments={20} // Number of particles
-        color="#ffffff"
-      />
+      <CloudEffect scale={scale * 0.8} />
       <primitive object={scene.clone()} scale={scale} />
       <Text
         position={[0, 15, 0]} 

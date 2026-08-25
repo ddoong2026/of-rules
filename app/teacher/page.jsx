@@ -129,8 +129,8 @@ export default function TeacherDashboard() {
   const handleStudentChange = (index, field, value) => {
     const updated = [...students];
     updated[index][field] = value;
-    // 만약 장관이 아닌 다른 직업으로 바뀌면 부처 초기화
-    if (field === 'role' && value !== 'MINISTER') {
+    // 만약 장관이나 국회의원이 아닌 다른 직업으로 바뀌면 부처 초기화
+    if (field === 'role' && value !== 'MINISTER' && value !== 'ASSEMBLY') {
       updated[index]['department'] = null;
     }
     setStudents(updated);
@@ -312,7 +312,7 @@ export default function TeacherDashboard() {
                       <th>학번</th>
                       <th>이름</th>
                       <th>직업(역할)</th>
-                      <th>부처 (장관 한정)</th>
+                      <th>부처 (장관 및 국회의원 겸임 가능)</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -334,7 +334,7 @@ export default function TeacherDashboard() {
                             className="glass-input" 
                             value={student.department || ''}
                             onChange={(e) => handleStudentChange(index, 'department', e.target.value)}
-                            disabled={student.role !== 'MINISTER'}
+                            disabled={student.role !== 'MINISTER' && student.role !== 'ASSEMBLY'}
                           >
                             {DEPARTMENTS.map(d => <option key={d} value={d}>{d || '해당 없음'}</option>)}
                           </select>

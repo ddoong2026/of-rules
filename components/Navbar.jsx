@@ -16,10 +16,10 @@ export default function Navbar() {
   const getRoleLabel = (r) => {
     if (!r) return '';
     switch(r.role) {
-      case 'CITIZEN': return '국민';
-      case 'ASSEMBLY': return '국회의원';
+      case 'CITIZEN': return '일반 국민';
+      case 'ASSEMBLY': return r.department ? `국회의원 (${r.department} 장관 겸임)` : '국회의원';
+      case 'MINISTER': return r.department ? `${r.department} 장관` : '장관';
       case 'PRESIDENT': return '대통령';
-      case 'MINISTER': return `${r.department} 장관`;
       case 'TEACHER': return '교사';
       default: return r.role;
     }

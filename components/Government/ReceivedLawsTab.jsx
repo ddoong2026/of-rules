@@ -37,7 +37,7 @@ export default function ReceivedLawsTab() {
 
   const handleCreateDecree = (law) => {
     // Only the Minister of the target department or the Teacher can create decrees
-    if (role?.role === 'TEACHER' || (role?.role === 'MINISTER' && role?.department === law.target_department)) {
+    if (role?.role === 'TEACHER' || (['MINISTER', 'ASSEMBLY'].includes(role?.role) && role?.department === law.target_department)) {
       setSelectedLaw(law);
     } else {
       alert(`명령 제정 권한이 없습니다. 해당 법률은 ${law.target_department} 소관입니다.`);
@@ -92,7 +92,7 @@ export default function ReceivedLawsTab() {
                 </div>
                 
                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                  {(role?.role === 'TEACHER' || (role?.role === 'MINISTER' && role?.department === law.target_department)) ? (
+                  {(role?.role === 'TEACHER' || (['MINISTER', 'ASSEMBLY'].includes(role?.role) && role?.department === law.target_department)) ? (
                     <button 
                       className={styles.actionBtn} 
                       onClick={() => handleCreateDecree(law)} 

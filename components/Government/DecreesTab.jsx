@@ -132,7 +132,7 @@ export default function DecreesTab() {
                     </button>
                   )}
                   
-                  {(role?.role === 'TEACHER' || (role?.role === 'MINISTER' && role?.department === decree.department && decree.status === 'DRAFT')) && (
+                  {(role?.role === 'TEACHER' || (['MINISTER', 'ASSEMBLY'].includes(role?.role) && role?.department === decree.department && decree.status === 'DRAFT')) && (
                     <button 
                       className={styles.actionBtn} 
                       onClick={() => handleDelete(decree.id)} 

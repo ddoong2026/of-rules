@@ -55,7 +55,7 @@ function Building({ position, label, path, onClick, scale = 1 }) {
   return (
     <group position={position}>
       <mesh
-        onClick={onClick}
+        onDoubleClick={onClick}
         onPointerOver={() => setHovered(true)}
         onPointerOut={() => setHovered(false)}
         position={[0, Math.sin(hovered ? 0.2 : 0) * (scale * 0.15), 0]} // Slight hover bounce proportional to size
@@ -80,7 +80,7 @@ function Building({ position, label, path, onClick, scale = 1 }) {
       {hovered && (
         <Html position={[0, 23, 0]} center>
           <div className={styles.tooltip}>
-            클릭하여 {label}로 이동
+            더블클릭하여 {label}로 이동
           </div>
         </Html>
       )}
@@ -104,14 +104,14 @@ function TimeMachine({ position, scale = 1, onClick }) {
     <group 
       position={position} 
       ref={meshRef}
-      onClick={onClick}
+      onDoubleClick={onClick}
       onPointerOver={(e) => { e.stopPropagation(); setHovered(true); }}
       onPointerOut={() => setHovered(false)}
     >
       <primitive object={scene.clone()} scale={scale} />
       <Text
         position={[0, 15, 0]} 
-        fontSize={12}
+        fontSize={8}
         color="#fbbf24"
         anchorX="center"
         anchorY="middle"
@@ -174,7 +174,7 @@ export default function Map3D() {
           
           {/* Time Machine high in the sky */}
           <TimeMachine 
-            position={[0, 90, 0]} 
+            position={[0, 110, 0]} 
             scale={35} 
             onClick={() => router.push('/fieldtrip')}
           />

@@ -22,11 +22,11 @@ export default function FieldTripPage() {
   return (
     <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
       <h1 style={{ color: 'var(--primary)', marginBottom: '1rem', fontSize: '2rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-        🚀 수학여행
+        🚀 수학이란 무엇인가
       </h1>
       
       <div className="glass-panel" style={{ padding: '2rem', minHeight: '60vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-        <h2 style={{ fontSize: '1.5rem', color: '#4b5563', marginBottom: '1rem' }}>수학여행 페이지 준비중입니다!</h2>
+        <h2 style={{ fontSize: '1.5rem', color: '#4b5563', marginBottom: '1rem' }}>수학이란 무엇인가 페이지 준비중입니다!</h2>
         <p style={{ color: '#6b7280', textAlign: 'center' }}>
           이곳에서 특별한 수학여행 콘텐츠를 즐길 수 있도록 업데이트될 예정입니다.
         </p>

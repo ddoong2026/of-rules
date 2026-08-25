@@ -119,7 +119,7 @@ function TimeMachine({ position, scale = 1, onZoomStart, onZoomComplete, zoomSta
 
   useFrame((state, delta) => {
     if (meshRef.current) {
-      meshRef.current.position.y = position[1] + Math.sin(state.clock.elapsedTime) * 2; // Hover effect
+      meshRef.current.position.y = position[1] + Math.sin(state.clock.elapsedTime) * 0.8; // Reduced hover effect range
     }
     
     if (zoomStage === 1) {

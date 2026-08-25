@@ -10,6 +10,15 @@ import styles from './assembly.module.css';
 export default function AssemblyPage() {
   const { user, role, loading } = useAuth();
   const [activeTab, setActiveTab] = useState('petitions');
+  const [initialLawData, setInitialLawData] = useState(null);
+
+  const handleProposeLawFromPetition = (petition) => {
+    setInitialLawData({
+      title: petition.title,
+      reason: petition.content
+    });
+    setActiveTab('laws');
+  };
 
   if (loading) {
     return <div className={styles.loading}>로딩중...</div>;
@@ -55,8 +64,13 @@ export default function AssemblyPage() {
       </div>
 
       <div className={styles.content}>
-        {activeTab === 'petitions' && <PetitionsTab />}
-        {activeTab === 'laws' && <LawsTab />}
+        {activeTab === 'petitions' && <PetitionsTab onProposeLaw={handleProposeLawFromPetition} />}
+        {activeTab === 'laws' && (
+          <LawsTab 
+            initialData={initialLawData} 
+            clearInitialData={() => setInitialLawData(null)} 
+          />
+        )}
         {activeTab === 'rulebook' && <RulebookTab />}
       </div>
     </div>

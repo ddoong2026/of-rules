@@ -12,10 +12,10 @@ const DEPARTMENTS = [
 
 const PENALTY_TYPES = ['봉사', '벌금', '방과후 지도', '상담'];
 
-export default function LawForm({ onSuccess }) {
-  const [title, setTitle] = useState('');
+export default function LawForm({ onSuccess, onCancel, initialData }) {
+  const [title, setTitle] = useState(initialData?.title || '');
   const [studentDuty, setStudentDuty] = useState('');
-  const [reason, setReason] = useState('');
+  const [reason, setReason] = useState(initialData?.reason || '');
   const [content, setContent] = useState('');
   const [department, setDepartment] = useState(DEPARTMENTS[0]);
   
@@ -216,14 +216,25 @@ export default function LawForm({ onSuccess }) {
           />
         </div>
         
-        <button 
-          type="submit" 
-          className="glass-button" 
-          style={{ background: 'var(--primary)', color: 'white' }}
-          disabled={loading}
-        >
-          {loading ? '발의 중...' : '법률안 발의하기'}
-        </button>
+        <div style={{ display: 'flex', gap: '1rem' }}>
+          <button 
+            type="submit" 
+            className="glass-button" 
+            style={{ background: 'var(--primary)', color: 'white', flex: 1 }}
+            disabled={loading}
+          >
+            {loading ? '발의 중...' : '법률안 발의하기'}
+          </button>
+          
+          <button 
+            type="button" 
+            className="glass-button" 
+            style={{ flex: 1 }}
+            onClick={onCancel}
+          >
+            취소
+          </button>
+        </div>
       </form>
     </div>
   );

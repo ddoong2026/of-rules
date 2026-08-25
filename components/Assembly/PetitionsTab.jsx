@@ -5,9 +5,9 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/components/AuthProvider';
 import PetitionForm from './PetitionForm';
 import styles from './AssemblyTabs.module.css';
-import { MessageSquare, ThumbsUp, Trash2 } from 'lucide-react';
+import { MessageSquare, ThumbsUp, Trash2, BookOpen } from 'lucide-react';
 
-export default function PetitionsTab() {
+export default function PetitionsTab({ onProposeLaw }) {
   const [petitions, setPetitions] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const { user, role } = useAuth();
@@ -131,6 +131,17 @@ export default function PetitionsTab() {
                         <Trash2 size={16} />
                       </button>
                     )}
+                    
+                    {petition.status === 'IN_ASSEMBLY' && ['ASSEMBLY', 'TEACHER'].includes(role?.role) && (
+                      <button 
+                        className={styles.actionBtn} 
+                        onClick={() => onProposeLaw && onProposeLaw(petition)}
+                        style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0.4rem 0.8rem' }}
+                      >
+                        <BookOpen size={16} /> 바로 입법 발의
+                      </button>
+                    )}
+                    
                     <button 
                       className={`${styles.actionBtn} ${petition.status !== 'PENDING' ? styles.disabled : ''}`} 
                       onClick={() => handleAgree(petition.id)}

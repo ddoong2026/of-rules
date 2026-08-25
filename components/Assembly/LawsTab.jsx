@@ -7,7 +7,7 @@ import LawForm from './LawForm';
 import styles from './AssemblyTabs.module.css';
 import { CheckCircle, XCircle, ScrollText, Trash2 } from 'lucide-react';
 
-export default function LawsTab() {
+export default function LawsTab({ initialData, clearInitialData }) {
   const [laws, setLaws] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [expandedLawId, setExpandedLawId] = useState(null);
@@ -24,6 +24,12 @@ export default function LawsTab() {
     
     if (data) setLaws(data);
   };
+
+  useEffect(() => {
+    if (initialData) {
+      setShowForm(true);
+    }
+  }, [initialData]);
 
   useEffect(() => {
     fetchLaws();
@@ -123,7 +129,17 @@ export default function LawsTab() {
       </div>
 
       {showForm ? (
-        <LawForm onSuccess={() => setShowForm(false)} />
+        <LawForm 
+          onSuccess={() => {
+            setShowForm(false);
+            if (clearInitialData) clearInitialData();
+          }} 
+          onCancel={() => {
+            setShowForm(false);
+            if (clearInitialData) clearInitialData();
+          }}
+          initialData={initialData} 
+        />
       ) : (
         <div className={styles.list}>
           {laws.length === 0 ? (

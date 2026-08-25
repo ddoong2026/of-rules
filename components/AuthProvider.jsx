@@ -9,6 +9,7 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [role, setRole] = useState(null); // includes balance, job, etc.
   const [currency, setCurrency] = useState('미소');
+  const [treasury, setTreasury] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -37,10 +38,13 @@ export const AuthProvider = ({ children }) => {
       }
     });
     
-    // Subscribe to settings changes for currency
+    // Subscribe to settings changes for currency and treasury
     const settingsSub = supabase.channel('public:settings')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'settings', filter: "key=eq.currency_name" }, (payload) => {
-        if (payload.new && payload.new.value) setCurrency(payload.new.value);
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, (payload) => {
+        if (payload.new) {
+          if (payload.new.key === 'currency_name') setCurrency(payload.new.value);
+          if (payload.new.key === 'treasury_balance') setTreasury(parseInt(payload.new.value || '0', 10));
+        }
       })
       .subscribe();
 
@@ -78,11 +82,14 @@ export const AuthProvider = ({ children }) => {
     const { data: curData } = await supabase.from('settings').select('value').eq('key', 'currency_name').single();
     if (curData) setCurrency(curData.value);
     
+    const { data: tresData } = await supabase.from('settings').select('value').eq('key', 'treasury_balance').single();
+    if (tresData) setTreasury(parseInt(tresData.value || '0', 10));
+    
     setLoading(false);
   };
 
   return (
-    <AuthContext.Provider value={{ user, role, currency, loading }}>
+    <AuthContext.Provider value={{ user, role, currency, treasury, loading }}>
       {children}
     </AuthContext.Provider>
   );

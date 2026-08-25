@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { supabase } from '@/lib/supabase';
 import ActivityLogsTab from '@/components/Teacher/ActivityLogsTab';
+import EconomyAdminTab from '@/components/Teacher/EconomyAdminTab';
 import styles from './teacher.module.css';
 
 const ROLES = [
@@ -536,6 +537,8 @@ export default function TeacherDashboard() {
                 </table>
               </div>
             </div>
+
+            <EconomyAdminTab />
           </div>
         )}
         {activeTab === 'logs' && <ActivityLogsTab />}

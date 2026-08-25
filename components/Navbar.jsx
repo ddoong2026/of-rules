@@ -9,7 +9,7 @@ import Inbox from './Inbox';
 import styles from './Navbar.module.css';
 
 export default function Navbar() {
-  const { user, role, currency, loading } = useAuth();
+  const { user, role, currency, treasury, loading } = useAuth();
   const [petOn, setPetOn] = useState(false);
 
   const handleLogout = async () => {
@@ -72,9 +72,14 @@ export default function Navbar() {
             )}
             <Inbox />
             <div className={styles.userProfile}>
+              {(treasury !== undefined && treasury !== null) && (
+                <div style={{ marginRight: '1rem', fontWeight: 'bold', color: '#3b82f6', background: '#dbeafe', padding: '0.3rem 0.8rem', borderRadius: '20px', fontSize: '0.8rem' }} title="국고(국세청) 잔액">
+                  국고: {treasury.toLocaleString()} {currency}
+                </div>
+              )}
               {role?.balance !== undefined && (
-                <div style={{ marginRight: '1rem', fontWeight: 'bold', color: 'var(--primary)', background: '#f3f4f6', padding: '0.3rem 0.8rem', borderRadius: '20px' }}>
-                  {role.balance.toLocaleString()} {currency}
+                <div style={{ marginRight: '1rem', fontWeight: 'bold', color: 'var(--primary)', background: '#f3f4f6', padding: '0.3rem 0.8rem', borderRadius: '20px' }} title="내 잔액">
+                  내 잔액: {role.balance.toLocaleString()} {currency}
                 </div>
               )}
               <div className={styles.userInfo}>

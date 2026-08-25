@@ -101,10 +101,10 @@ function TimeMachine({ position, scale = 1, onZoomStart, onZoomComplete }) {
     }
     
     if (zoomStage === 1) {
-      // Raise camera Y and revert Z to angle downwards towards the model and text
-      const focusPos = new THREE.Vector3(position[0], position[1] + 15, position[2] + 40); 
+      // Pan camera upwards to show text without tilting
+      const focusPos = new THREE.Vector3(position[0], position[1] + 5, position[2] + 40); 
       state.camera.position.lerp(focusPos, delta * 4);
-      state.camera.lookAt(position[0], position[1] - 5, position[2] - 10);
+      state.camera.lookAt(position[0], position[1] + 5, position[2] - 10);
     } else if (zoomStage === 2) {
       // Animate camera deep into the dark part of the cave
       const targetPos = new THREE.Vector3(position[0], position[1] - 3, position[2] - 10);
@@ -148,7 +148,7 @@ function TimeMachine({ position, scale = 1, onZoomStart, onZoomComplete }) {
       <primitive object={scene.clone()} scale={scale} />
       <Text
         position={[0, 15, 0]} 
-        fontSize={8}
+        fontSize={6}
         color="#fbbf24"
         anchorX="center"
         anchorY="middle"

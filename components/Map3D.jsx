@@ -88,6 +88,24 @@ function Building({ position, label, path, onClick, scale = 1 }) {
   );
 }
 
+function TimeMachine({ position, scale = 1 }) {
+  const { scene } = useGLTF('/models/timemachin.glb');
+  const meshRef = useRef();
+
+  useFrame((state) => {
+    if (meshRef.current) {
+      meshRef.current.rotation.y += 0.005; // Slow rotation
+      meshRef.current.position.y = position[1] + Math.sin(state.clock.elapsedTime) * 2; // Hover effect
+    }
+  });
+
+  return (
+    <group position={position} ref={meshRef}>
+      <primitive object={scene.clone()} scale={scale} />
+    </group>
+  );
+}
+
 export default function Map3D() {
   const router = useRouter();
 
@@ -135,6 +153,9 @@ export default function Map3D() {
             path="/models/courthouse.glb"
             onClick={() => router.push('/court')}
           />
+          
+          {/* Time Machine high in the sky */}
+          <TimeMachine position={[0, 150, 0]} scale={20} />
         </Suspense>
 
         {/* Controls */}

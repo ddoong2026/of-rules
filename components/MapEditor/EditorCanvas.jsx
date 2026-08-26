@@ -24,6 +24,7 @@ export default function EditorCanvas() {
     <Canvas
       camera={{ position: [0, 20, 20], fov: 60 }}
       style={{ background: '#87CEEB', cursor: isCameraMode ? 'grab' : (mode === 'erase' ? 'cell' : 'crosshair') }}
+      onContextMenu={(e) => e.preventDefault()}
       shadows
     >
       <Sky distance={450000} sunPosition={sunPosition} />

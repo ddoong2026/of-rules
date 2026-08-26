@@ -6,7 +6,8 @@ import { useGLTF, useAnimations } from '@react-three/drei';
 import * as THREE from 'three';
 import useMapStore, { GRID_SIZE } from '@/store/useMapStore';
 
-const SPEED = 5;
+const WALK_SPEED = 3;
+const RUN_SPEED = 8;
 const ROTATION_SPEED = 5;
 
 export default function Player() {
@@ -16,7 +17,8 @@ export default function Player() {
   const { camera } = useThree();
   const heights = useMapStore((state) => state.heights);
 
-  const [keys, setKeys] = useState({ w: false, a: false, s: false, d: false });
+  const [keys, setKeys] = useState({ w: false, a: false, s: false, d: false, shift: false });
+  const currentAction = useRef('');
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -38,23 +40,27 @@ export default function Player() {
 
   // Handle Animation state
   useEffect(() => {
-    // If model has animations, try to play 'Walk' or 'Run' or the first animation
-    const hasMovement = keys.w || keys.a || keys.s || keys.d;
-    
-    if (actions) {
-      const actionNames = Object.keys(actions);
-      if (actionNames.length > 0) {
-        const walkActionName = actionNames.find(n => n.toLowerCase().includes('walk') || n.toLowerCase().includes('run')) || actionNames[0];
-        const idleActionName = actionNames.find(n => n.toLowerCase().includes('idle')) || (walkActionName !== actionNames[0] ? actionNames[0] : null);
+    if (!actions) return;
+    const actionNames = Object.keys(actions);
+    if (actionNames.length === 0) return;
 
-        if (hasMovement) {
-          if (idleActionName && actions[idleActionName]) actions[idleActionName].fadeOut(0.2);
-          if (actions[walkActionName]) actions[walkActionName].reset().fadeIn(0.2).play();
-        } else {
-          if (actions[walkActionName]) actions[walkActionName].fadeOut(0.2);
-          if (idleActionName && actions[idleActionName]) actions[idleActionName].reset().fadeIn(0.2).play();
-        }
+    const walkActionName = actionNames.find(n => n.toLowerCase().includes('walk')) || actionNames[0];
+    const runActionName = actionNames.find(n => n.toLowerCase().includes('run')) || walkActionName;
+    const idleActionName = actionNames.find(n => n.toLowerCase().includes('idle')) || actionNames[0];
+
+    const isMoving = keys.w || keys.a || keys.s || keys.d;
+    const isRunning = isMoving && keys.shift;
+
+    const targetAction = isRunning ? runActionName : (isMoving ? walkActionName : idleActionName);
+
+    if (currentAction.current !== targetAction) {
+      if (currentAction.current && actions[currentAction.current]) {
+        actions[currentAction.current].fadeOut(0.2);
       }
+      if (actions[targetAction]) {
+        actions[targetAction].reset().fadeIn(0.2).play();
+      }
+      currentAction.current = targetAction;
     }
   }, [keys, actions]);
 
@@ -91,7 +97,7 @@ export default function Player() {
   };
 
   const currentVelocity = useRef(new THREE.Vector3());
-  const cameraOffset = new THREE.Vector3(0, 3, 5); // 3rd person offset
+  const cameraOffset = new THREE.Vector3(0, 3, -5); // 3rd person offset (behind the character)
 
   useFrame((state, delta) => {
     if (!group.current) return;
@@ -119,20 +125,40 @@ export default function Player() {
       
       group.current.rotation.y += diff * ROTATION_SPEED * delta;
       
-      // Move forward in the direction it's facing
+      const speed = keys.shift ? RUN_SPEED : WALK_SPEED;
+      // Move in the intended direction
       currentVelocity.current.set(
-        Math.sin(group.current.rotation.y) * SPEED,
+        moveDir.x * speed,
         0,
-        Math.cos(group.current.rotation.y) * SPEED
+        moveDir.z * speed
       );
     } else {
       // Decelerate quickly
       currentVelocity.current.lerp(new THREE.Vector3(0, 0, 0), 0.2);
     }
 
-    // Apply movement
-    group.current.position.x += currentVelocity.current.x * delta;
-    group.current.position.z += currentVelocity.current.z * delta;
+    // Apply movement with slope restriction
+    const nextX = group.current.position.x + currentVelocity.current.x * delta;
+    const nextZ = group.current.position.z + currentVelocity.current.z * delta;
+    
+    const dist = Math.sqrt((nextX - group.current.position.x)**2 + (nextZ - group.current.position.z)**2);
+    let canMove = true;
+    
+    if (dist > 0.0001) {
+      const currentTerrainHeight = getTerrainHeight(group.current.position.x, group.current.position.z);
+      const nextTerrainHeight = getTerrainHeight(nextX, nextZ);
+      const slope = (nextTerrainHeight - currentTerrainHeight) / dist;
+      
+      if (slope > 1.2) { // 1.2 is roughly 50 degrees slope
+        canMove = false;
+        currentVelocity.current.set(0, 0, 0);
+      }
+    }
+
+    if (canMove) {
+      group.current.position.x = nextX;
+      group.current.position.z = nextZ;
+    }
 
     // Clamp to map boundary circle (radius 25)
     const distFromCenter = Math.sqrt(group.current.position.x ** 2 + group.current.position.z ** 2);

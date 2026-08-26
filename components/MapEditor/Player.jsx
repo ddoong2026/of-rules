@@ -145,7 +145,7 @@ export default function Player() {
           const z = Math.sin(angle) * r;
           const h = getTerrainHeight(x, z);
           
-          if (h > 0.5) { // Needs to be well above water level (0)
+          if (h > -0.1) { // Not in water
             spawnX = x;
             spawnZ = z;
             found = true;
@@ -155,7 +155,9 @@ export default function Player() {
         if (found) break;
       }
 
-      group.current.position.set(spawnX, getTerrainHeight(spawnX, spawnZ), spawnZ);
+      const terrainH = getTerrainHeight(spawnX, spawnZ);
+      // Spawn slightly above the ground (at least height 2) so they fall naturally
+      group.current.position.set(spawnX, Math.max(2, terrainH + 2), spawnZ);
       hasSpawned.current = true;
     }
   }, [heights]);

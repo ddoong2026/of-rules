@@ -55,29 +55,22 @@ export function Character() {
 
     const actionNames = Object.keys(actions);
     
-    // Find animation by name matching (fallback to whatever is available)
-    const walkName = actionNames.find(n => n.toLowerCase().includes('walk') || n.toLowerCase().includes('run')) || actionNames[0];
-    const danceName = actionNames.find(n => n.toLowerCase().includes('dance')) || actionNames[0];
-    const idleName = actionNames.find(n => n.toLowerCase().includes('idle')) || (actionNames.length > 1 ? actionNames.find(n => n !== walkName && n !== danceName) : walkName);
+    // Find animation by name matching
+    const walkName = actionNames.find(n => n.toLowerCase().includes('walk') || n.toLowerCase().includes('run'));
+    const walkAction = walkName ? actions[walkName] : null;
 
-    const walkAction = actions[walkName];
-    const idleAction = actions[idleName];
-    const danceAction = actions[danceName];
-
-    if (isDancing) {
-      walkAction?.fadeOut(0.2);
-      idleAction?.fadeOut(0.2);
-      danceAction?.reset().fadeIn(0.2).play();
-    } else if (isMoving) {
-      danceAction?.fadeOut(0.2);
-      idleAction?.fadeOut(0.2);
-      walkAction?.reset().fadeIn(0.2).play();
+    if (isMoving && walkAction) {
+      walkAction.reset().fadeIn(0.2).play();
     } else {
-      walkAction?.fadeOut(0.2);
-      danceAction?.fadeOut(0.2);
-      idleAction?.reset().fadeIn(0.2).play();
+      if (walkAction && walkAction.isRunning()) {
+        walkAction.fadeOut(0.2);
+      }
+      // 혹시 모를 다른 모든 액션 중지
+      Object.values(actions).forEach(action => {
+        if (action !== walkAction && action.isRunning()) action.fadeOut(0.2);
+      });
     }
-  }, [isMoving, isDancing, actions]);
+  }, [isMoving, actions]);
 
   useFrame((state, delta) => {
     if (!groupRef.current) return;

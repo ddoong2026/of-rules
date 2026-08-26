@@ -72,20 +72,27 @@ export default function Player() {
     const actionNames = Object.keys(actions);
     if (actionNames.length === 0) return;
 
-    const walkActionName = actionNames.find(n => n.toLowerCase().includes('walk')) || actionNames[0];
+    const walkActionName = actionNames.find(n => n.toLowerCase().includes('walk'));
     const runActionName = actionNames.find(n => n.toLowerCase().includes('run')) || walkActionName;
-    const idleActionName = actionNames.find(n => n.toLowerCase().includes('idle')) || actionNames[0];
+    const idleActionName = actionNames.find(n => n.toLowerCase().includes('idle')); // If no explicit idle, don't fallback to random animation
 
     const isMoving = keys.w || keys.a || keys.s || keys.d;
     const isRunning = isMoving && keys.shift;
 
-    const targetAction = isRunning ? runActionName : (isMoving ? walkActionName : idleActionName);
+    let targetAction = null;
+    if (isRunning && runActionName) {
+      targetAction = runActionName;
+    } else if (isMoving && walkActionName) {
+      targetAction = walkActionName;
+    } else if (idleActionName) {
+      targetAction = idleActionName;
+    }
 
     if (currentAction.current !== targetAction) {
       if (currentAction.current && actions[currentAction.current]) {
         actions[currentAction.current].fadeOut(0.2);
       }
-      if (actions[targetAction]) {
+      if (targetAction && actions[targetAction]) {
         actions[targetAction].reset().fadeIn(0.2).play();
       }
       currentAction.current = targetAction;
@@ -143,19 +150,6 @@ export default function Player() {
     if (moveDir.lengthSq() > 0) {
       moveDir.normalize();
       
-      // Calculate target angle based on movement direction
-      const targetAngle = Math.atan2(moveDir.x, moveDir.z);
-      
-      // Smoothly rotate character towards target angle
-      const currentRotation = group.current.rotation.y;
-      
-      // Handle angle wrapping (shortest path)
-      let diff = targetAngle - currentRotation;
-      while (diff < -Math.PI) diff += Math.PI * 2;
-      while (diff > Math.PI) diff -= Math.PI * 2;
-      
-      group.current.rotation.y += diff * ROTATION_SPEED * delta;
-      
       const speed = keys.shift ? RUN_SPEED : WALK_SPEED;
       // Move in the intended direction
       currentVelocity.current.set(
@@ -167,6 +161,9 @@ export default function Player() {
       // Decelerate quickly
       currentVelocity.current.lerp(new THREE.Vector3(0, 0, 0), 0.2);
     }
+
+    // Lock character's visual rotation directly to camera's yaw (fixed behind head)
+    group.current.rotation.y = yaw.current;
 
     const currentTerrainHeight = getTerrainHeight(group.current.position.x, group.current.position.z);
     

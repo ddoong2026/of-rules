@@ -48,8 +48,8 @@ export default function Player() {
       if (document.pointerLockElement === canvas) {
         yaw.current -= e.movementX * 0.003;
         pitch.current -= e.movementY * 0.003;
-        // Clamp pitch to prevent flipping
-        pitch.current = Math.max(-Math.PI/2 + 0.1, Math.min(Math.PI/2 - 0.1, pitch.current));
+        // Clamp pitch to prevent flipping and going underground
+        pitch.current = Math.max(-0.1, Math.min(Math.PI/2 - 0.1, pitch.current));
       }
     };
 
@@ -242,9 +242,16 @@ export default function Player() {
     offset.applyEuler(euler);
     
     const targetLookAt = group.current.position.clone().add(new THREE.Vector3(0, 1.5, 0));
+    const idealCameraPos = targetLookAt.clone().add(offset);
     
-    // Snap camera position to the rotated offset
-    camera.position.copy(targetLookAt).add(offset);
+    // Prevent camera from clipping through the terrain
+    const camGroundHeight = getTerrainHeight(idealCameraPos.x, idealCameraPos.z);
+    if (idealCameraPos.y < camGroundHeight + 0.5) {
+      idealCameraPos.y = camGroundHeight + 0.5;
+    }
+    
+    // Snap camera position
+    camera.position.copy(idealCameraPos);
     camera.lookAt(targetLookAt);
   });
 

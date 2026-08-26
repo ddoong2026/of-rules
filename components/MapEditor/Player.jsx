@@ -63,6 +63,9 @@ export default function Player() {
       window.removeEventListener('keyup', handleKeyUp);
       if (canvas) canvas.removeEventListener('click', onCanvasClick);
       document.removeEventListener('mousemove', onMouseMove);
+    };
+  }, [keys]);
+
   // Handle Animation state
   useEffect(() => {
     if (!actions) return;

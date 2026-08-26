@@ -122,6 +122,10 @@ export default function Terrain() {
           const delta = brushIntensity * falloff * (isDigging ? -1 : 1);
           newHeights[idx] += delta;
           modified = true;
+        } else if (mode === 'flatten') {
+          const heightDiff = centerHeight - targetHeight;
+          newHeights[idx] += heightDiff * falloff * (brushIntensity * 0.1);
+          modified = true;
         } else if (mode === 'paint') {
           const r = idx * 3;
           const g = idx * 3 + 1;
@@ -139,7 +143,7 @@ export default function Terrain() {
     }
 
     if (modified) {
-      if (mode === 'sculpt' || mode === 'dig') updateHeights(newHeights);
+      if (mode === 'sculpt' || mode === 'dig' || mode === 'flatten') updateHeights(newHeights);
       if (mode === 'paint') updateColors(newColors);
     }
   };
@@ -149,7 +153,7 @@ export default function Terrain() {
     setIsPointerDown(true);
     e.stopPropagation();
 
-    if (mode === 'sculpt' || mode === 'dig' || mode === 'paint') {
+    if (mode === 'sculpt' || mode === 'dig' || mode === 'flatten' || mode === 'paint') {
       saveHistory(); // Save state before stroke
       applyBrush(e.point, e.button === 2 || e.shiftKey); // right click or shift for inverted sculpt
     } else if (mode === 'water') {
@@ -172,7 +176,7 @@ export default function Terrain() {
 
   const handlePointerMove = (e) => {
     // Update pointer position for brush cursor
-    if (mode === 'sculpt' || mode === 'dig' || mode === 'paint') {
+    if (mode === 'sculpt' || mode === 'dig' || mode === 'flatten' || mode === 'paint') {
       setPointerPos(e.point);
       if (e.face && e.object) {
         const worldNormal = e.face.normal.clone().transformDirection(e.object.matrixWorld).normalize();
@@ -183,7 +187,7 @@ export default function Terrain() {
     }
 
     if (!isPointerDown || isCameraMode) return;
-    if (mode === 'sculpt' || mode === 'dig' || mode === 'paint') {
+    if (mode === 'sculpt' || mode === 'dig' || mode === 'flatten' || mode === 'paint') {
       e.stopPropagation();
       applyBrush(e.point, e.buttons === 2 || e.shiftKey);
     }
@@ -243,14 +247,14 @@ export default function Terrain() {
       </mesh>
       
       {/* Brush Cursor Indicator */}
-      {pointerPos && !isCameraMode && (mode === 'sculpt' || mode === 'dig' || mode === 'paint') && (
+      {pointerPos && !isCameraMode && (mode === 'sculpt' || mode === 'dig' || mode === 'flatten' || mode === 'paint') && (
         <mesh 
           position={[pointerPos.x + pointerNormal.x * 0.1, pointerPos.y + pointerNormal.y * 0.1, pointerPos.z + pointerNormal.z * 0.1]} 
           quaternion={new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), pointerNormal)}
           pointerEvents="none"
         >
           <ringGeometry args={[brushSize - 0.2, brushSize, 32]} />
-          <meshBasicMaterial color={mode === 'paint' ? selectedColor : (mode === 'dig' ? '#ef4444' : '#ffffff')} transparent opacity={0.5} side={THREE.DoubleSide} />
+          <meshBasicMaterial color={mode === 'paint' ? selectedColor : (mode === 'flatten' ? '#f59e0b' : (mode === 'dig' ? '#ef4444' : '#ffffff'))} transparent opacity={0.5} side={THREE.DoubleSide} />
         </mesh>
       )}
     </group>

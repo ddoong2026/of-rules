@@ -57,6 +57,32 @@ function DecalItem({ decal, onErase }) {
   );
 }
 
+function Cave({ id, position, onErase }) {
+  return (
+    <group position={[position[0], position[1], position[2]]} onClick={(e) => onErase(e, id)}>
+      {/* Outer Rock */}
+      <mesh position={[0, 0, 0]} castShadow receiveShadow>
+        <sphereGeometry args={[2, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2]} />
+        <meshStandardMaterial color="#555555" roughness={0.9} />
+      </mesh>
+      {/* Dark Entrance (Hole) */}
+      <mesh position={[0, 0.1, 1.2]} rotation={[0, 0, 0]}>
+        <sphereGeometry args={[1.5, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2]} />
+        <meshBasicMaterial color="#000000" />
+      </mesh>
+    </group>
+  );
+}
+
+function Lake({ id, position, onErase }) {
+  return (
+    <mesh position={[position[0], position[1] + 0.1, position[2]]} rotation={[-Math.PI / 2, 0, 0]} onClick={(e) => onErase(e, id)} receiveShadow>
+      <circleGeometry args={[2, 32]} />
+      <meshStandardMaterial color="#3b82f6" transparent opacity={0.8} roughness={0.1} metalness={0.5} />
+    </mesh>
+  );
+}
+
 export default function AssetManager() {
   const { mode, assets, decals, removeAsset, removeDecal } = useMapStore();
 
@@ -80,6 +106,8 @@ export default function AssetManager() {
         if (asset.type === 'tree') return <Tree key={asset.id} id={asset.id} position={asset.position} onErase={handleEraseAsset} />;
         if (asset.type === 'rock') return <Rock key={asset.id} id={asset.id} position={asset.position} onErase={handleEraseAsset} />;
         if (asset.type === 'house') return <House key={asset.id} id={asset.id} position={asset.position} onErase={handleEraseAsset} />;
+        if (asset.type === 'cave') return <Cave key={asset.id} id={asset.id} position={asset.position} onErase={handleEraseAsset} />;
+        if (asset.type === 'lake') return <Lake key={asset.id} id={asset.id} position={asset.position} onErase={handleEraseAsset} />;
         return null;
       })}
 

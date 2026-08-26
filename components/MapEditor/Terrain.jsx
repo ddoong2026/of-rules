@@ -16,6 +16,8 @@ export default function Terrain() {
   
   const { camera, gl } = useThree();
   const [isPointerDown, setIsPointerDown] = useState(false);
+  const [pointerPos, setPointerPos] = useState(null);
+  const [pointerNormal, setPointerNormal] = useState(new THREE.Vector3(0, 1, 0));
 
   // Initialize Geometry
   useEffect(() => {
@@ -70,8 +72,11 @@ export default function Terrain() {
     const halfSize = 25;
     const segSize = 50 / GRID_SIZE;
     
+    // Ignore clicks outside the circle (radius 25)
+    if (point.x * point.x + point.z * point.z > halfSize * halfSize) return;
+    
     const xIdx = Math.round((point.x + halfSize) / segSize);
-    const yIdx = Math.round((point.z + halfSize) / segSize); // Z in world is Y in plane (rotated)
+    const yIdx = Math.round((point.z + halfSize) / segSize);
 
     if (xIdx < 0 || xIdx > GRID_SIZE || yIdx < 0 || yIdx > GRID_SIZE) return;
 
@@ -79,6 +84,8 @@ export default function Terrain() {
     const newHeights = new Float32Array(heights);
     const newColors = new Float32Array(colors);
     const targetColor = new THREE.Color(selectedColor);
+    const centerIdx = yIdx * (GRID_SIZE + 1) + xIdx;
+    const centerHeight = heights[centerIdx];
 
     // Apply brush in radius
     for (let i = -brushSize; i <= brushSize; i++) {
@@ -89,12 +96,30 @@ export default function Terrain() {
         const cy = yIdx + j;
         if (cx < 0 || cx > GRID_SIZE || cy < 0 || cy > GRID_SIZE) continue;
         
-        const idx = cy * (GRID_SIZE + 1) + cx;
-        const dist = Math.sqrt(i*i + j*j);
-        const falloff = 1 - (dist / (brushSize + 1));
+        // Also ensure affected vertex is within circular map bounds
+        const worldX = cx * segSize - halfSize;
+        const worldZ = cy * segSize - halfSize;
+        if (worldX * worldX + worldZ * worldZ > halfSize * halfSize) continue;
         
-        if (mode === 'sculpt') {
-          const delta = brushIntensity * falloff * (isShift ? -1 : 1);
+        const idx = cy * (GRID_SIZE + 1) + cx;
+        const targetHeight = heights[idx];
+        
+        // Use 3D distance for paint to prevent coloring steep cliffs unintentionally
+        const dx = i;
+        const dz = j;
+        const dy = (targetHeight - centerHeight) / segSize;
+        const dist3D = Math.sqrt(dx*dx + dy*dy + dz*dz);
+        const dist = mode === 'paint' ? dist3D : Math.sqrt(dx*dx + dz*dz);
+        
+        // Smooth falloff (Cosine squared)
+        const normalizedDist = dist / (brushSize + 1);
+        if (normalizedDist > 1) continue; // Skip if outside 3D radius
+        
+        const falloff = Math.pow(Math.cos(normalizedDist * Math.PI / 2), 2);
+        
+        if (mode === 'sculpt' || mode === 'dig') {
+          const isDigging = mode === 'dig' || isShift;
+          const delta = brushIntensity * falloff * (isDigging ? -1 : 1);
           newHeights[idx] += delta;
           modified = true;
         } else if (mode === 'paint') {
@@ -103,7 +128,7 @@ export default function Terrain() {
           const b = idx * 3 + 2;
           
           const currentColor = new THREE.Color(newColors[r], newColors[g], newColors[b]);
-          currentColor.lerp(targetColor, falloff * brushIntensity * 0.2); // 0.2 makes it gradual
+          currentColor.lerp(targetColor, falloff * brushIntensity * 0.2);
           
           newColors[r] = currentColor.r;
           newColors[g] = currentColor.g;
@@ -114,7 +139,7 @@ export default function Terrain() {
     }
 
     if (modified) {
-      if (mode === 'sculpt') updateHeights(newHeights);
+      if (mode === 'sculpt' || mode === 'dig') updateHeights(newHeights);
       if (mode === 'paint') updateColors(newColors);
     }
   };
@@ -124,7 +149,7 @@ export default function Terrain() {
     setIsPointerDown(true);
     e.stopPropagation();
 
-    if (mode === 'sculpt' || mode === 'paint') {
+    if (mode === 'sculpt' || mode === 'dig' || mode === 'paint') {
       saveHistory(); // Save state before stroke
       applyBrush(e.point, e.button === 2 || e.shiftKey); // right click or shift for inverted sculpt
     } else if (mode === 'water') {
@@ -146,8 +171,19 @@ export default function Terrain() {
   };
 
   const handlePointerMove = (e) => {
+    // Update pointer position for brush cursor
+    if (mode === 'sculpt' || mode === 'dig' || mode === 'paint') {
+      setPointerPos(e.point);
+      if (e.face && e.object) {
+        const worldNormal = e.face.normal.clone().transformDirection(e.object.matrixWorld).normalize();
+        setPointerNormal(worldNormal);
+      }
+    } else {
+      setPointerPos(null);
+    }
+
     if (!isPointerDown || isCameraMode) return;
-    if (mode === 'sculpt' || mode === 'paint') {
+    if (mode === 'sculpt' || mode === 'dig' || mode === 'paint') {
       e.stopPropagation();
       applyBrush(e.point, e.buttons === 2 || e.shiftKey);
     }
@@ -157,20 +193,66 @@ export default function Terrain() {
     setIsPointerDown(false);
   };
 
+  const handlePointerOut = () => {
+    setIsPointerDown(false);
+    setPointerPos(null);
+  };
+
+  // Create circular alpha map
+  const alphaMap = useState(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+    
+    // Fill black (transparent)
+    ctx.fillStyle = 'black';
+    ctx.fillRect(0, 0, 512, 512);
+    
+    // Draw white circle (opaque)
+    ctx.beginPath();
+    ctx.arc(256, 256, 256, 0, Math.PI * 2);
+    ctx.fillStyle = 'white';
+    ctx.fill();
+    
+    return new THREE.CanvasTexture(canvas);
+  })[0];
+
   return (
-    <mesh 
-      ref={meshRef} 
-      rotation={[-Math.PI / 2, 0, 0]} 
-      receiveShadow 
-      castShadow
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      onPointerOut={handlePointerUp}
-      onContextMenu={(e) => e.preventDefault()}
-    >
-      <planeGeometry ref={geomRef} args={[50, 50, GRID_SIZE, GRID_SIZE]} />
-      <meshStandardMaterial vertexColors side={THREE.DoubleSide} wireframe={false} roughness={0.8} />
-    </mesh>
+    <group>
+      <mesh 
+        ref={meshRef} 
+        rotation={[-Math.PI / 2, 0, 0]} 
+        receiveShadow 
+        castShadow
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerOut={handlePointerOut}
+        onContextMenu={(e) => e.preventDefault()}
+      >
+        <planeGeometry ref={geomRef} args={[50, 50, GRID_SIZE, GRID_SIZE]} />
+        <meshStandardMaterial 
+          vertexColors 
+          side={THREE.DoubleSide} 
+          roughness={0.8}
+          alphaMap={alphaMap}
+          transparent={true}
+          alphaTest={0.5}
+        />
+      </mesh>
+      
+      {/* Brush Cursor Indicator */}
+      {pointerPos && !isCameraMode && (mode === 'sculpt' || mode === 'dig' || mode === 'paint') && (
+        <mesh 
+          position={[pointerPos.x + pointerNormal.x * 0.1, pointerPos.y + pointerNormal.y * 0.1, pointerPos.z + pointerNormal.z * 0.1]} 
+          quaternion={new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), pointerNormal)}
+          pointerEvents="none"
+        >
+          <ringGeometry args={[brushSize - 0.2, brushSize, 32]} />
+          <meshBasicMaterial color={mode === 'paint' ? selectedColor : (mode === 'dig' ? '#ef4444' : '#ffffff')} transparent opacity={0.5} side={THREE.DoubleSide} />
+        </mesh>
+      )}
+    </group>
   );
 }

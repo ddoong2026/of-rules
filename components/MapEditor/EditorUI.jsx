@@ -16,6 +16,8 @@ const ASSETS = [
   { id: 'tree', name: '나무 (원뿔)' },
   { id: 'rock', name: '바위 (다면체)' },
   { id: 'house', name: '집 (사각형)' },
+  { id: 'cave', name: '동굴 입구 (반구)' },
+  { id: 'lake', name: '고인 물/호수 (원형)' },
 ];
 
 export default function EditorUI({ onSave, isSaving }) {
@@ -27,7 +29,8 @@ export default function EditorUI({ onSave, isSaving }) {
     selectedAsset, setSelectedAsset,
     selectedDecalImage, setSelectedDecalImage,
     currentMapId, mapName,
-    undo, history
+    undo, history,
+    sunTime, setSunTime
   } = useMapStore();
 
   const fileInputRef = useRef(null);
@@ -91,7 +94,8 @@ export default function EditorUI({ onSave, isSaving }) {
       <div>
         <h4 style={{ margin: '0 0 0.5rem 0', color: '#4b5563' }}>도구 선택</h4>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-          <ModeButton current={mode} id="sculpt" label="⛰️ 지형 조형" onClick={() => setMode('sculpt')} />
+          <ModeButton current={mode} id="sculpt" label="⛰️ 지형 융기" onClick={() => setMode('sculpt')} />
+          <ModeButton current={mode} id="dig" label="⛏️ 파내기" onClick={() => setMode('dig')} />
           <ModeButton current={mode} id="paint" label="🖌️ 색칠하기" onClick={() => setMode('paint')} />
           <ModeButton current={mode} id="water" label="💧 수원 배치" onClick={() => setMode('water')} />
           <ModeButton current={mode} id="asset" label="🌲 에셋 배치" onClick={() => setMode('asset')} />
@@ -100,8 +104,8 @@ export default function EditorUI({ onSave, isSaving }) {
         </div>
       </div>
 
-      {/* Brush Settings (Sculpt & Paint) */}
-      {(mode === 'sculpt' || mode === 'paint') && (
+      {/* Brush Settings (Sculpt, Dig & Paint) */}
+      {(mode === 'sculpt' || mode === 'dig' || mode === 'paint') && (
         <div style={{ background: '#f3f4f6', padding: '1rem', borderRadius: '6px' }}>
           <h4 style={{ margin: '0 0 0.5rem 0', color: '#4b5563' }}>브러시 설정</h4>
           <div style={{ marginBottom: '1rem' }}>
@@ -118,7 +122,21 @@ export default function EditorUI({ onSave, isSaving }) {
       {/* Paint Palette */}
       {mode === 'paint' && (
         <div style={{ background: '#f3f4f6', padding: '1rem', borderRadius: '6px' }}>
-          <h4 style={{ margin: '0 0 0.5rem 0', color: '#4b5563' }}>팔레트</h4>
+          <h4 style={{ margin: '0 0 0.5rem 0', color: '#4b5563' }}>팔레트 (색상 선택)</h4>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
+            <input 
+              type="color" 
+              value={selectedColor} 
+              onChange={(e) => setSelectedColor(e.target.value)} 
+              style={{ width: '50px', height: '50px', padding: '0', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+              title="원하는 색상을 자유롭게 선택하세요"
+            />
+            <div style={{ fontSize: '0.9rem', color: '#374151' }}>
+              현재 색상: <span style={{ fontWeight: 'bold' }}>{selectedColor}</span>
+            </div>
+          </div>
+          
+          <div style={{ fontSize: '0.8rem', color: '#6b7280', marginBottom: '0.5rem' }}>추천 색상:</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
             {PALETTE.map(p => (
               <button
@@ -202,6 +220,24 @@ export default function EditorUI({ onSave, isSaving }) {
           </p>
         </div>
       )}
+
+      {/* Lighting Control */}
+      <div style={{ background: '#f3f4f6', padding: '1rem', borderRadius: '6px' }}>
+        <h4 style={{ margin: '0 0 0.5rem 0', color: '#4b5563' }}>태양 위치 (시간대)</h4>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <span style={{ fontSize: '1.2rem' }}>🌅</span>
+          <input 
+            type="range" min="0" max="24" step="0.5" 
+            value={sunTime} 
+            onChange={(e) => setSunTime(parseFloat(e.target.value))} 
+            style={{ flex: 1 }} 
+          />
+          <span style={{ fontSize: '1.2rem' }}>🌃</span>
+        </div>
+        <div style={{ textAlign: 'center', fontSize: '0.8rem', marginTop: '0.2rem', color: '#6b7280' }}>
+          {Math.floor(sunTime)}:{sunTime % 1 === 0 ? '00' : '30'}
+        </div>
+      </div>
     </div>
   );
 }

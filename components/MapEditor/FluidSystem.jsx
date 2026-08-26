@@ -56,9 +56,9 @@ export default function FluidSystem() {
 
   return (
     <group>
-      {/* Static Water */}
+      {/* Static Water - Circular */}
       <mesh position={[0, WATER_LEVEL - 0.2, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[50, 50]} />
+        <circleGeometry args={[25, 64]} />
         <meshStandardMaterial color="#3b82f6" transparent opacity={0.6} roughness={0.1} metalness={0.5} />
       </mesh>
 

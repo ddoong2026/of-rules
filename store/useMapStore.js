@@ -12,6 +12,7 @@ const useMapStore = create((set, get) => ({
   selectedAsset: 'tree',
   selectedDecalImage: null,
   isCameraMode: false,
+  sunTime: 12, // 0 to 24 hours
   
   // Undo History
   history: [], // array of { heights: Float32Array, colors: Float32Array }
@@ -35,6 +36,7 @@ const useMapStore = create((set, get) => ({
   setSelectedAsset: (asset) => set({ selectedAsset: asset }),
   setSelectedDecalImage: (url) => set({ selectedDecalImage: url }),
   setCameraMode: (isCameraMode) => set({ isCameraMode }),
+  setSunTime: (time) => set({ sunTime: time }),
   
   saveHistory: () => set((state) => {
     const newHistory = [...state.history, { 

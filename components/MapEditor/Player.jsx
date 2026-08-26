@@ -157,15 +157,13 @@ export default function Player() {
       moveDir.normalize();
       
       const speed = keys.shift ? RUN_SPEED : WALK_SPEED;
-      // Move in the intended direction
-      currentVelocity.current.set(
-        moveDir.x * speed,
-        0,
-        moveDir.z * speed
-      );
+      // Move in the intended direction (Y 축은 건드리지 않음)
+      currentVelocity.current.x = moveDir.x * speed;
+      currentVelocity.current.z = moveDir.z * speed;
     } else {
-      // Decelerate quickly
-      currentVelocity.current.lerp(new THREE.Vector3(0, 0, 0), 0.2);
+      // Decelerate quickly (Y 축은 건드리지 않음)
+      currentVelocity.current.x = THREE.MathUtils.lerp(currentVelocity.current.x, 0, 0.2);
+      currentVelocity.current.z = THREE.MathUtils.lerp(currentVelocity.current.z, 0, 0.2);
     }
 
     // Lock character's visual rotation directly to camera's yaw (fixed behind head)
@@ -213,7 +211,7 @@ export default function Player() {
     }
 
     // Air Physics
-    currentVelocity.current.y -= 12 * delta; // gravity (완만하게 변경)
+    currentVelocity.current.y -= 5 * delta; // gravity (매우 완만하게 '스르륵')
     
     // Apply Y velocity
     group.current.position.y += currentVelocity.current.y * delta;
@@ -237,7 +235,7 @@ export default function Player() {
       }
       
       if (keys.space && !isJumping.current) {
-        currentVelocity.current.y = 8; // JUMP_FORCE (부드럽게 하향)
+        currentVelocity.current.y = 4.5; // JUMP_FORCE (부드럽게 하향, 높이 감소)
         group.current.position.y += 0.25; // Slight lift to break ground contact instantly
         
         isJumping.current = true;

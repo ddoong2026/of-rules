@@ -66,6 +66,35 @@ export default function Player() {
     };
   }, [keys]);
 
+  // Fix character lighting and shadows
+  useEffect(() => {
+    if (scene) {
+      scene.traverse((child) => {
+        if (child.isMesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+          
+          if (child.material) {
+            // Force basic materials to standard so they react to night/day
+            if (child.material.type === 'MeshBasicMaterial') {
+              const newMat = new THREE.MeshStandardMaterial({
+                color: child.material.color,
+                map: child.material.map,
+                skinning: true
+              });
+              child.material = newMat;
+            }
+            // Ensure emissive is not making it glow at night
+            if (child.material.emissive) {
+              child.material.emissive.setHex(0x000000);
+            }
+            child.material.needsUpdate = true;
+          }
+        }
+      });
+    }
+  }, [scene]);
+
   // Handle Animation state
   useEffect(() => {
     if (!actions) return;

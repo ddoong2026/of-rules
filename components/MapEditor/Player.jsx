@@ -50,7 +50,8 @@ export default function Player() {
         yaw.current -= e.movementX * 0.003;
         pitch.current += e.movementY * 0.003; // Inverted Y-axis
         // Clamp pitch to prevent flipping and going underground
-        pitch.current = Math.max(-0.1, Math.min(Math.PI/2 - 0.1, pitch.current));
+        // -0.1이었던 하한을 -0.4로 변경하여 더 위를 올려다볼 수 있게 허용
+        pitch.current = Math.max(-0.4, Math.min(Math.PI/2 - 0.1, pitch.current));
       }
     };
 
@@ -150,8 +151,8 @@ export default function Player() {
 
     if (keys.w) moveDir.add(forward);
     if (keys.s) moveDir.sub(forward);
-    if (keys.a) moveDir.sub(right); // left
-    if (keys.d) moveDir.add(right); // right
+    if (keys.a) moveDir.add(right); // left (이제 오른쪽으로 이동)
+    if (keys.d) moveDir.sub(right); // right (이제 왼쪽으로 이동)
 
     if (moveDir.lengthSq() > 0) {
       moveDir.normalize();
@@ -235,7 +236,7 @@ export default function Player() {
       }
       
       if (keys.space && !isJumping.current) {
-        currentVelocity.current.y = 6.0; // JUMP_FORCE (캐릭터 크기에 맞춘 낮고 짧은 점프)
+        currentVelocity.current.y = 3.5; // JUMP_FORCE (높이만 정확히 기존의 1/3 수준으로 감소)
         group.current.position.y += 0.25; // Slight lift to break ground contact instantly
         
         isJumping.current = true;
@@ -259,7 +260,7 @@ export default function Player() {
     }
     smoothedPlayerPos.current.lerp(group.current.position, 15 * delta);
 
-    const offset = new THREE.Vector3(0, 0.2, -1.5); // 카메라 줌 더 가깝게(뒤통수)
+    const offset = new THREE.Vector3(0, 0.2, -0.6); // 카메라 줌 훨씬 더 가깝게 (바로 뒤통수)
     const euler = new THREE.Euler(pitch.current, yaw.current, 0, 'YXZ');
     offset.applyEuler(euler);
     

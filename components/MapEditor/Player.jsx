@@ -221,8 +221,8 @@ export default function Player() {
     const distToGround = group.current.position.y - currentGroundHeight;
     
     // Character is grounded if exactly on/below ground, OR very close while falling/running (prevents flying off slopes)
-    // 1.0이었던 스냅 거리를 0.2로 줄여 점프 중 갑자기 바닥으로 순간이동(움찔거림)하는 현상 방지
-    const isGrounded = distToGround <= 0 || (distToGround < 0.2 && currentVelocity.current.y <= 0);
+    // 0.2였던 스냅 거리를 0.05로 줄여 착지 시 순간이동(통통 튀는/끊기는) 현상 방지
+    const isGrounded = distToGround <= 0 || (distToGround < 0.05 && currentVelocity.current.y <= 0);
     
     if (isGrounded) {
       if (!wasGrounded.current) {
@@ -235,7 +235,7 @@ export default function Player() {
       }
       
       if (keys.space && !isJumping.current) {
-        currentVelocity.current.y = 4.0; // JUMP_FORCE (좀 더 높고 멀리 뛸 수 있도록 2배 상향)
+        currentVelocity.current.y = 3.0; // JUMP_FORCE (요청하신 3.0으로 설정)
         group.current.position.y += 0.01; // 아주 미세한 값만 올려 바닥 판정을 피함 (0.25 순간이동 제거)
         
         isJumping.current = true;

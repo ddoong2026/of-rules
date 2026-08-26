@@ -211,7 +211,7 @@ export default function Player() {
     }
 
     // Air Physics
-    currentVelocity.current.y -= 5 * delta; // gravity (매우 완만하게 '스르륵')
+    currentVelocity.current.y -= 3 * delta; // gravity (매우 완만하게 '스르륵')
     
     // Apply Y velocity
     group.current.position.y += currentVelocity.current.y * delta;
@@ -235,7 +235,7 @@ export default function Player() {
       }
       
       if (keys.space && !isJumping.current) {
-        currentVelocity.current.y = 4.5; // JUMP_FORCE (부드럽게 하향, 높이 감소)
+        currentVelocity.current.y = 2.0; // JUMP_FORCE (높이 대폭 감소, 종형 곡선 느낌)
         group.current.position.y += 0.25; // Slight lift to break ground contact instantly
         
         isJumping.current = true;

@@ -3,7 +3,6 @@
 import { useRef, useEffect, useState } from 'react';
 import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { v4 as uuidv4 } from 'uuid';
 import useMapStore, { GRID_SIZE, VERTEX_COUNT } from '@/store/useMapStore';
 
 export default function Terrain() {
@@ -130,13 +129,13 @@ export default function Terrain() {
       addWaterSource(e.point.x, e.point.z);
     } else if (mode === 'asset') {
       addAsset({
-        id: uuidv4(),
+        id: crypto.randomUUID(),
         type: selectedAsset,
         position: [e.point.x, e.point.y, e.point.z]
       });
     } else if (mode === 'decal' && selectedDecalImage) {
       addDecal({
-        id: uuidv4(),
+        id: crypto.randomUUID(),
         url: selectedDecalImage,
         position: [e.point.x, e.point.y, e.point.z],
         scale: [brushSize * 2, brushSize * 2, brushSize * 2] // Arbitrary scaling based on brush

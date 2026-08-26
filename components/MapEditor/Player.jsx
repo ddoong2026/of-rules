@@ -17,24 +17,52 @@ export default function Player() {
   const { camera } = useThree();
   const heights = useMapStore((state) => state.heights);
 
-  const [keys, setKeys] = useState({ w: false, a: false, s: false, d: false, shift: false });
+  const [keys, setKeys] = useState({ w: false, a: false, s: false, d: false, shift: false, space: false, control: false });
   const currentAction = useRef('');
+  
+  const yaw = useRef(0);
+  const pitch = useRef(0);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
+      if (e.code === 'Space') setKeys(k => ({ ...k, space: true }));
+      if (e.key === 'Control') setKeys(k => ({ ...k, control: true }));
       const key = e.key.toLowerCase();
       if (keys.hasOwnProperty(key)) setKeys(k => ({ ...k, [key]: true }));
     };
     const handleKeyUp = (e) => {
+      if (e.code === 'Space') setKeys(k => ({ ...k, space: false }));
+      if (e.key === 'Control') setKeys(k => ({ ...k, control: false }));
       const key = e.key.toLowerCase();
       if (keys.hasOwnProperty(key)) setKeys(k => ({ ...k, [key]: false }));
     };
 
+    const canvas = document.querySelector('canvas');
+    const onCanvasClick = () => {
+      if (document.pointerLockElement !== canvas) {
+        canvas.requestPointerLock();
+      }
+    };
+    
+    const onMouseMove = (e) => {
+      if (document.pointerLockElement === canvas) {
+        yaw.current -= e.movementX * 0.003;
+        pitch.current -= e.movementY * 0.003;
+        // Clamp pitch to prevent flipping
+        pitch.current = Math.max(-Math.PI/2 + 0.1, Math.min(Math.PI/2 - 0.1, pitch.current));
+      }
+    };
+
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
+    if (canvas) canvas.addEventListener('click', onCanvasClick);
+    document.addEventListener('mousemove', onMouseMove);
+
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
+      if (canvas) canvas.removeEventListener('click', onCanvasClick);
+      document.removeEventListener('mousemove', onMouseMove);
     };
   }, [keys]);
 
@@ -102,16 +130,19 @@ export default function Player() {
   useFrame((state, delta) => {
     if (!group.current) return;
 
-    // Movement Logic
+    // Movement Logic relative to camera yaw
     const moveDir = new THREE.Vector3(0, 0, 0);
-    if (keys.w) moveDir.z -= 1;
-    if (keys.s) moveDir.z += 1;
-    if (keys.a) moveDir.x -= 1;
-    if (keys.d) moveDir.x += 1;
+    const forward = new THREE.Vector3(0, 0, 1).applyEuler(new THREE.Euler(0, yaw.current, 0));
+    const right = new THREE.Vector3(1, 0, 0).applyEuler(new THREE.Euler(0, yaw.current, 0));
 
-    moveDir.normalize();
+    if (keys.w) moveDir.add(forward);
+    if (keys.s) moveDir.sub(forward);
+    if (keys.a) moveDir.sub(right); // left
+    if (keys.d) moveDir.add(right); // right
 
     if (moveDir.lengthSq() > 0) {
+      moveDir.normalize();
+      
       // Calculate target angle based on movement direction
       const targetAngle = Math.atan2(moveDir.x, moveDir.z);
       
@@ -137,25 +168,28 @@ export default function Player() {
       currentVelocity.current.lerp(new THREE.Vector3(0, 0, 0), 0.2);
     }
 
-    // Apply movement with slope restriction
+    const currentTerrainHeight = getTerrainHeight(group.current.position.x, group.current.position.z);
+    
+    // Apply movement with slope restriction on XZ
     const nextX = group.current.position.x + currentVelocity.current.x * delta;
     const nextZ = group.current.position.z + currentVelocity.current.z * delta;
     
     const dist = Math.sqrt((nextX - group.current.position.x)**2 + (nextZ - group.current.position.z)**2);
-    let canMove = true;
+    let canMoveXZ = true;
     
     if (dist > 0.0001) {
-      const currentTerrainHeight = getTerrainHeight(group.current.position.x, group.current.position.z);
       const nextTerrainHeight = getTerrainHeight(nextX, nextZ);
       const slope = (nextTerrainHeight - currentTerrainHeight) / dist;
       
-      if (slope > 1.2) { // 1.2 is roughly 50 degrees slope
-        canMove = false;
-        currentVelocity.current.set(0, 0, 0);
+      // Block if slope > 1.2 AND we are grounded (not jumping over it)
+      if (slope > 1.2 && group.current.position.y <= currentTerrainHeight + 0.5) {
+        canMoveXZ = false;
+        currentVelocity.current.x = 0;
+        currentVelocity.current.z = 0;
       }
     }
 
-    if (canMove) {
+    if (canMoveXZ) {
       group.current.position.x = nextX;
       group.current.position.z = nextZ;
     }
@@ -168,23 +202,52 @@ export default function Player() {
       group.current.position.z = Math.cos(angle) * 24;
     }
 
-    // Apply Terrain Height
-    const groundHeight = getTerrainHeight(group.current.position.x, group.current.position.z);
+    // Y-Axis Physics (Gravity, Jumping, Swimming)
+    const isUnderwater = group.current.position.y < 0; // WATER_LEVEL is 0
     
-    // Smoothly interpolate Y position to prevent snapping
-    group.current.position.y += (groundHeight - group.current.position.y) * 15 * delta;
+    if (isUnderwater) {
+      // Water Physics
+      currentVelocity.current.y -= 2 * delta; // gentle sinking
+      currentVelocity.current.y *= 0.95; // drag
+      
+      if (keys.space) currentVelocity.current.y += 15 * delta; // swim up
+      if (keys.control) currentVelocity.current.y -= 15 * delta; // swim down
+    } else {
+      // Air Physics
+      currentVelocity.current.y -= 20 * delta; // gravity
+    }
+    
+    // Apply Y velocity
+    group.current.position.y += currentVelocity.current.y * delta;
+    
+    // Ground Collision
+    const currentGroundHeight = getTerrainHeight(group.current.position.x, group.current.position.z);
+    
+    if (group.current.position.y <= currentGroundHeight) {
+      if (!keys.space || isUnderwater) {
+        // Smooth snap to ground if not trying to jump out
+        group.current.position.y += (currentGroundHeight - group.current.position.y) * 15 * delta;
+      } else {
+        group.current.position.y = currentGroundHeight;
+      }
+      
+      if (keys.space && !isUnderwater) {
+        currentVelocity.current.y = 8; // Jump force
+      } else if (currentVelocity.current.y < 0) {
+        currentVelocity.current.y = 0; // Stop falling
+      }
+    }
 
     // Update Camera
-    // Position camera behind and above the player
-    const idealOffset = cameraOffset.clone();
-    idealOffset.applyAxisAngle(new THREE.Vector3(0, 1, 0), group.current.rotation.y);
-    idealOffset.add(group.current.position);
+    // Position camera behind and above the player based on pitch and yaw
+    const offset = new THREE.Vector3(0, 0, -5); // 5 units away
+    const euler = new THREE.Euler(pitch.current, yaw.current, 0, 'YXZ');
+    offset.applyEuler(euler);
     
-    // Smooth camera follow
-    camera.position.lerp(idealOffset, 5 * delta);
-    
-    // Look at player slightly above feet
     const targetLookAt = group.current.position.clone().add(new THREE.Vector3(0, 1.5, 0));
+    
+    // Snap camera position to the rotated offset
+    camera.position.copy(targetLookAt).add(offset);
     camera.lookAt(targetLookAt);
   });
 

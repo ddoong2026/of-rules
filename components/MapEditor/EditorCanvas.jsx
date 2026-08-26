@@ -22,40 +22,58 @@ export default function EditorCanvas() {
   const sunPosition = [sunX, sunY, sunZ];
 
   return (
-    <Canvas
-      camera={{ position: [0, 20, 20], fov: 60 }}
-      style={{ background: '#87CEEB', cursor: isPlaying ? 'none' : (isCameraMode ? 'grab' : (mode === 'erase' ? 'cell' : 'crosshair')) }}
-      onContextMenu={(e) => e.preventDefault()}
-      shadows
-    >
-      <Sky distance={450000} sunPosition={sunPosition} />
-      <ambientLight intensity={sunY > 0 ? 0.5 : 0.1} />
-      <directionalLight 
-        castShadow 
-        position={sunPosition} 
-        intensity={Math.max(0, sunY) * 0.05 + 0.1} 
-        shadow-mapSize-width={2048} 
-        shadow-mapSize-height={2048}
-        shadow-camera-far={100}
-        shadow-camera-left={-30}
-        shadow-camera-right={30}
-        shadow-camera-top={30}
-        shadow-camera-bottom={-30}
-      />
-      
-      <Terrain />
-      <AssetManager />
-      <FluidSystem />
-      
-      {isPlaying && <Player />}
-      
-      <OrbitControls 
-        makeDefault 
-        enabled={!isPlaying && isCameraMode}
-        maxPolarAngle={Math.PI / 2 - 0.05} // don't go below ground
-        minDistance={5}
-        maxDistance={100}
-      />
-    </Canvas>
+    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+      <Canvas
+        camera={{ position: [0, 20, 20], fov: 60 }}
+        style={{ background: '#87CEEB', cursor: isPlaying ? 'none' : (isCameraMode ? 'grab' : (mode === 'erase' ? 'cell' : 'crosshair')) }}
+        onContextMenu={(e) => e.preventDefault()}
+        shadows
+      >
+        <Sky distance={450000} sunPosition={sunPosition} />
+        <ambientLight intensity={sunY > 0 ? 0.5 : 0.1} />
+        <directionalLight 
+          castShadow 
+          position={sunPosition} 
+          intensity={Math.max(0, sunY) * 0.05 + 0.1} 
+          shadow-mapSize-width={2048} 
+          shadow-mapSize-height={2048}
+          shadow-camera-far={100}
+          shadow-camera-left={-30}
+          shadow-camera-right={30}
+          shadow-camera-top={30}
+          shadow-camera-bottom={-30}
+        />
+        
+        <Terrain />
+        <AssetManager />
+        <FluidSystem />
+        
+        {isPlaying && <Player />}
+        
+        <OrbitControls 
+          makeDefault 
+          enabled={!isPlaying && isCameraMode}
+          maxPolarAngle={Math.PI / 2 - 0.05} // don't go below ground
+          minDistance={5}
+          maxDistance={100}
+        />
+      </Canvas>
+
+      {/* Crosshair for Play Mode */}
+      {isPlaying && (
+        <div style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: '6px',
+          height: '6px',
+          backgroundColor: 'rgba(255, 255, 255, 0.8)',
+          borderRadius: '50%',
+          border: '1px solid rgba(0, 0, 0, 0.5)',
+          pointerEvents: 'none'
+        }} />
+      )}
+    </div>
   );
 }

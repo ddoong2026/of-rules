@@ -11,13 +11,14 @@ export default function Terrain() {
   const { 
     mode, brushSize, brushIntensity, selectedColor, selectedAsset, selectedDecalImage,
     heights, colors, updateHeights, updateColors, addAsset, addDecal, addWaterSource,
-    isCameraMode, saveHistory 
+    isCameraMode, saveHistory, isPlaying 
   } = useMapStore();
   
-  const { camera, gl } = useThree();
+  const { camera, gl, raycaster: r3fRaycaster } = useThree();
   const [isPointerDown, setIsPointerDown] = useState(false);
   const [pointerPos, setPointerPos] = useState(null);
   const [pointerNormal, setPointerNormal] = useState(new THREE.Vector3(0, 1, 0));
+  const brushMeshRef = useRef();
 
   // Initialize Geometry
   useEffect(() => {
@@ -62,6 +63,35 @@ export default function Terrain() {
       col.needsUpdate = true;
     }
   }, [heights, colors]);
+
+  import { useFrame } from '@react-three/fiber';
+
+  useFrame(() => {
+    if (isPlaying && document.pointerLockElement === gl.domElement) {
+      r3fRaycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+      const intersects = r3fRaycaster.intersectObject(meshRef.current);
+      
+      if (intersects.length > 0 && brushMeshRef.current) {
+        brushMeshRef.current.visible = (mode === 'sculpt' || mode === 'dig' || mode === 'flatten' || mode === 'paint');
+        
+        const pt = intersects[0].point;
+        const norm = intersects[0].face.normal.clone().transformDirection(meshRef.current.matrixWorld).normalize();
+        
+        brushMeshRef.current.position.set(pt.x + norm.x * 0.1, pt.y + norm.y * 0.1, pt.z + norm.z * 0.1);
+        brushMeshRef.current.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), norm);
+      } else if (brushMeshRef.current) {
+        brushMeshRef.current.visible = false;
+      }
+    } else {
+       if (brushMeshRef.current) {
+         brushMeshRef.current.visible = !!pointerPos && !isCameraMode && (mode === 'sculpt' || mode === 'dig' || mode === 'flatten' || mode === 'paint');
+         if (pointerPos) {
+           brushMeshRef.current.position.set(pointerPos.x + pointerNormal.x * 0.1, pointerPos.y + pointerNormal.y * 0.1, pointerPos.z + pointerNormal.z * 0.1);
+           brushMeshRef.current.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), pointerNormal);
+         }
+       }
+    }
+  });
 
   const applyBrush = (point, isShift) => {
     if (!geomRef.current) return;
@@ -153,43 +183,69 @@ export default function Terrain() {
     setIsPointerDown(true);
     e.stopPropagation();
 
+    let targetPoint = e.point;
+    
+    if (isPlaying && document.pointerLockElement === gl.domElement) {
+       r3fRaycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+       const intersects = r3fRaycaster.intersectObject(meshRef.current);
+       if (intersects.length > 0) {
+         targetPoint = intersects[0].point;
+       } else {
+         return; // clicked sky
+       }
+    }
+
     if (mode === 'sculpt' || mode === 'dig' || mode === 'flatten' || mode === 'paint') {
       saveHistory(); // Save state before stroke
-      applyBrush(e.point, e.button === 2 || e.shiftKey); // right click or shift for inverted sculpt
+      applyBrush(targetPoint, e.button === 2 || e.shiftKey); // right click or shift for inverted sculpt
     } else if (mode === 'water') {
-      addWaterSource(e.point.x, e.point.z);
+      addWaterSource(targetPoint.x, targetPoint.z);
     } else if (mode === 'asset') {
       addAsset({
         id: crypto.randomUUID(),
         type: selectedAsset,
-        position: [e.point.x, e.point.y, e.point.z]
+        position: [targetPoint.x, targetPoint.y, targetPoint.z]
       });
     } else if (mode === 'decal' && selectedDecalImage) {
       addDecal({
         id: crypto.randomUUID(),
         url: selectedDecalImage,
-        position: [e.point.x, e.point.y, e.point.z],
+        position: [targetPoint.x, targetPoint.y, targetPoint.z],
         scale: [brushSize * 2, brushSize * 2, brushSize * 2] // Arbitrary scaling based on brush
       });
     }
   };
 
   const handlePointerMove = (e) => {
-    // Update pointer position for brush cursor
-    if (mode === 'sculpt' || mode === 'dig' || mode === 'flatten' || mode === 'paint') {
-      setPointerPos(e.point);
-      if (e.face && e.object) {
-        const worldNormal = e.face.normal.clone().transformDirection(e.object.matrixWorld).normalize();
-        setPointerNormal(worldNormal);
+    if (!isPlaying || document.pointerLockElement !== gl.domElement) {
+      // Update pointer position for brush cursor in normal mode
+      if (mode === 'sculpt' || mode === 'dig' || mode === 'flatten' || mode === 'paint') {
+        setPointerPos(e.point);
+        if (e.face && e.object) {
+          const worldNormal = e.face.normal.clone().transformDirection(e.object.matrixWorld).normalize();
+          setPointerNormal(worldNormal);
+        }
+      } else {
+        setPointerPos(null);
       }
-    } else {
-      setPointerPos(null);
     }
 
     if (!isPointerDown || isCameraMode) return;
+
+    let targetPoint = e.point;
+    if (isPlaying && document.pointerLockElement === gl.domElement) {
+       r3fRaycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+       const intersects = r3fRaycaster.intersectObject(meshRef.current);
+       if (intersects.length > 0) {
+         targetPoint = intersects[0].point;
+       } else {
+         return;
+       }
+    }
+
     if (mode === 'sculpt' || mode === 'dig' || mode === 'flatten' || mode === 'paint') {
       e.stopPropagation();
-      applyBrush(e.point, e.buttons === 2 || e.shiftKey);
+      applyBrush(targetPoint, e.buttons === 2 || e.shiftKey);
     }
   };
 
@@ -247,16 +303,14 @@ export default function Terrain() {
       </mesh>
       
       {/* Brush Cursor Indicator */}
-      {pointerPos && !isCameraMode && (mode === 'sculpt' || mode === 'dig' || mode === 'flatten' || mode === 'paint') && (
-        <mesh 
-          position={[pointerPos.x + pointerNormal.x * 0.1, pointerPos.y + pointerNormal.y * 0.1, pointerPos.z + pointerNormal.z * 0.1]} 
-          quaternion={new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), pointerNormal)}
-          pointerEvents="none"
-        >
-          <ringGeometry args={[brushSize - 0.2, brushSize, 32]} />
-          <meshBasicMaterial color={mode === 'paint' ? selectedColor : (mode === 'flatten' ? '#f59e0b' : (mode === 'dig' ? '#ef4444' : '#ffffff'))} transparent opacity={0.5} side={THREE.DoubleSide} />
-        </mesh>
-      )}
+      <mesh 
+        ref={brushMeshRef}
+        pointerEvents="none"
+        visible={false}
+      >
+        <ringGeometry args={[brushSize - 0.2, brushSize, 32]} />
+        <meshBasicMaterial color={mode === 'paint' ? selectedColor : (mode === 'flatten' ? '#f59e0b' : (mode === 'dig' ? '#ef4444' : '#ffffff'))} transparent opacity={0.5} side={THREE.DoubleSide} />
+      </mesh>
     </group>
   );
 }

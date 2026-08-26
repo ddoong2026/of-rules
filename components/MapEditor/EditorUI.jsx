@@ -100,9 +100,10 @@ export default function EditorUI({ onSave, isSaving }) {
       </div>
 
       {/* Mode Selection */}
-      <div style={{ opacity: isPlaying ? 0.3 : 1, pointerEvents: isPlaying ? 'none' : 'auto' }}>
+      <div>
         <h4 style={{ margin: '0 0 0.5rem 0', color: '#4b5563' }}>도구 선택</h4>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+          <ModeButton current={mode} id="none" label="👆 선택 해제" onClick={() => setMode('none')} />
           <ModeButton current={mode} id="sculpt" label="⛰️ 지형 융기" onClick={() => setMode('sculpt')} />
           <ModeButton current={mode} id="dig" label="⛏️ 파내기" onClick={() => setMode('dig')} />
           <ModeButton current={mode} id="flatten" label="🚜 평지 만들기" onClick={() => setMode('flatten')} />

@@ -5,7 +5,7 @@ export const VERTEX_COUNT = (GRID_SIZE + 1) * (GRID_SIZE + 1);
 
 const useMapStore = create((set, get) => ({
   // Editor State
-  mode: 'sculpt', // sculpt, paint, water, asset, decal, erase
+  mode: 'none', // sculpt, paint, water, asset, decal, erase, none
   brushSize: 2,
   brushIntensity: 1, // height change amount or paint opacity
   selectedColor: '#3d8c40', // default grass color

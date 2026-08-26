@@ -228,10 +228,7 @@ export default function Player() {
     
     if (isGrounded) {
       if (!wasGrounded.current) {
-        // Just landed! Apply landing squash (뽀용하는 착지 느낌)
-        if (currentVelocity.current.y < -5) {
-          group.current.scale.set(1.1, 0.85, 1.1);
-        }
+        // 착지 시 스케일 변화(띠용 효과) 제거
       }
 
       if (currentVelocity.current.y <= 0) {
@@ -243,8 +240,6 @@ export default function Player() {
         currentVelocity.current.y = 15; // JUMP_FORCE (높이 상향)
         group.current.position.y += 0.25; // Slight lift to break ground contact instantly
         
-        // Squash and Stretch 애니메이션 효과 (젤리 느낌 살짝 완화)
-        group.current.scale.set(0.9, 1.15, 0.9);
         isJumping.current = true;
         
         // 0.5초(500ms) 뒤에 쿨다운 초기화

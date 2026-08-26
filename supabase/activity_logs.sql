@@ -39,6 +39,6 @@ BEGIN
 
   -- 3. Log activity
   INSERT INTO public.activity_logs (user_id, action_type, description)
-  VALUES (COALESCE(p_actor_id, p_user_id), 'TRANSACTION', '트랜잭션: ' || p_description || ' (' || p_amount || '미소)');
+  VALUES (COALESCE(p_actor_id, p_user_id), 'TRANSACTION', '트랜잭션: ' || p_description || ' (' || p_amount || '돈)');
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

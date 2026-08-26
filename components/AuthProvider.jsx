@@ -8,7 +8,7 @@ const AuthContext = createContext({});
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [role, setRole] = useState(null); // includes balance, job, etc.
-  const [currency, setCurrency] = useState('미소');
+  const [currency, setCurrency] = useState('돈');
   const [treasury, setTreasury] = useState(0);
   const [loading, setLoading] = useState(true);
 

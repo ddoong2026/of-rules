@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS public.settings (
 
 -- Insert default currency name if not exists
 INSERT INTO public.settings (key, value)
-VALUES ('currency_name', '미소')
+VALUES ('currency_name', '돈')
 ON CONFLICT (key) DO NOTHING;
 
 -- 2. Add balance and job to users

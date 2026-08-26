@@ -28,7 +28,7 @@ export default function TeacherDashboard() {
   const [editorType, setEditorType] = useState('heightmap'); // 'heightmap' | 'voxel'
 
   // --- Economy Tab State ---
-  const [currencyName, setCurrencyName] = useState('미소');
+  const [currencyName, setCurrencyName] = useState('돈');
   const [shopItems, setShopItems] = useState([]);
   const [newItemName, setNewItemName] = useState('');
   const [newItemPrice, setNewItemPrice] = useState('');
@@ -453,7 +453,7 @@ export default function TeacherDashboard() {
                   className="glass-input" 
                   value={currencyName}
                   onChange={(e) => setCurrencyName(e.target.value)}
-                  placeholder="예: 미소, 원"
+                  placeholder="예: 돈, 원"
                   style={{ maxWidth: '200px' }}
                 />
                 <button 

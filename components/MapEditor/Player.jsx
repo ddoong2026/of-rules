@@ -213,7 +213,7 @@ export default function Player() {
     }
 
     // Air Physics
-    currentVelocity.current.y -= 20 * delta; // gravity
+    currentVelocity.current.y -= 12 * delta; // gravity (완만하게 변경)
     
     // Apply Y velocity
     group.current.position.y += currentVelocity.current.y * delta;
@@ -237,7 +237,7 @@ export default function Player() {
       }
       
       if (keys.space && !isJumping.current) {
-        currentVelocity.current.y = 15; // JUMP_FORCE (높이 상향)
+        currentVelocity.current.y = 8; // JUMP_FORCE (부드럽게 하향)
         group.current.position.y += 0.25; // Slight lift to break ground contact instantly
         
         isJumping.current = true;
@@ -261,7 +261,7 @@ export default function Player() {
     }
     smoothedPlayerPos.current.lerp(group.current.position, 15 * delta);
 
-    const offset = new THREE.Vector3(0, 0, -2.5); // Scaled down offset
+    const offset = new THREE.Vector3(0, 0.2, -1.5); // 카메라 줌 더 가깝게(뒤통수)
     const euler = new THREE.Euler(pitch.current, yaw.current, 0, 'YXZ');
     offset.applyEuler(euler);
     

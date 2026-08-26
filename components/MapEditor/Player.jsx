@@ -50,8 +50,7 @@ export default function Player() {
         yaw.current -= e.movementX * 0.003;
         pitch.current += e.movementY * 0.003; // Inverted Y-axis
         // Clamp pitch to prevent flipping and going underground
-        // -0.1이었던 하한을 -0.4로 변경하여 더 위를 올려다볼 수 있게 허용
-        pitch.current = Math.max(-0.4, Math.min(Math.PI/2 - 0.1, pitch.current));
+        pitch.current = Math.max(-0.1, Math.min(Math.PI/2 - 0.1, pitch.current));
       }
     };
 

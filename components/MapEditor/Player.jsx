@@ -63,9 +63,6 @@ export default function Player() {
       window.removeEventListener('keyup', handleKeyUp);
       if (canvas) canvas.removeEventListener('click', onCanvasClick);
       document.removeEventListener('mousemove', onMouseMove);
-    };
-  }, [keys]);
-
   // Handle Animation state
   useEffect(() => {
     if (!actions) return;
@@ -131,6 +128,35 @@ export default function Player() {
     return h0 * (1 - tz) + h1 * tz;
   };
 
+  const hasSpawned = useRef(false);
+  useEffect(() => {
+    if (group.current && !hasSpawned.current) {
+      let spawnX = 0;
+      let spawnZ = 0;
+      let found = false;
+
+      // Spiral search outwards from center to find a dry spot
+      for (let r = 0; r < 24; r += 2) {
+        for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 4) {
+          const x = Math.cos(angle) * r;
+          const z = Math.sin(angle) * r;
+          const h = getTerrainHeight(x, z);
+          
+          if (h > 0.5) { // Needs to be well above water level (0)
+            spawnX = x;
+            spawnZ = z;
+            found = true;
+            break;
+          }
+        }
+        if (found) break;
+      }
+
+      group.current.position.set(spawnX, getTerrainHeight(spawnX, spawnZ), spawnZ);
+      hasSpawned.current = true;
+    }
+  }, [heights]);
+
   const currentVelocity = useRef(new THREE.Vector3());
   const cameraOffset = new THREE.Vector3(0, 3, -5); // 3rd person offset (behind the character)
 
@@ -186,6 +212,13 @@ export default function Player() {
       }
     }
 
+    // Block water entry
+    if (nextTerrainHeight < 0) {
+      canMoveXZ = false;
+      currentVelocity.current.x = 0;
+      currentVelocity.current.z = 0;
+    }
+    
     if (canMoveXZ) {
       group.current.position.x = nextX;
       group.current.position.z = nextZ;
@@ -199,40 +232,29 @@ export default function Player() {
       group.current.position.z = Math.cos(angle) * 24;
     }
 
-    // Y-Axis Physics (Gravity, Jumping, Swimming)
-    const isUnderwater = group.current.position.y < 0; // WATER_LEVEL is 0
-    
-    if (isUnderwater) {
-      // Water Physics
-      currentVelocity.current.y -= 2 * delta; // gentle sinking
-      currentVelocity.current.y *= 0.95; // drag
-      
-      if (keys.space) currentVelocity.current.y += 15 * delta; // swim up
-      if (keys.control) currentVelocity.current.y -= 15 * delta; // swim down
-    } else {
-      // Air Physics
-      currentVelocity.current.y -= 20 * delta; // gravity
-    }
+    // Air Physics
+    currentVelocity.current.y -= 20 * delta; // gravity
     
     // Apply Y velocity
     group.current.position.y += currentVelocity.current.y * delta;
 
-    // Ground Collision
+    // Ground Collision & Jumping
     const currentGroundHeight = getTerrainHeight(group.current.position.x, group.current.position.z);
     const distToGround = group.current.position.y - currentGroundHeight;
     
-    if (distToGround <= 0) {
-      // Below or exactly on ground
-      group.current.position.y = currentGroundHeight;
-      if (currentVelocity.current.y < 0) currentVelocity.current.y = 0;
-      
-      if (keys.space && !isUnderwater) {
-        currentVelocity.current.y = 5.5; // Scaled down jump force
+    // Character is grounded if exactly on/below ground, OR very close while falling/running (prevents flying off slopes)
+    const isGrounded = distToGround <= 0 || (distToGround < 1.0 && currentVelocity.current.y <= 0);
+    
+    if (isGrounded) {
+      if (currentVelocity.current.y <= 0) {
+        group.current.position.y = currentGroundHeight; // Snap to ground
+        currentVelocity.current.y = 0;
       }
-    } else if (distToGround < 1.0 && currentVelocity.current.y <= 0 && !keys.space && !isUnderwater) {
-      // Near ground, falling or running horizontally (prevent flying off slopes)
-      group.current.position.y = currentGroundHeight;
-      currentVelocity.current.y = 0;
+      
+      if (keys.space) {
+        currentVelocity.current.y = 5.5; // Scaled down jump force
+        group.current.position.y += 0.1; // Slight lift to break ground contact instantly
+      }
     }
 
     // Update Camera

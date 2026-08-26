@@ -21,6 +21,9 @@ export default function MapEditorWorkspace() {
     // Global keyboard listener for Space bar (Camera Mode)
     const handleKeyDown = (e) => {
       if (e.code === 'Space') {
+        const isCurrentlyPlaying = useMapStore.getState().isPlaying;
+        if (isCurrentlyPlaying) return; // Space is for jumping in play mode
+        
         // Prevent default spacebar scrolling if not in an input
         if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
           e.preventDefault(); 
@@ -30,6 +33,9 @@ export default function MapEditorWorkspace() {
     };
     const handleKeyUp = (e) => {
       if (e.code === 'Space') {
+        const isCurrentlyPlaying = useMapStore.getState().isPlaying;
+        if (isCurrentlyPlaying) return;
+        
         if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
           e.preventDefault();
           setCameraMode(false);

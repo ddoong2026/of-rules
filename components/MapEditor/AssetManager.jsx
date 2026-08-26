@@ -6,7 +6,7 @@ import * as THREE from 'three';
 
 function Tree({ id, position, onErase }) {
   return (
-    <group position={position} onClick={(e) => onErase(e, id)}>
+    <group position={position} onClick={(e) => onErase(e, id)} scale={0.5}>
       {/* Trunk */}
       <mesh position={[0, 0.5, 0]} castShadow receiveShadow>
         <cylinderGeometry args={[0.2, 0.2, 1, 8]} />
@@ -23,26 +23,30 @@ function Tree({ id, position, onErase }) {
 
 function Rock({ id, position, onErase }) {
   return (
-    <mesh position={[position[0], position[1] + 0.5, position[2]]} castShadow receiveShadow rotation={[Math.random(), Math.random(), 0]} onClick={(e) => onErase(e, id)}>
-      <dodecahedronGeometry args={[0.8, 0]} />
-      <meshStandardMaterial color="#696969" roughness={0.9} />
-    </mesh>
+    <group position={position} onClick={(e) => onErase(e, id)} scale={0.5}>
+      <mesh position={[0, 0.4, 0]} castShadow receiveShadow rotation={[Math.random(), Math.random(), 0]}>
+        <dodecahedronGeometry args={[0.8, 0]} />
+        <meshStandardMaterial color="#696969" roughness={0.9} />
+      </mesh>
+    </group>
   );
 }
 
 function House({ id, position, onErase }) {
   return (
-    <group position={[position[0], position[1] + 1, position[2]]} onClick={(e) => onErase(e, id)}>
-      {/* Base */}
-      <mesh castShadow receiveShadow>
-        <boxGeometry args={[2, 2, 2]} />
-        <meshStandardMaterial color="#dcdcdc" />
-      </mesh>
-      {/* Roof */}
-      <mesh position={[0, 1.5, 0]} rotation={[0, Math.PI / 4, 0]} castShadow receiveShadow>
-        <coneGeometry args={[1.8, 1.5, 4]} />
-        <meshStandardMaterial color="#b22222" />
-      </mesh>
+    <group position={position} onClick={(e) => onErase(e, id)} scale={0.5}>
+      <group position={[0, 1, 0]}>
+        {/* Base */}
+        <mesh castShadow receiveShadow>
+          <boxGeometry args={[2, 2, 2]} />
+          <meshStandardMaterial color="#dcdcdc" />
+        </mesh>
+        {/* Roof */}
+        <mesh position={[0, 1.5, 0]} rotation={[0, Math.PI / 4, 0]} castShadow receiveShadow>
+          <coneGeometry args={[1.8, 1.5, 4]} />
+          <meshStandardMaterial color="#b22222" />
+        </mesh>
+      </group>
     </group>
   );
 }
@@ -59,7 +63,7 @@ function DecalItem({ decal, onErase }) {
 
 function Cave({ id, position, onErase }) {
   return (
-    <group position={[position[0], position[1], position[2]]} onClick={(e) => onErase(e, id)}>
+    <group position={position} onClick={(e) => onErase(e, id)} scale={0.5}>
       {/* Outer Rock */}
       <mesh position={[0, 0, 0]} castShadow receiveShadow>
         <sphereGeometry args={[2, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2]} />
@@ -76,10 +80,12 @@ function Cave({ id, position, onErase }) {
 
 function Lake({ id, position, onErase }) {
   return (
-    <mesh position={[position[0], position[1] + 0.1, position[2]]} rotation={[-Math.PI / 2, 0, 0]} onClick={(e) => onErase(e, id)} receiveShadow>
-      <circleGeometry args={[2, 32]} />
-      <meshStandardMaterial color="#3b82f6" transparent opacity={0.8} roughness={0.1} metalness={0.5} />
-    </mesh>
+    <group position={position} onClick={(e) => onErase(e, id)} scale={0.5}>
+      <mesh position={[0, 0.1, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <circleGeometry args={[2, 32]} />
+        <meshStandardMaterial color="#3b82f6" transparent opacity={0.8} roughness={0.1} metalness={0.5} />
+      </mesh>
+    </group>
   );
 }
 

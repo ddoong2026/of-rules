@@ -259,12 +259,12 @@ export default function Player() {
     }
     smoothedPlayerPos.current.lerp(group.current.position, 15 * delta);
 
-    const offset = new THREE.Vector3(0, 0.2, -1.8); // 캐릭터의 뒷모습 전체가 보이도록 줌 아웃
+    const offset = new THREE.Vector3(0, 0.1, -1.0); // 캐릭터의 뒷모습 전체가 보이도록 줌 아웃
     const euler = new THREE.Euler(pitch.current, yaw.current, 0, 'YXZ');
     offset.applyEuler(euler);
     
     // 타겟을 부드럽게 쫓아가는 캐릭터 위치로 설정
-    const targetLookAt = smoothedPlayerPos.current.clone().add(new THREE.Vector3(0, 0.7, 0)); 
+    const targetLookAt = smoothedPlayerPos.current.clone().add(new THREE.Vector3(0, 0.4, 0)); 
     const idealCameraPos = targetLookAt.clone().add(offset);
     
     // Prevent camera from clipping through the terrain
@@ -303,7 +303,7 @@ export default function Player() {
 
   return (
     <group ref={group} dispose={null}>
-      <primitive object={scene} scale={0.2} />
+      <primitive object={scene} scale={0.1} />
     </group>
   );
 }

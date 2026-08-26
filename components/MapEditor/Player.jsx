@@ -6,8 +6,8 @@ import { useGLTF, useAnimations } from '@react-three/drei';
 import * as THREE from 'three';
 import useMapStore, { GRID_SIZE } from '@/store/useMapStore';
 
-const WALK_SPEED = 3;
-const RUN_SPEED = 8;
+const WALK_SPEED = 1.2;
+const RUN_SPEED = 3.5;
 const ROTATION_SPEED = 5;
 
 export default function Player() {
@@ -47,7 +47,7 @@ export default function Player() {
     const onMouseMove = (e) => {
       if (document.pointerLockElement === canvas) {
         yaw.current -= e.movementX * 0.003;
-        pitch.current -= e.movementY * 0.003;
+        pitch.current += e.movementY * 0.003; // Inverted Y-axis
         // Clamp pitch to prevent flipping and going underground
         pitch.current = Math.max(-0.1, Math.min(Math.PI/2 - 0.1, pitch.current));
       }
@@ -227,7 +227,7 @@ export default function Player() {
       if (currentVelocity.current.y < 0) currentVelocity.current.y = 0;
       
       if (keys.space && !isUnderwater) {
-        currentVelocity.current.y = 8; // Jump force
+        currentVelocity.current.y = 5.5; // Scaled down jump force
       }
     } else if (distToGround < 1.0 && currentVelocity.current.y <= 0 && !keys.space && !isUnderwater) {
       // Near ground, falling or running horizontally (prevent flying off slopes)
@@ -237,11 +237,11 @@ export default function Player() {
 
     // Update Camera
     // Position camera behind and above the player based on pitch and yaw
-    const offset = new THREE.Vector3(0, 0, -5); // 5 units away
+    const offset = new THREE.Vector3(0, 0, -2.5); // Scaled down offset
     const euler = new THREE.Euler(pitch.current, yaw.current, 0, 'YXZ');
     offset.applyEuler(euler);
     
-    const targetLookAt = group.current.position.clone().add(new THREE.Vector3(0, 1.5, 0));
+    const targetLookAt = group.current.position.clone().add(new THREE.Vector3(0, 0.7, 0)); // Scaled down look target
     const idealCameraPos = targetLookAt.clone().add(offset);
     
     // Prevent camera from clipping through the terrain
@@ -257,7 +257,7 @@ export default function Player() {
 
   return (
     <group ref={group} dispose={null}>
-      <primitive object={scene} scale={0.5} />
+      <primitive object={scene} scale={0.2} />
     </group>
   );
 }

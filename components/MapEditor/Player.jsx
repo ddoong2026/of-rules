@@ -138,6 +138,8 @@ export default function Player() {
   }, [heights]);
 
   const currentVelocity = useRef(new THREE.Vector3());
+  const smoothedPlayerPos = useRef(new THREE.Vector3());
+  const wasGrounded = useRef(true);
   const cameraOffset = new THREE.Vector3(0, 3, -5); // 3rd person offset (behind the character)
 
   useFrame((state, delta) => {
@@ -227,17 +229,24 @@ export default function Player() {
     const isGrounded = distToGround <= 0 || (distToGround < 0.2 && currentVelocity.current.y <= 0);
     
     if (isGrounded) {
+      if (!wasGrounded.current) {
+        // Just landed! Apply landing squash (뽀용하는 착지 느낌)
+        if (currentVelocity.current.y < -5) {
+          group.current.scale.set(1.1, 0.85, 1.1);
+        }
+      }
+
       if (currentVelocity.current.y <= 0) {
         group.current.position.y = currentGroundHeight; // Snap to ground
         currentVelocity.current.y = 0;
       }
       
       if (keys.space && !isJumping.current) {
-        currentVelocity.current.y = 12; // JUMP_FORCE(12)
+        currentVelocity.current.y = 15; // JUMP_FORCE (높이 상향)
         group.current.position.y += 0.25; // Slight lift to break ground contact instantly
         
-        // Squash and Stretch 애니메이션 효과 (날씬하고 길어지게)
-        group.current.scale.set(0.8, 1.2, 0.8);
+        // Squash and Stretch 애니메이션 효과 (젤리 느낌 살짝 완화)
+        group.current.scale.set(0.9, 1.15, 0.9);
         isJumping.current = true;
         
         // 0.5초(500ms) 뒤에 쿨다운 초기화
@@ -246,17 +255,25 @@ export default function Player() {
         }, 500);
       }
     }
+    wasGrounded.current = isGrounded;
 
     // 서서히 원래 크기로 부드럽게 되돌아옵니다.
     group.current.scale.lerp(new THREE.Vector3(1, 1, 1), 10 * delta);
 
     // Update Camera
     // Position camera behind and above the player based on pitch and yaw
+    // 카메라가 덜덜거리는 현상을 막기 위해 캐릭터 위치를 부드럽게 따라가는 smoothedPlayerPos 사용
+    if (smoothedPlayerPos.current.distanceToSquared(group.current.position) > 100) {
+      smoothedPlayerPos.current.copy(group.current.position); // 최초 스폰 등 멀리 떨어졌을 때 즉시 이동
+    }
+    smoothedPlayerPos.current.lerp(group.current.position, 15 * delta);
+
     const offset = new THREE.Vector3(0, 0, -2.5); // Scaled down offset
     const euler = new THREE.Euler(pitch.current, yaw.current, 0, 'YXZ');
     offset.applyEuler(euler);
     
-    const targetLookAt = group.current.position.clone().add(new THREE.Vector3(0, 0.7, 0)); // Scaled down look target
+    // 타겟을 부드럽게 쫓아가는 캐릭터 위치로 설정
+    const targetLookAt = smoothedPlayerPos.current.clone().add(new THREE.Vector3(0, 0.7, 0)); 
     const idealCameraPos = targetLookAt.clone().add(offset);
     
     // Prevent camera from clipping through the terrain
@@ -265,7 +282,7 @@ export default function Player() {
       idealCameraPos.y = camGroundHeight + 0.5;
     }
     
-    // Snap camera position
+    // Snap camera position to the smoothed target position
     camera.position.copy(idealCameraPos);
     camera.lookAt(targetLookAt);
 
@@ -275,7 +292,9 @@ export default function Player() {
       const isRunning = isMoving && keys.shift;
 
       let targetAction = null;
-      if (isRunning && runActionName) {
+      if (!isGrounded && jumpActionName) {
+        targetAction = jumpActionName;
+      } else if (isRunning && runActionName) {
         targetAction = runActionName;
       } else if (isMoving && walkActionName) {
         targetAction = walkActionName;

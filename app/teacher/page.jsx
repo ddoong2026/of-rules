@@ -5,6 +5,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { supabase } from '@/lib/supabase';
 import ActivityLogsTab from '@/components/Teacher/ActivityLogsTab';
 import EconomyAdminTab from '@/components/Teacher/EconomyAdminTab';
+import MapEditorWorkspace from '@/components/MapEditor/MapEditorWorkspace';
 import styles from './teacher.module.css';
 
 const ROLES = [
@@ -267,6 +268,12 @@ export default function TeacherDashboard() {
           onClick={() => setActiveTab('logs')}
         >
           📋 활동 기록
+        </button>
+        <button 
+          className={`${styles.tabBtn} ${activeTab === 'map-editor' ? styles.active : ''}`}
+          onClick={() => setActiveTab('map-editor')}
+        >
+          🗺️ 3D 맵 에디터
         </button>
       </div>
 
@@ -542,6 +549,11 @@ export default function TeacherDashboard() {
           </div>
         )}
         {activeTab === 'logs' && <ActivityLogsTab />}
+        {activeTab === 'map-editor' && (
+          <div className={styles.manageSection} style={{ padding: 0 }}>
+            <MapEditorWorkspace />
+          </div>
+        )}
       </div>
     </div>
   );

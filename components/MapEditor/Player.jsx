@@ -71,8 +71,6 @@ export default function Player() {
   const actionNames = actions ? Object.keys(actions) : [];
   const walkActionName = actionNames.find(n => n.toLowerCase().includes('walk'));
   const runActionName = actionNames.find(n => n.toLowerCase().includes('run')) || walkActionName;
-  const idleActionName = actionNames.find(n => n.toLowerCase().includes('idle'));
-  const jumpActionName = actionNames.find(n => n.toLowerCase().includes('jump') || n.toLowerCase().includes('fall')) || idleActionName;
 
   // Get terrain height at (x, z)
   const getTerrainHeight = (x, z) => {
@@ -292,14 +290,10 @@ export default function Player() {
       const isRunning = isMoving && keys.shift;
 
       let targetAction = null;
-      if (!isGrounded && jumpActionName) {
-        targetAction = jumpActionName;
-      } else if (isRunning && runActionName) {
+      if (isRunning && runActionName) {
         targetAction = runActionName;
       } else if (isMoving && walkActionName) {
         targetAction = walkActionName;
-      } else if (idleActionName) {
-        targetAction = idleActionName;
       }
 
       if (currentAction.current !== targetAction) {

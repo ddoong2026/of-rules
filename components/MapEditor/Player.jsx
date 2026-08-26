@@ -235,7 +235,7 @@ export default function Player() {
       }
       
       if (keys.space && !isJumping.current) {
-        currentVelocity.current.y = 2.0; // JUMP_FORCE 
+        currentVelocity.current.y = 4.0; // JUMP_FORCE (좀 더 높고 멀리 뛸 수 있도록 2배 상향)
         group.current.position.y += 0.01; // 아주 미세한 값만 올려 바닥 판정을 피함 (0.25 순간이동 제거)
         
         isJumping.current = true;

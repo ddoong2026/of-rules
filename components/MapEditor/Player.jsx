@@ -19,6 +19,7 @@ export default function Player() {
 
   const [keys, setKeys] = useState({ w: false, a: false, s: false, d: false, shift: false, space: false, control: false });
   const currentAction = useRef('');
+  const isJumping = useRef(false);
   
   const yaw = useRef(0);
   const pitch = useRef(0);
@@ -230,11 +231,23 @@ export default function Player() {
         currentVelocity.current.y = 0;
       }
       
-      if (keys.space) {
+      if (keys.space && !isJumping.current) {
         currentVelocity.current.y = 7.5; // Increased jump force
         group.current.position.y += 0.1; // Slight lift to break ground contact instantly
+        
+        // Squash and Stretch 애니메이션 효과
+        group.current.scale.set(0.8, 1.2, 0.8);
+        isJumping.current = true;
+        
+        // 0.5초(500ms) 뒤에 쿨다운 초기화
+        setTimeout(() => {
+          isJumping.current = false;
+        }, 500);
       }
     }
+
+    // 서서히 원래 크기로 부드럽게 되돌아옵니다.
+    group.current.scale.lerp(new THREE.Vector3(1, 1, 1), 10 * delta);
 
     // Update Camera
     // Position camera behind and above the player based on pitch and yaw

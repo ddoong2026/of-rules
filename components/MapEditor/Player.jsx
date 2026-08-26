@@ -235,8 +235,8 @@ export default function Player() {
       }
       
       if (keys.space && !isJumping.current) {
-        currentVelocity.current.y = 2.0; // JUMP_FORCE (높이 대폭 낮춤)
-        group.current.position.y += 0.25; // Slight lift to break ground contact instantly
+        currentVelocity.current.y = 2.0; // JUMP_FORCE 
+        group.current.position.y += 0.01; // 아주 미세한 값만 올려 바닥 판정을 피함 (0.25 순간이동 제거)
         
         isJumping.current = true;
         

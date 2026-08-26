@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useEffect, useState } from 'react';
-import { useThree } from '@react-three/fiber';
+import { useThree, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import useMapStore, { GRID_SIZE, VERTEX_COUNT } from '@/store/useMapStore';
 
@@ -63,8 +63,6 @@ export default function Terrain() {
       col.needsUpdate = true;
     }
   }, [heights, colors]);
-
-  import { useFrame } from '@react-three/fiber';
 
   useFrame(() => {
     if (isPlaying && document.pointerLockElement === gl.domElement) {

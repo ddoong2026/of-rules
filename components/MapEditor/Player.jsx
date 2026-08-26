@@ -216,7 +216,7 @@ export default function Player() {
     }
 
     // Block water entry (Invisible Wall at water's edge)
-    if (nextTerrainHeight < -0.5) {
+    if (nextTerrainHeight < -0.3) {
       canMoveXZ = false;
       currentVelocity.current.x = 0;
       currentVelocity.current.z = 0;

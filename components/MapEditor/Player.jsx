@@ -77,12 +77,17 @@ export default function Player() {
           if (child.material) {
             // Force basic materials to standard so they react to night/day
             if (child.material.type === 'MeshBasicMaterial') {
+              if (child.geometry && !child.geometry.attributes.normal) {
+                child.geometry.computeVertexNormals();
+              }
               const newMat = new THREE.MeshStandardMaterial({
                 color: child.material.color,
                 map: child.material.map,
                 skinning: true
               });
               child.material = newMat;
+            } else if (child.geometry && !child.geometry.attributes.normal) {
+              child.geometry.computeVertexNormals();
             }
             // Ensure emissive is not making it glow at night
             if (child.material.emissive) {
@@ -245,7 +250,7 @@ export default function Player() {
     }
 
     // Block water entry (Invisible Wall at water's edge)
-    if (nextTerrainHeight < 0.1) {
+    if (nextTerrainHeight < -0.05) {
       canMoveXZ = false;
       currentVelocity.current.x = 0;
       currentVelocity.current.z = 0;

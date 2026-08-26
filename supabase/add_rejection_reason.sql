@@ -1,0 +1,1 @@
+ALTER TABLE public.laws ADD COLUMN rejection_reason text;

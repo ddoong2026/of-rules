@@ -282,7 +282,6 @@ export default function Terrain() {
         ref={meshRef} 
         rotation={[-Math.PI / 2, 0, 0]} 
         receiveShadow 
-        castShadow
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}

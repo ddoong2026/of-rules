@@ -46,6 +46,7 @@ CREATE TABLE public.laws (
   content text NOT NULL,
   target_department text NOT NULL,
   status text DEFAULT 'PROPOSED' CHECK (status IN ('PROPOSED', 'ASSEMBLY_PASSED', 'REJECTED', 'PROMULGATED')),
+  rejection_reason text,
   votes_for integer DEFAULT 0,
   votes_against integer DEFAULT 0,
   created_at timestamp with time zone DEFAULT now(),

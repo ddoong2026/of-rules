@@ -17,7 +17,7 @@ export default function LawsTab({ initialData, clearInitialData }) {
     const { data, error } = await supabase
       .from('laws')
       .select(`
-        id, title, reason, content, target_department, status, votes_for, votes_against, created_at,
+        id, title, reason, content, target_department, status, votes_for, votes_against, created_at, rejection_reason,
         users:proposer_id (name)
       `)
       .order('created_at', { ascending: false });
@@ -88,8 +88,24 @@ export default function LawsTab({ initialData, clearInitialData }) {
   };
 
   const handleDeleteLaw = async (lawId) => {
-    if (!confirm('정말로 이 법률안을 삭제하시겠습니까?')) return;
+    if (!confirm('정말로 이 법률안을 완전 삭제하시겠습니까?')) return;
     const { error } = await supabase.from('laws').delete().eq('id', lawId);
+    if (error) {
+      alert('오류가 발생했습니다: ' + error.message);
+    } else {
+      fetchLaws();
+    }
+  };
+
+  const handleRejectLaw = async (lawId) => {
+    const reason = prompt('법률안 반려(부결) 이유를 입력하세요.\n(취소하거나 빈칸으로 두면 반려되지 않습니다.)');
+    if (!reason) return;
+    
+    const { error } = await supabase
+      .from('laws')
+      .update({ status: 'REJECTED', rejection_reason: reason })
+      .eq('id', lawId);
+      
     if (error) {
       alert('오류가 발생했습니다: ' + error.message);
     } else {
@@ -170,6 +186,11 @@ export default function LawsTab({ initialData, clearInitialData }) {
                   <strong>제안 이유:</strong> {law.reason}
                   <br /><br />
                   <strong>주요 내용:</strong> {law.content}
+                  {law.status === 'REJECTED' && law.rejection_reason && (
+                    <div style={{ marginTop: '1rem', padding: '0.8rem', background: '#fee2e2', color: '#991b1b', borderRadius: '4px' }}>
+                      <strong>반려 사유:</strong> {law.rejection_reason}
+                    </div>
+                  )}
                 </div>
                 
                 <div className={styles.cardFooter} onClick={(e) => e.stopPropagation()}>
@@ -180,14 +201,24 @@ export default function LawsTab({ initialData, clearInitialData }) {
                   
                   <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                     {role?.role === 'TEACHER' && (
-                      <button 
-                        className={styles.actionBtn} 
-                        onClick={() => handleDeleteLaw(law.id)}
-                        style={{ color: 'var(--danger)', padding: '0.5rem', marginRight: '0.5rem' }}
-                        title="법률안 삭제"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      <>
+                        <button 
+                          className={styles.actionBtn} 
+                          onClick={() => handleRejectLaw(law.id)}
+                          style={{ color: '#b91c1c', padding: '0.2rem 0.5rem', marginRight: '0.5rem', border: '1px solid #fca5a5', borderRadius: '4px', background: '#fef2f2', fontSize: '0.85rem' }}
+                          title="법률안 반려 (사유 입력)"
+                        >
+                          반려
+                        </button>
+                        <button 
+                          className={styles.actionBtn} 
+                          onClick={() => handleDeleteLaw(law.id)}
+                          style={{ color: 'var(--danger)', padding: '0.5rem', marginRight: '0.5rem' }}
+                          title="법률안 완전 삭제"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </>
                     )}
                     
                     {law.status === 'PROPOSED' && ['ASSEMBLY', 'TEACHER'].includes(role?.role) ? (

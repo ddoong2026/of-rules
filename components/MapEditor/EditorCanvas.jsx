@@ -42,6 +42,7 @@ export default function EditorCanvas() {
           shadow-camera-right={30}
           shadow-camera-top={30}
           shadow-camera-bottom={-30}
+          shadow-bias={-0.001}
         />
         
         <Terrain />

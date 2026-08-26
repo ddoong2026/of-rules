@@ -259,7 +259,7 @@ export default function Player() {
     }
     smoothedPlayerPos.current.lerp(group.current.position, 15 * delta);
 
-    const offset = new THREE.Vector3(0, 0.2, -0.6); // 카메라 줌 훨씬 더 가깝게 (바로 뒤통수)
+    const offset = new THREE.Vector3(0, 0.2, -1.8); // 캐릭터의 뒷모습 전체가 보이도록 줌 아웃
     const euler = new THREE.Euler(pitch.current, yaw.current, 0, 'YXZ');
     offset.applyEuler(euler);
     

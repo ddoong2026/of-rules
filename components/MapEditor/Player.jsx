@@ -12,7 +12,7 @@ const ROTATION_SPEED = 5;
 
 export default function Player() {
   const group = useRef();
-  const { scene, animations } = useGLTF('/models/charactor.glb');
+  const { scene, animations } = useGLTF('/models/charactor2.glb');
   const { actions } = useAnimations(animations, group);
   const { camera } = useThree();
   const heights = useMapStore((state) => state.heights);
@@ -316,4 +316,4 @@ export default function Player() {
 }
 
 // Preload the model
-useGLTF.preload('/models/charactor.glb');
+useGLTF.preload('/models/charactor2.glb');

@@ -9,7 +9,7 @@ import * as THREE from 'three';
 
 function PetModel() {
   const group = useRef();
-  const { scene, animations } = useGLTF('/models/charactor.glb');
+  const { scene, animations } = useGLTF('/models/charactor2.glb');
   
   // Clone the scene safely for skinned meshes so it doesn't conflict with the 3D map
   const clonedScene = useMemo(() => SkeletonUtils.clone(scene), [scene]);

@@ -7,7 +7,7 @@ import * as THREE from 'three';
 
 export function Character() {
   const groupRef = useRef();
-  const { scene, animations } = useGLTF('/models/charactor.glb');
+  const { scene, animations } = useGLTF('/models/charactor2.glb');
   const { actions } = useAnimations(animations, groupRef);
   
   // Track pressed keys
@@ -141,4 +141,4 @@ export function Character() {
   );
 }
 
-useGLTF.preload('/models/charactor.glb');
+useGLTF.preload('/models/charactor2.glb');

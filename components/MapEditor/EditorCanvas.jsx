@@ -5,10 +5,11 @@ import { OrbitControls, Sky } from '@react-three/drei';
 import Terrain from './Terrain';
 import AssetManager from './AssetManager';
 import FluidSystem from './FluidSystem';
+import Player from './Player';
 import useMapStore from '@/store/useMapStore';
 
 export default function EditorCanvas() {
-  const { mode, isCameraMode, sunTime } = useMapStore();
+  const { mode, isCameraMode, isPlaying, sunTime } = useMapStore();
 
   // Calculate sun position based on time (0-24)
   // 6 = sunrise, 12 = noon, 18 = sunset
@@ -23,7 +24,7 @@ export default function EditorCanvas() {
   return (
     <Canvas
       camera={{ position: [0, 20, 20], fov: 60 }}
-      style={{ background: '#87CEEB', cursor: isCameraMode ? 'grab' : (mode === 'erase' ? 'cell' : 'crosshair') }}
+      style={{ background: '#87CEEB', cursor: isPlaying ? 'none' : (isCameraMode ? 'grab' : (mode === 'erase' ? 'cell' : 'crosshair')) }}
       onContextMenu={(e) => e.preventDefault()}
       shadows
     >
@@ -46,9 +47,11 @@ export default function EditorCanvas() {
       <AssetManager />
       <FluidSystem />
       
+      {isPlaying && <Player />}
+      
       <OrbitControls 
         makeDefault 
-        enabled={isCameraMode}
+        enabled={!isPlaying && isCameraMode}
         maxPolarAngle={Math.PI / 2 - 0.05} // don't go below ground
         minDistance={5}
         maxDistance={100}

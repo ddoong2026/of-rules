@@ -30,7 +30,8 @@ export default function EditorUI({ onSave, isSaving }) {
     selectedDecalImage, setSelectedDecalImage,
     currentMapId, mapName,
     undo, history,
-    sunTime, setSunTime
+    sunTime, setSunTime,
+    isPlaying, setIsPlaying
   } = useMapStore();
 
   const fileInputRef = useRef(null);
@@ -66,32 +67,40 @@ export default function EditorUI({ onSave, isSaving }) {
   return (
     <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       
-      {/* Save Area */}
+      {/* Save Area / Play Toggle */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#111827' }}>
           {currentMapId ? mapName : '저장되지 않은 맵'}
         </div>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button 
-            onClick={undo}
-            disabled={history.length === 0}
-            style={{ padding: '0.4rem 1rem', background: history.length === 0 ? '#d1d5db' : '#f59e0b', color: 'white', borderRadius: '4px', border: 'none', cursor: history.length === 0 ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
-            title="단축키: Ctrl+Z"
-          >
-            ↩️ 되돌리기
-          </button>
-          <button 
-            onClick={onSave}
-            disabled={isSaving}
-            style={{ padding: '0.4rem 1rem', background: '#10b981', color: 'white', borderRadius: '4px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}
-          >
-            {isSaving ? '저장 중...' : '저장하기'}
-          </button>
-        </div>
+        
+        <button 
+          onClick={() => setIsPlaying(!isPlaying)}
+          style={{ padding: '0.4rem 1rem', background: isPlaying ? '#ef4444' : '#8b5cf6', color: 'white', borderRadius: '4px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}
+        >
+          {isPlaying ? '⏹️ 편집으로 돌아가기' : '🏃‍♂️ 캐릭터 체험하기'}
+        </button>
+      </div>
+      
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+        <button 
+          onClick={undo}
+          disabled={history.length === 0 || isPlaying}
+          style={{ padding: '0.4rem 1rem', background: history.length === 0 ? '#d1d5db' : '#f59e0b', color: 'white', borderRadius: '4px', border: 'none', cursor: history.length === 0 ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
+          title="단축키: Ctrl+Z"
+        >
+          ↩️ 되돌리기
+        </button>
+        <button 
+          onClick={onSave}
+          disabled={isSaving || isPlaying}
+          style={{ padding: '0.4rem 1rem', background: '#10b981', color: 'white', borderRadius: '4px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}
+        >
+          {isSaving ? '저장 중...' : '저장하기'}
+        </button>
       </div>
 
       {/* Mode Selection */}
-      <div>
+      <div style={{ opacity: isPlaying ? 0.3 : 1, pointerEvents: isPlaying ? 'none' : 'auto' }}>
         <h4 style={{ margin: '0 0 0.5rem 0', color: '#4b5563' }}>도구 선택</h4>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
           <ModeButton current={mode} id="sculpt" label="⛰️ 지형 융기" onClick={() => setMode('sculpt')} />

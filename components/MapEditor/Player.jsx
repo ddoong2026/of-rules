@@ -202,9 +202,9 @@ export default function Player() {
     
     const dist = Math.sqrt((nextX - group.current.position.x)**2 + (nextZ - group.current.position.z)**2);
     let canMoveXZ = true;
+    const nextTerrainHeight = getTerrainHeight(nextX, nextZ);
     
     if (dist > 0.0001) {
-      const nextTerrainHeight = getTerrainHeight(nextX, nextZ);
       const slope = (nextTerrainHeight - currentTerrainHeight) / dist;
       
       // Block if slope > 1.2 AND we are grounded (not jumping over it)
@@ -215,8 +215,8 @@ export default function Player() {
       }
     }
 
-    // Block water entry
-    if (nextTerrainHeight < 0) {
+    // Block water entry (Invisible Wall at water's edge)
+    if (nextTerrainHeight < 0.1) {
       canMoveXZ = false;
       currentVelocity.current.x = 0;
       currentVelocity.current.z = 0;

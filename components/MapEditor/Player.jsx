@@ -261,9 +261,7 @@ export default function Player() {
       const isRunning = isMoving && keys.shift;
 
       let targetAction = null;
-      if (!isGrounded && jumpActionName) {
-        targetAction = jumpActionName;
-      } else if (isRunning && runActionName) {
+      if (isRunning && runActionName) {
         targetAction = runActionName;
       } else if (isMoving && walkActionName) {
         targetAction = walkActionName;
@@ -276,7 +274,6 @@ export default function Player() {
           actions[currentAction.current].fadeOut(0.2);
         }
         if (targetAction && actions[targetAction]) {
-          // If it's a jump action, we might want it to not loop, but for now we just play it
           actions[targetAction].reset().fadeIn(0.2).play();
         }
         currentAction.current = targetAction;

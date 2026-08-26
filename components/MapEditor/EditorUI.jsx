@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import useMapStore from '@/store/useMapStore';
 import { supabase } from '@/lib/supabase';
 
@@ -26,7 +26,8 @@ export default function EditorUI({ onSave, isSaving }) {
     selectedColor, setSelectedColor,
     selectedAsset, setSelectedAsset,
     selectedDecalImage, setSelectedDecalImage,
-    currentMapId, mapName
+    currentMapId, mapName,
+    undo, history
   } = useMapStore();
 
   const fileInputRef = useRef(null);
@@ -48,6 +49,17 @@ export default function EditorUI({ onSave, isSaving }) {
     reader.readAsDataURL(file);
   };
 
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        undo();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [undo]);
+
   return (
     <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       
@@ -56,13 +68,23 @@ export default function EditorUI({ onSave, isSaving }) {
         <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#111827' }}>
           {currentMapId ? mapName : '저장되지 않은 맵'}
         </div>
-        <button 
-          onClick={onSave}
-          disabled={isSaving}
-          style={{ padding: '0.4rem 1rem', background: '#10b981', color: 'white', borderRadius: '4px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}
-        >
-          {isSaving ? '저장 중...' : '저장하기'}
-        </button>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button 
+            onClick={undo}
+            disabled={history.length === 0}
+            style={{ padding: '0.4rem 1rem', background: history.length === 0 ? '#d1d5db' : '#f59e0b', color: 'white', borderRadius: '4px', border: 'none', cursor: history.length === 0 ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
+            title="단축키: Ctrl+Z"
+          >
+            ↩️ 되돌리기
+          </button>
+          <button 
+            onClick={onSave}
+            disabled={isSaving}
+            style={{ padding: '0.4rem 1rem', background: '#10b981', color: 'white', borderRadius: '4px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}
+          >
+            {isSaving ? '저장 중...' : '저장하기'}
+          </button>
+        </div>
       </div>
 
       {/* Mode Selection */}
@@ -74,6 +96,7 @@ export default function EditorUI({ onSave, isSaving }) {
           <ModeButton current={mode} id="water" label="💧 수원 배치" onClick={() => setMode('water')} />
           <ModeButton current={mode} id="asset" label="🌲 에셋 배치" onClick={() => setMode('asset')} />
           <ModeButton current={mode} id="decal" label="🛣️ 도로/타일" onClick={() => setMode('decal')} />
+          <ModeButton current={mode} id="erase" label="🗑️ 지우개" onClick={() => setMode('erase')} />
         </div>
       </div>
 
@@ -167,6 +190,16 @@ export default function EditorUI({ onSave, isSaving }) {
               </p>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Erase Info */}
+      {mode === 'erase' && (
+        <div style={{ background: '#fee2e2', padding: '1rem', borderRadius: '6px' }}>
+          <h4 style={{ margin: '0 0 0.5rem 0', color: '#b91c1c' }}>지우개 모드</h4>
+          <p style={{ fontSize: '0.8rem', color: '#7f1d1d', margin: 0 }}>
+            배치된 에셋(나무, 바위 등)이나 바닥 타일을 클릭하면 삭제됩니다.
+          </p>
         </div>
       )}
     </div>

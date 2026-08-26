@@ -12,10 +12,40 @@ export default function MapEditorWorkspace() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const setCameraMode = useMapStore(state => state.setCameraMode);
+  const isCameraMode = useMapStore(state => state.isCameraMode);
 
   useEffect(() => {
     fetchMaps();
-  }, []);
+    
+    // Global keyboard listener for Space bar (Camera Mode)
+    const handleKeyDown = (e) => {
+      if (e.code === 'Space') {
+        // Prevent default spacebar scrolling if not in an input
+        if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+          e.preventDefault(); 
+          setCameraMode(true);
+        }
+      }
+    };
+    const handleKeyUp = (e) => {
+      if (e.code === 'Space') {
+        if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+          e.preventDefault();
+          setCameraMode(false);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      setCameraMode(false); // Cleanup
+    };
+  }, [setCameraMode]);
 
   const fetchMaps = async () => {
     setIsLoading(true);
@@ -189,6 +219,16 @@ export default function MapEditorWorkspace() {
       {/* Right Canvas Area */}
       <div style={{ flex: 1, position: 'relative' }}>
         <EditorCanvas />
+        {isCameraMode && (
+          <div style={{ position: 'absolute', top: '10px', left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.7)', color: 'white', padding: '0.5rem 1rem', borderRadius: '20px', zIndex: 10, pointerEvents: 'none', fontWeight: 'bold' }}>
+            📸 카메라 이동 모드 (마우스로 시점 조작)
+          </div>
+        )}
+        {!isCameraMode && (
+          <div style={{ position: 'absolute', top: '10px', left: '50%', transform: 'translateX(-50%)', background: 'rgba(255,255,255,0.7)', color: '#374151', padding: '0.3rem 0.8rem', borderRadius: '20px', zIndex: 10, pointerEvents: 'none', fontSize: '0.8rem', border: '1px solid #d1d5db' }}>
+            Space 키를 누른 채 드래그하면 시점을 이동할 수 있습니다.
+          </div>
+        )}
       </div>
 
     </div>

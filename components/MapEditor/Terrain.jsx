@@ -10,7 +10,8 @@ export default function Terrain() {
   const geomRef = useRef();
   const { 
     mode, brushSize, brushIntensity, selectedColor, selectedAsset, selectedDecalImage,
-    heights, colors, updateHeights, updateColors, addAsset, addDecal, addWaterSource 
+    heights, colors, updateHeights, updateColors, addAsset, addDecal, addWaterSource,
+    isCameraMode, saveHistory 
   } = useMapStore();
   
   const { camera, gl } = useThree();
@@ -119,11 +120,12 @@ export default function Terrain() {
   };
 
   const handlePointerDown = (e) => {
-    if (e.button !== 0 && e.button !== 2) return;
+    if (isCameraMode || (e.button !== 0 && e.button !== 2)) return;
     setIsPointerDown(true);
     e.stopPropagation();
 
     if (mode === 'sculpt' || mode === 'paint') {
+      saveHistory(); // Save state before stroke
       applyBrush(e.point, e.button === 2 || e.shiftKey); // right click or shift for inverted sculpt
     } else if (mode === 'water') {
       addWaterSource(e.point.x, e.point.z);
@@ -144,7 +146,7 @@ export default function Terrain() {
   };
 
   const handlePointerMove = (e) => {
-    if (!isPointerDown) return;
+    if (!isPointerDown || isCameraMode) return;
     if (mode === 'sculpt' || mode === 'paint') {
       e.stopPropagation();
       applyBrush(e.point, e.buttons === 2 || e.shiftKey);

@@ -5,13 +5,17 @@ export const VERTEX_COUNT = (GRID_SIZE + 1) * (GRID_SIZE + 1);
 
 const useMapStore = create((set, get) => ({
   // Editor State
-  mode: 'sculpt', // sculpt, paint, water, asset, decal
+  mode: 'sculpt', // sculpt, paint, water, asset, decal, erase
   brushSize: 2,
   brushIntensity: 1, // height change amount or paint opacity
   selectedColor: '#3d8c40', // default grass color
   selectedAsset: 'tree',
   selectedDecalImage: null,
+  isCameraMode: false,
   
+  // Undo History
+  history: [], // array of { heights: Float32Array, colors: Float32Array }
+
   // Map Data
   currentMapId: null,
   mapName: '새 맵',
@@ -30,6 +34,27 @@ const useMapStore = create((set, get) => ({
   setSelectedColor: (color) => set({ selectedColor: color }),
   setSelectedAsset: (asset) => set({ selectedAsset: asset }),
   setSelectedDecalImage: (url) => set({ selectedDecalImage: url }),
+  setCameraMode: (isCameraMode) => set({ isCameraMode }),
+  
+  saveHistory: () => set((state) => {
+    const newHistory = [...state.history, { 
+      heights: new Float32Array(state.heights), 
+      colors: new Float32Array(state.colors) 
+    }];
+    if (newHistory.length > 20) newHistory.shift(); // Keep max 20 states
+    return { history: newHistory };
+  }),
+
+  undo: () => set((state) => {
+    if (state.history.length === 0) return state;
+    const newHistory = [...state.history];
+    const previousState = newHistory.pop();
+    return { 
+      heights: previousState.heights, 
+      colors: previousState.colors, 
+      history: newHistory 
+    };
+  }),
   
   loadMap: (mapData) => {
     // Parse jsonb arrays back to typed arrays
@@ -52,6 +77,7 @@ const useMapStore = create((set, get) => ({
       colors,
       assets: mapData.assets || [],
       decals: mapData.decals || [],
+      history: [], // Reset history on load
     });
   },
   
@@ -67,6 +93,7 @@ const useMapStore = create((set, get) => ({
       colors,
       assets: [],
       decals: [],
+      history: [], // Reset history on new map
     });
   },
 

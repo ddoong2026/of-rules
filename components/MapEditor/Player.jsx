@@ -216,23 +216,23 @@ export default function Player() {
     
     // Apply Y velocity
     group.current.position.y += currentVelocity.current.y * delta;
-    
+
     // Ground Collision
     const currentGroundHeight = getTerrainHeight(group.current.position.x, group.current.position.z);
+    const distToGround = group.current.position.y - currentGroundHeight;
     
-    if (group.current.position.y <= currentGroundHeight) {
-      if (!keys.space || isUnderwater) {
-        // Smooth snap to ground if not trying to jump out
-        group.current.position.y += (currentGroundHeight - group.current.position.y) * 15 * delta;
-      } else {
-        group.current.position.y = currentGroundHeight;
-      }
+    if (distToGround <= 0) {
+      // Below or exactly on ground
+      group.current.position.y = currentGroundHeight;
+      if (currentVelocity.current.y < 0) currentVelocity.current.y = 0;
       
       if (keys.space && !isUnderwater) {
         currentVelocity.current.y = 8; // Jump force
-      } else if (currentVelocity.current.y < 0) {
-        currentVelocity.current.y = 0; // Stop falling
       }
+    } else if (distToGround < 1.0 && currentVelocity.current.y <= 0 && !keys.space && !isUnderwater) {
+      // Near ground, falling or running horizontally (prevent flying off slopes)
+      group.current.position.y = currentGroundHeight;
+      currentVelocity.current.y = 0;
     }
 
     // Update Camera

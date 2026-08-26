@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import ActivityLogsTab from '@/components/Teacher/ActivityLogsTab';
 import EconomyAdminTab from '@/components/Teacher/EconomyAdminTab';
 import MapEditorWorkspace from '@/components/MapEditor/MapEditorWorkspace';
+import VoxelEditorWorkspace from '@/components/VoxelEditor/VoxelEditorWorkspace';
 import styles from './teacher.module.css';
 
 const ROLES = [
@@ -24,6 +25,7 @@ export default function TeacherDashboard() {
   const { user, role, loading: authLoading } = useAuth();
   
   const [activeTab, setActiveTab] = useState('create'); // 'create' | 'manage' | 'economy'
+  const [editorType, setEditorType] = useState('heightmap'); // 'heightmap' | 'voxel'
 
   // --- Economy Tab State ---
   const [currencyName, setCurrencyName] = useState('미소');
@@ -551,7 +553,23 @@ export default function TeacherDashboard() {
         {activeTab === 'logs' && <ActivityLogsTab />}
         {activeTab === 'map-editor' && (
           <div className={styles.manageSection} style={{ padding: 0 }}>
-            <MapEditorWorkspace />
+            <div style={{ padding: '1rem', background: '#f3f4f6', borderBottom: '1px solid #d1d5db', display: 'flex', gap: '1rem' }}>
+              <button 
+                className="glass-button"
+                style={{ background: editorType === 'heightmap' ? 'var(--primary)' : 'white', color: editorType === 'heightmap' ? 'white' : 'black' }}
+                onClick={() => setEditorType('heightmap')}
+              >
+                🗺️ 둥근 지형 에디터 (기존)
+              </button>
+              <button 
+                className="glass-button"
+                style={{ background: editorType === 'voxel' ? 'var(--primary)' : 'white', color: editorType === 'voxel' ? 'white' : 'black' }}
+                onClick={() => setEditorType('voxel')}
+              >
+                🧱 복셀 에디터 (마인크래프트형)
+              </button>
+            </div>
+            {editorType === 'heightmap' ? <MapEditorWorkspace /> : <VoxelEditorWorkspace />}
           </div>
         )}
       </div>

@@ -223,7 +223,8 @@ export default function Player() {
     const distToGround = group.current.position.y - currentGroundHeight;
     
     // Character is grounded if exactly on/below ground, OR very close while falling/running (prevents flying off slopes)
-    const isGrounded = distToGround <= 0 || (distToGround < 1.0 && currentVelocity.current.y <= 0);
+    // 1.0이었던 스냅 거리를 0.2로 줄여 점프 중 갑자기 바닥으로 순간이동(움찔거림)하는 현상 방지
+    const isGrounded = distToGround <= 0 || (distToGround < 0.2 && currentVelocity.current.y <= 0);
     
     if (isGrounded) {
       if (currentVelocity.current.y <= 0) {
@@ -232,10 +233,10 @@ export default function Player() {
       }
       
       if (keys.space && !isJumping.current) {
-        currentVelocity.current.y = 7.5; // Increased jump force
-        group.current.position.y += 0.1; // Slight lift to break ground contact instantly
+        currentVelocity.current.y = 12; // JUMP_FORCE(12)
+        group.current.position.y += 0.25; // Slight lift to break ground contact instantly
         
-        // Squash and Stretch 애니메이션 효과
+        // Squash and Stretch 애니메이션 효과 (날씬하고 길어지게)
         group.current.scale.set(0.8, 1.2, 0.8);
         isJumping.current = true;
         

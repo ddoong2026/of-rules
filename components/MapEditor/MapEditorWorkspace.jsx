@@ -11,6 +11,7 @@ export default function MapEditorWorkspace() {
   const [mapList, setMapList] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
     fetchMaps();
@@ -115,8 +116,12 @@ export default function MapEditorWorkspace() {
     }
   };
 
+  const containerStyle = isFullscreen 
+    ? { position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 9999, backgroundColor: 'white', display: 'flex', overflow: 'hidden' }
+    : { display: 'flex', height: '70vh', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' };
+
   return (
-    <div style={{ display: 'flex', height: '70vh', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }}>
+    <div style={containerStyle}>
       
       {/* Left Sidebar - Map List & Tools */}
       <div style={{ width: '300px', backgroundColor: '#f9fafb', display: 'flex', flexDirection: 'column', borderRight: '1px solid #e5e7eb' }}>
@@ -125,12 +130,21 @@ export default function MapEditorWorkspace() {
         <div style={{ padding: '1rem', borderBottom: '1px solid #e5e7eb', flex: '0 0 auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
             <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#374151' }}>저장된 맵 목록</h3>
-            <button 
-              onClick={handleCreateNewMap}
-              style={{ padding: '0.25rem 0.5rem', background: '#3b82f6', color: 'white', borderRadius: '4px', border: 'none', cursor: 'pointer', fontSize: '0.8rem' }}
-            >
-              + 새 맵
-            </button>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button 
+                onClick={() => setIsFullscreen(!isFullscreen)}
+                style={{ padding: '0.25rem 0.5rem', background: '#6b7280', color: 'white', borderRadius: '4px', border: 'none', cursor: 'pointer', fontSize: '0.8rem' }}
+                title={isFullscreen ? "원래 크기로" : "전체 화면으로"}
+              >
+                {isFullscreen ? "↙️ 축소" : "↗️ 전체화면"}
+              </button>
+              <button 
+                onClick={handleCreateNewMap}
+                style={{ padding: '0.25rem 0.5rem', background: '#3b82f6', color: 'white', borderRadius: '4px', border: 'none', cursor: 'pointer', fontSize: '0.8rem' }}
+              >
+                + 새 맵
+              </button>
+            </div>
           </div>
           
           <div style={{ maxHeight: '150px', overflowY: 'auto', background: 'white', border: '1px solid #e5e7eb', borderRadius: '4px' }}>

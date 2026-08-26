@@ -66,38 +66,12 @@ export default function Player() {
     };
   }, [keys]);
 
-  // Handle Animation state
-  useEffect(() => {
-    if (!actions) return;
-    const actionNames = Object.keys(actions);
-    if (actionNames.length === 0) return;
-
-    const walkActionName = actionNames.find(n => n.toLowerCase().includes('walk'));
-    const runActionName = actionNames.find(n => n.toLowerCase().includes('run')) || walkActionName;
-    const idleActionName = actionNames.find(n => n.toLowerCase().includes('idle')); // If no explicit idle, don't fallback to random animation
-
-    const isMoving = keys.w || keys.a || keys.s || keys.d;
-    const isRunning = isMoving && keys.shift;
-
-    let targetAction = null;
-    if (isRunning && runActionName) {
-      targetAction = runActionName;
-    } else if (isMoving && walkActionName) {
-      targetAction = walkActionName;
-    } else if (idleActionName) {
-      targetAction = idleActionName;
-    }
-
-    if (currentAction.current !== targetAction) {
-      if (currentAction.current && actions[currentAction.current]) {
-        actions[currentAction.current].fadeOut(0.2);
-      }
-      if (targetAction && actions[targetAction]) {
-        actions[targetAction].reset().fadeIn(0.2).play();
-      }
-      currentAction.current = targetAction;
-    }
-  }, [keys, actions]);
+  // Cache animation action names
+  const actionNames = actions ? Object.keys(actions) : [];
+  const walkActionName = actionNames.find(n => n.toLowerCase().includes('walk'));
+  const runActionName = actionNames.find(n => n.toLowerCase().includes('run')) || walkActionName;
+  const idleActionName = actionNames.find(n => n.toLowerCase().includes('idle'));
+  const jumpActionName = actionNames.find(n => n.toLowerCase().includes('jump') || n.toLowerCase().includes('fall')) || idleActionName;
 
   // Get terrain height at (x, z)
   const getTerrainHeight = (x, z) => {
@@ -257,7 +231,7 @@ export default function Player() {
       }
       
       if (keys.space) {
-        currentVelocity.current.y = 5.5; // Scaled down jump force
+        currentVelocity.current.y = 7.5; // Increased jump force
         group.current.position.y += 0.1; // Slight lift to break ground contact instantly
       }
     }
@@ -280,6 +254,34 @@ export default function Player() {
     // Snap camera position
     camera.position.copy(idealCameraPos);
     camera.lookAt(targetLookAt);
+
+    // Handle Animation state based on movement and grounding
+    if (actions) {
+      const isMoving = keys.w || keys.a || keys.s || keys.d;
+      const isRunning = isMoving && keys.shift;
+
+      let targetAction = null;
+      if (!isGrounded && jumpActionName) {
+        targetAction = jumpActionName;
+      } else if (isRunning && runActionName) {
+        targetAction = runActionName;
+      } else if (isMoving && walkActionName) {
+        targetAction = walkActionName;
+      } else if (idleActionName) {
+        targetAction = idleActionName;
+      }
+
+      if (currentAction.current !== targetAction) {
+        if (currentAction.current && actions[currentAction.current]) {
+          actions[currentAction.current].fadeOut(0.2);
+        }
+        if (targetAction && actions[targetAction]) {
+          // If it's a jump action, we might want it to not loop, but for now we just play it
+          actions[targetAction].reset().fadeIn(0.2).play();
+        }
+        currentAction.current = targetAction;
+      }
+    }
   });
 
   return (

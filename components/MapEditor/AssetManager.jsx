@@ -93,9 +93,7 @@ function NPC({ asset, isPlaying }) {
 
   return (
     <group position={[0, 0, 0]}>
-      <Center position={[0, 0, 0]} bottom>
-        <primitive object={clone} scale={0.04} />
-      </Center>
+      <primitive object={clone} scale={0.04} dispose={null} />
       
       {isPlaying && showBubble && asset.dialogue && (
         <Html position={[0, 1.5, 0]} center sprite zIndexRange={[100, 0]}>

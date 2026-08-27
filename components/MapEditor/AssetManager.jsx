@@ -1,9 +1,6 @@
 'use client';
 
-import useMapStore from '@/store/useMapStore';
-import useInventoryStore from '@/store/useInventoryStore';
-import { Decal, useTexture } from '@react-three/drei';
-import * as THREE from 'three';
+
 
 import { useRef, useState, useEffect } from 'react';
 import useMapStore from '@/store/useMapStore';

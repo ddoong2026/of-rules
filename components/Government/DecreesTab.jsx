@@ -4,12 +4,13 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/components/AuthProvider';
 import styles from './GovernmentTabs.module.css';
-import { CheckCircle, XCircle, Trash2 } from 'lucide-react';
+import { CheckCircle, XCircle, Trash2, Search } from 'lucide-react';
 
 export default function DecreesTab() {
   const [decrees, setDecrees] = useState([]);
   const [expandedDecreeId, setExpandedDecreeId] = useState(null);
   const [filterDept, setFilterDept] = useState('전체');
+  const [searchTerm, setSearchTerm] = useState('');
   const { user, role } = useAuth();
 
   const fetchDecrees = async () => {
@@ -71,11 +72,17 @@ export default function DecreesTab() {
   };
 
   const departments = ['전체', ...new Set(decrees.map(d => d.department))];
-  const filteredDecrees = filterDept === '전체' ? decrees : decrees.filter(d => d.department === filterDept);
+  
+  const filteredDecrees = decrees.filter(d => {
+    const matchesDept = filterDept === '전체' || d.department === filterDept;
+    const matchesSearch = d.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          d.content.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesDept && matchesSearch;
+  });
 
   return (
     <div>
-      <div className={styles.tabHeader}>
+      <div className={styles.tabHeader} style={{ flexWrap: 'wrap', gap: '1rem', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <h2>명령 현황</h2>
           <select 
@@ -89,11 +96,25 @@ export default function DecreesTab() {
             ))}
           </select>
         </div>
+        
+        <div style={{ position: 'relative' }}>
+          <Search size={18} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+          <input
+            type="text"
+            className="glass-input"
+            placeholder="명령 검색..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{ paddingLeft: '2.5rem', width: '250px' }}
+          />
+        </div>
       </div>
 
       <div className={styles.list}>
         {filteredDecrees.length === 0 ? (
-          <p className={styles.empty}>해당하는 명령이 없습니다.</p>
+          <p className={styles.empty}>
+            {searchTerm ? '검색 결과가 없습니다.' : '해당하는 명령이 없습니다.'}
+          </p>
         ) : (
           filteredDecrees.map(decree => (
             <div 

@@ -104,7 +104,7 @@ function BackgroundEffect({ zoomStage }) {
 
   return (
     <group ref={starsRef}>
-      {zoomStage > 0 && <Stars radius={150} depth={50} count={3000} factor={4} saturation={0} fade speed={1} />}
+      {zoomStage > 0 && <Stars radius={150} depth={50} count={1000} factor={3} saturation={0} fade speed={1} />}
     </group>
   );
 }
@@ -161,9 +161,9 @@ function TimeMachine({ position, scale = 1, onZoomStart, onZoomComplete, zoomSta
         scale={scale * 0.1} // Increased base scale
         opacity={0.6} 
         speed={0.4} 
-        width={100} // Much wider X area
-        depth={100} // Much deeper Z area
-        segments={60} // More particles to fill the area
+        width={50} // Much wider X area
+        depth={50} // Much deeper Z area
+        segments={20} // More particles to fill the area
         color="#ffffff"
         seed={1} // Static seed to prevent shape regeneration on re-renders
       />
@@ -223,11 +223,11 @@ export default function Map3D() {
           zIndex: 0
         }}
       />
-      <Canvas style={{ position: 'relative', zIndex: 1 }} camera={{ position: [0, 40, 60], fov: 45 }}>
+      <Canvas style={{ position: 'relative', zIndex: 1 }} camera={{ position: [0, 40, 60], fov: 45 }} dpr={[1, 1.2]} performance={{ min: 0.5 }}>
         <BackgroundEffect zoomStage={zoomStage} />
         {/* Lighting */}
         <ambientLight intensity={1.5} />
-        <directionalLight position={[50, 100, 50]} intensity={2} castShadow />
+        <directionalLight position={[50, 100, 50]} intensity={2} castShadow shadow-mapSize-width={512} shadow-mapSize-height={512} />
         <pointLight position={[-50, -50, -50]} intensity={0.5} />
 
         {/* Environment / Ground - Kept normal size */}

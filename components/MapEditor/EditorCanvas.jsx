@@ -28,6 +28,8 @@ export default function EditorCanvas() {
         style={{ background: '#87CEEB', cursor: isPlaying ? 'none' : (isCameraMode ? 'grab' : (mode === 'erase' ? 'cell' : 'crosshair')) }}
         onContextMenu={(e) => e.preventDefault()}
         shadows
+        dpr={[1, 1.2]}
+        performance={{ min: 0.5 }}
       >
         <Sky distance={450000} sunPosition={sunPosition} />
         <ambientLight intensity={sunY > 0 ? 0.5 : 0.1} />
@@ -35,8 +37,8 @@ export default function EditorCanvas() {
           castShadow 
           position={sunPosition} 
           intensity={Math.max(0, sunY) * 0.05 + 0.1} 
-          shadow-mapSize-width={2048} 
-          shadow-mapSize-height={2048}
+          shadow-mapSize-width={512} 
+          shadow-mapSize-height={512}
           shadow-camera-far={100}
           shadow-camera-left={-30}
           shadow-camera-right={30}

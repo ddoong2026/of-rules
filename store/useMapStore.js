@@ -31,6 +31,7 @@ const useMapStore = create((set, get) => ({
 
   // Actions
   setMode: (mode) => set({ mode }),
+  setMapName: (name) => set({ mapName: name }),
   setBrushSize: (size) => set({ brushSize: size }),
   setBrushIntensity: (intensity) => set({ brushIntensity: intensity }),
   setSelectedColor: (color) => set({ selectedColor: color }),

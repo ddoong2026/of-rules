@@ -2,11 +2,31 @@
 
 import { useAuth } from '@/components/AuthProvider';
 import Link from 'next/link';
+import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
+import { useRouter } from 'next/navigation';
 
 export default function FieldTripPage() {
-  const { user, role, loading } = useAuth();
+  const { user, loading } = useAuth();
+  const [maps, setMaps] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
 
-  if (loading) {
+  useEffect(() => {
+    const fetchMaps = async () => {
+      const { data, error } = await supabase
+        .from('maps')
+        .select('id, name, created_at, updated_at')
+        .order('updated_at', { ascending: false });
+      
+      if (data) setMaps(data);
+      setIsLoading(false);
+    };
+    
+    fetchMaps();
+  }, []);
+
+  if (loading || isLoading) {
     return <div style={{ padding: '2rem', textAlign: 'center' }}>로딩중...</div>;
   }
 
@@ -25,15 +45,49 @@ export default function FieldTripPage() {
         🚀 수학이란 무엇인가
       </h1>
       
-      <div className="glass-panel" style={{ padding: '2rem', minHeight: '60vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-        <h2 style={{ fontSize: '1.5rem', color: '#4b5563', marginBottom: '1rem' }}>수학이란 무엇인가 페이지 준비중입니다!</h2>
-        <p style={{ color: '#6b7280', textAlign: 'center' }}>
-          이곳에서 특별한 수학여행 콘텐츠를 즐길 수 있도록 업데이트될 예정입니다.
+      <div className="glass-panel" style={{ padding: '2rem', minHeight: '60vh' }}>
+        <h2 style={{ fontSize: '1.5rem', color: '#4b5563', marginBottom: '1.5rem' }}>
+          친구들이 만든 지형 체험하기
+        </h2>
+        <p style={{ color: '#6b7280', marginBottom: '2rem' }}>
+          아래 목록에서 체험하고 싶은 지형을 선택하세요.
         </p>
+
+        {maps.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '3rem', color: '#9ca3af' }}>
+            저장된 맵이 없습니다.
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1rem' }}>
+            {maps.map(map => (
+              <div 
+                key={map.id} 
+                className="glass-panel" 
+                style={{ padding: '1.5rem', cursor: 'pointer', transition: 'transform 0.2s' }}
+                onClick={() => router.push(`/fieldtrip/${map.id}`)}
+                onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
+                onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+              >
+                <h3 style={{ fontSize: '1.2rem', color: '#1f2937', marginBottom: '0.5rem' }}>{map.name}</h3>
+                <p style={{ fontSize: '0.8rem', color: '#6b7280' }}>
+                  마지막 수정: {new Date(map.updated_at).toLocaleDateString()}
+                </p>
+                <button 
+                  className="glass-button" 
+                  style={{ width: '100%', marginTop: '1rem', background: 'var(--primary)', color: 'white' }}
+                >
+                  입장하기
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
         
-        <Link href="/" className="glass-button" style={{ marginTop: '2rem' }}>
-          3D 지도로 돌아가기
-        </Link>
+        <div style={{ textAlign: 'center', marginTop: '3rem' }}>
+          <Link href="/" className="glass-button">
+            3D 지도로 돌아가기
+          </Link>
+        </div>
       </div>
     </div>
   );

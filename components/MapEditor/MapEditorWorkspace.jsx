@@ -7,7 +7,7 @@ import EditorCanvas from './EditorCanvas';
 import EditorUI from './EditorUI';
 
 export default function MapEditorWorkspace() {
-  const { currentMapId, mapName, heights, colors, assets, decals, loadMap, resetMap } = useMapStore();
+  const { currentMapId, mapName, setMapName, heights, colors, assets, decals, loadMap, resetMap } = useMapStore();
   const [mapList, setMapList] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -218,6 +218,21 @@ export default function MapEditorWorkspace() {
 
         {/* Tools UI */}
         <div style={{ flex: '1 1 auto', overflowY: 'auto' }}>
+          {currentMapId && (
+            <div style={{ padding: '1rem', borderBottom: '1px solid #e5e7eb', backgroundColor: '#eff6ff' }}>
+              <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.3rem', color: '#1e3a8a', fontWeight: 'bold' }}>맵 이름 수정 및 덮어쓰기</label>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <input 
+                  type="text" 
+                  value={mapName}
+                  onChange={(e) => setMapName(e.target.value)}
+                  style={{ flex: 1, padding: '0.4rem', border: '1px solid #bfdbfe', borderRadius: '4px', fontSize: '0.9rem' }}
+                  placeholder="맵 이름"
+                />
+              </div>
+              <p style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.4rem', margin: 0 }}>이름이나 지형을 수정한 뒤 아래 저장 버튼을 누르면 덮어쓰기 됩니다.</p>
+            </div>
+          )}
           <EditorUI onSave={handleSaveMap} isSaving={isSaving} />
         </div>
       </div>

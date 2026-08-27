@@ -2,13 +2,34 @@
 
 import { useRef, useState, useEffect } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
-import { useGLTF, useAnimations } from '@react-three/drei';
+import { useGLTF, useAnimations, Html } from '@react-three/drei';
 import * as THREE from 'three';
 import useMapStore, { GRID_SIZE } from '@/store/useMapStore';
 
 const WALK_SPEED = 1.2;
 const RUN_SPEED = 3.5;
 const ROTATION_SPEED = 5;
+
+function PlayerGauge({ progressRef }) {
+  const barRef = useRef();
+  const containerRef = useRef();
+  
+  useFrame(() => {
+    if (barRef.current && containerRef.current) {
+      const p = progressRef.current;
+      barRef.current.style.width = `${(p / 5) * 100}%`;
+      containerRef.current.style.display = p > 0 ? 'block' : 'none';
+    }
+  });
+
+  return (
+    <Html position={[0, 2.5, 0]} center sprite zIndexRange={[100, 0]}>
+      <div ref={containerRef} style={{ display: 'none', width: '60px', height: '10px', background: 'rgba(0,0,0,0.6)', border: '2px solid white', borderRadius: '5px', overflow: 'hidden' }}>
+        <div ref={barRef} style={{ width: '0%', height: '100%', background: '#4ade80', transition: 'width 0.05s linear' }} />
+      </div>
+    </Html>
+  );
+}
 
 export default function Player() {
   const group = useRef();
@@ -24,6 +45,9 @@ export default function Player() {
   
   const yaw = useRef(0);
   const pitch = useRef(0);
+  
+  const mineProgressRef = useRef(0);
+  const mineTargetIdRef = useRef(null);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -56,40 +80,49 @@ export default function Player() {
     };
 
     const handleMouseDown = (e) => {
-      // 좌클릭이고 마우스 잠금 상태일 때 강제로 화면 정중앙(0,0)에서 레이캐스트
+      // 좌클릭이고 마우스 잠금 상태일 때 순수 거리/방향 수학으로 채집 판정 (3인칭 카메라 레이캐스트 버그 원천 차단)
       if (e.button === 0 && document.pointerLockElement === canvas) {
-        const raycaster = new THREE.Raycaster();
-        raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+        if (!group.current) return;
         
-        const intersects = raycaster.intersectObjects(glScene.children, true);
+        const playerPos = group.current.position;
+        // 캐릭터의 정면 벡터 (X, Z 평면)
+        const forward = new THREE.Vector3(0, 0, 1).applyEuler(new THREE.Euler(0, yaw.current, 0));
         
-        for (let i = 0; i < intersects.length; i++) {
-          const hit = intersects[i];
+        let closestAssetId = null;
+        let minDistance = 2.5; // 최대 채집 거리 (매우 가깝게 제한하여 붙어있어야 캐지도록 설정)
+        
+        for (const asset of assets) {
+          const dx = asset.position[0] - playerPos.x;
+          const dz = asset.position[2] - playerPos.z;
+          const distance = Math.sqrt(dx*dx + dz*dz);
           
-          // 카메라와 캐릭터(또는 바로 뒤) 사이에 낀 물체 무시 (거리 1.5 이하)
-          if (hit.distance < 1.5) continue;
-          
-          let obj = hit.object;
-          let assetId = null;
-          
-          // 상위 그룹들을 순회하며 userData 확인
-          while (obj) {
-            if (obj.userData && obj.userData.isAsset) {
-              assetId = obj.userData.assetId;
-              break;
+          if (distance < minDistance) {
+            const dir = new THREE.Vector3(dx, 0, dz).normalize();
+            const dot = forward.dot(dir);
+            
+            // dot > 0.5 이면 캐릭터 정면(좌우 60도)에 위치함. 
+            // 거리가 매우 가깝다면(1.0 이하) 정면 판정을 조금 더 너그럽게 함
+            if (dot > 0.3 || distance < 1.0) {
+              minDistance = distance;
+              closestAssetId = asset.id;
             }
-            obj = obj.parent;
+          }
+        }
+        
+        if (closestAssetId) {
+          if (mineTargetIdRef.current !== closestAssetId) {
+            mineTargetIdRef.current = closestAssetId;
+            mineProgressRef.current = 1;
+          } else {
+            mineProgressRef.current += 1;
           }
           
-          if (assetId) {
-            // 카메라로부터 거리 6.0 이내일 때 (캐릭터 기준 대략 5.0) 캘 수 있음
-            if (hit.distance < 6.0) {
-              window.dispatchEvent(new CustomEvent('mine-asset', { detail: { id: assetId } }));
-            }
-            break; // 에셋을 맞췄으므로 탐색 중단
-          } else {
-            // 지형(Terrain) 등 에셋이 아닌 불투명한 것을 맞췄다면 뒤에 있는 것은 통과할 수 없음
-            break; 
+          window.dispatchEvent(new CustomEvent('mine-jiggle', { detail: { id: closestAssetId } }));
+          
+          if (mineProgressRef.current >= 5) {
+            window.dispatchEvent(new CustomEvent('mine-complete', { detail: { id: closestAssetId } }));
+            mineProgressRef.current = 0;
+            mineTargetIdRef.current = null;
           }
         }
       }
@@ -185,6 +218,14 @@ export default function Player() {
 
   useFrame((state, delta) => {
     if (!group.current) return;
+    
+    // 채집 게이지 서서히 감소
+    if (mineProgressRef.current > 0) {
+      mineProgressRef.current = Math.max(0, mineProgressRef.current - delta * 1.5);
+      if (mineProgressRef.current === 0) {
+        mineTargetIdRef.current = null;
+      }
+    }
 
     // Movement Logic relative to camera yaw
     const moveDir = new THREE.Vector3(0, 0, 0);
@@ -377,7 +418,8 @@ export default function Player() {
   });
 
   return (
-    <group ref={group} dispose={null}>
+    <group ref={group} dispose={null} userData={{ isPlayer: true }}>
+      <PlayerGauge progressRef={mineProgressRef} />
       <primitive object={scene} scale={0.1} />
     </group>
   );

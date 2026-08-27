@@ -2,10 +2,10 @@
 
 
 
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useEffect } from 'react';
 import useMapStore from '@/store/useMapStore';
 import useInventoryStore from '@/store/useInventoryStore';
-import { Decal, useTexture, Html } from '@react-three/drei';
+import { useTexture } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
@@ -73,21 +73,16 @@ function Lake() {
 }
 
 function MineableAsset({ id, type, position, onInteract, mode, isPlaying, children }) {
-  const [progress, setProgress] = useState(0);
   const groupRef = useRef();
+  const jiggleTimeRef = useRef(0);
 
   useFrame((state, delta) => {
-    if (progress > 0) {
-      // 시간에 따라 서서히 게이지 감소 (클릭을 멈추면 줄어듦)
-      setProgress((p) => Math.max(0, p - delta * 1.5));
-      
+    if (jiggleTimeRef.current > 0) {
+      jiggleTimeRef.current = Math.max(0, jiggleTimeRef.current - delta);
       if (groupRef.current) {
-        // 게이지가 있을 때 젤리처럼 움찔움찔 애니메이션 (기본 스케일 0.5 기준)
-        const jiggle = Math.sin(state.clock.elapsedTime * 40) * 0.05 * (progress / 5);
-        const s = 0.5 + jiggle;
-        // Y축으로 더 길쭉해지거나 찌그러지게 스케일링
-        const sy = 0.5 - jiggle;
-        groupRef.current.scale.set(s, sy, s);
+        // jiggleTimeRef.current 값이 클수록 움찔거림이 강해짐
+        const jiggle = Math.sin(state.clock.elapsedTime * 40) * 0.05 * jiggleTimeRef.current;
+        groupRef.current.scale.set(0.5 + jiggle, 0.5 - jiggle, 0.5 + jiggle);
       }
     } else {
       if (groupRef.current) {
@@ -96,7 +91,6 @@ function MineableAsset({ id, type, position, onInteract, mode, isPlaying, childr
     }
   });
 
-  // 직접 클릭 시 (지우기 모드 등 마우스 커서가 있을 때)
   const handleClick = (e) => {
     if (mode === 'erase') {
       e.stopPropagation();
@@ -104,21 +98,26 @@ function MineableAsset({ id, type, position, onInteract, mode, isPlaying, childr
     }
   };
 
-  // 체험 모드에서 Player의 강제 조준점 레이캐스트 이벤트를 수신
   useEffect(() => {
-    const handleCustomMine = (e) => {
+    const handleMineComplete = (e) => {
       if (e.detail.id === id && isPlaying) {
-        const newProgress = progress + 1;
-        if (newProgress >= 5) {
-          onInteract(id, type, false);
-        } else {
-          setProgress(newProgress);
-        }
+        onInteract(id, type, false);
       }
     };
-    window.addEventListener('mine-asset', handleCustomMine);
-    return () => window.removeEventListener('mine-asset', handleCustomMine);
-  }, [id, type, progress, isPlaying, onInteract]);
+    
+    const handleMineJiggle = (e) => {
+      if (e.detail.id === id && isPlaying) {
+        jiggleTimeRef.current = 1.0; // 1초간 움찔거림
+      }
+    };
+
+    window.addEventListener('mine-complete', handleMineComplete);
+    window.addEventListener('mine-jiggle', handleMineJiggle);
+    return () => {
+      window.removeEventListener('mine-complete', handleMineComplete);
+      window.removeEventListener('mine-jiggle', handleMineJiggle);
+    };
+  }, [id, type, isPlaying, onInteract]);
 
   return (
     <group 
@@ -126,29 +125,9 @@ function MineableAsset({ id, type, position, onInteract, mode, isPlaying, childr
       position={position} 
       onClick={handleClick} 
       scale={0.5}
-      userData={{ isAsset: true, assetId: id }} // 레이캐스터 식별용
+      userData={{ isAsset: true, assetId: id }} 
     >
       {children}
-      {/* 채집 중일 때만 상단에 게이지(ProgressBar) 표시 */}
-      {progress > 0 && isPlaying && (
-        <Html position={[0, 3.5, 0]} center sprite zIndexRange={[100, 0]}>
-          <div style={{
-            width: '60px',
-            height: '10px',
-            background: 'rgba(0,0,0,0.6)',
-            border: '2px solid white',
-            borderRadius: '5px',
-            overflow: 'hidden'
-          }}>
-            <div style={{
-              width: `${(progress / 5) * 100}%`,
-              height: '100%',
-              background: '#4ade80',
-              transition: 'width 0.1s ease-out'
-            }} />
-          </div>
-        </Html>
-      )}
     </group>
   );
 }

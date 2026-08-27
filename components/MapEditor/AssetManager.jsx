@@ -5,7 +5,7 @@
 import { useRef, useEffect, useMemo, useState } from 'react';
 import useMapStore from '@/store/useMapStore';
 import useInventoryStore from '@/store/useInventoryStore';
-import { useTexture, Html, useGLTF } from '@react-three/drei';
+import { useTexture, Html, useGLTF, Clone } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
@@ -91,10 +91,10 @@ function NPC({ asset, isPlaying }) {
 
   return (
     <group position={[0, 0, 0]}>
-      <primitive object={scene.clone()} scale={0.6} position={[0, 0, 0]} />
+      <Clone object={scene} scale={0.2} position={[0, 0, 0]} />
       
       {isPlaying && showBubble && asset.dialogue && (
-        <Html position={[0, 3, 0]} center sprite zIndexRange={[100, 0]}>
+        <Html position={[0, 1.5, 0]} center sprite zIndexRange={[100, 0]}>
           <div style={{
             background: 'white',
             padding: '4px 8px',
@@ -111,7 +111,7 @@ function NPC({ asset, isPlaying }) {
         </Html>
       )}
       {!isPlaying && asset.npcName && (
-        <Html position={[0, 3, 0]} center sprite>
+        <Html position={[0, 1.5, 0]} center sprite>
           <div style={{
             background: 'rgba(0,0,0,0.6)', color: 'white', padding: '2px 6px', 
             borderRadius: '4px', fontSize: '0.7rem', pointerEvents: 'none'

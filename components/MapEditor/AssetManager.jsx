@@ -2,7 +2,7 @@
 
 
 
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useMemo } from 'react';
 import useMapStore from '@/store/useMapStore';
 import useInventoryStore from '@/store/useInventoryStore';
 import { useTexture } from '@react-three/drei';
@@ -25,8 +25,9 @@ function Tree() {
 }
 
 function Rock() {
+  const rotation = useMemo(() => [Math.random() * Math.PI, Math.random() * Math.PI, 0], []);
   return (
-    <mesh position={[0, 0.4, 0]} rotation={[Math.random(), Math.random(), 0]}>
+    <mesh position={[0, 0.4, 0]} rotation={rotation}>
       <dodecahedronGeometry args={[0.8, 0]} />
       <meshStandardMaterial color="#696969" roughness={0.9} />
     </mesh>

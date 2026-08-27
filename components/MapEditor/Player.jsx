@@ -119,6 +119,12 @@ export default function Player() {
           
           window.dispatchEvent(new CustomEvent('mine-jiggle', { detail: { id: closestAssetId } }));
           
+          // 채집 성공 시 제자리에서 살짝 폴짝 뜀
+          if (wasGrounded.current) {
+            currentVelocity.current.y = 2.0; // 일반 점프(3.0)보다 약한 폴짝
+            group.current.position.y += 0.01;
+          }
+          
           if (mineProgressRef.current >= 5) {
             window.dispatchEvent(new CustomEvent('mine-complete', { detail: { id: closestAssetId } }));
             mineProgressRef.current = 0;

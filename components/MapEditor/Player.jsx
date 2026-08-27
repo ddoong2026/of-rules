@@ -14,7 +14,7 @@ export default function Player() {
   const group = useRef();
   const { scene, animations } = useGLTF('/models/charactor2.glb');
   const { actions } = useAnimations(animations, group);
-  const { camera } = useThree();
+  const { camera, scene: glScene } = useThree();
   const heights = useMapStore((state) => state.heights);
   const assets = useMapStore((state) => state.assets);
 
@@ -55,18 +55,60 @@ export default function Player() {
       }
     };
 
+    const handleMouseDown = (e) => {
+      // 좌클릭이고 마우스 잠금 상태일 때 강제로 화면 정중앙(0,0)에서 레이캐스트
+      if (e.button === 0 && document.pointerLockElement === canvas) {
+        const raycaster = new THREE.Raycaster();
+        raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+        
+        const intersects = raycaster.intersectObjects(glScene.children, true);
+        
+        for (let i = 0; i < intersects.length; i++) {
+          const hit = intersects[i];
+          
+          // 카메라와 캐릭터(또는 바로 뒤) 사이에 낀 물체 무시 (거리 1.5 이하)
+          if (hit.distance < 1.5) continue;
+          
+          let obj = hit.object;
+          let assetId = null;
+          
+          // 상위 그룹들을 순회하며 userData 확인
+          while (obj) {
+            if (obj.userData && obj.userData.isAsset) {
+              assetId = obj.userData.assetId;
+              break;
+            }
+            obj = obj.parent;
+          }
+          
+          if (assetId) {
+            // 카메라로부터 거리 6.0 이내일 때 (캐릭터 기준 대략 5.0) 캘 수 있음
+            if (hit.distance < 6.0) {
+              window.dispatchEvent(new CustomEvent('mine-asset', { detail: { id: assetId } }));
+            }
+            break; // 에셋을 맞췄으므로 탐색 중단
+          } else {
+            // 지형(Terrain) 등 에셋이 아닌 불투명한 것을 맞췄다면 뒤에 있는 것은 통과할 수 없음
+            break; 
+          }
+        }
+      }
+    };
+
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('mousedown', handleMouseDown);
     if (canvas) canvas.addEventListener('click', onCanvasClick);
     document.addEventListener('mousemove', onMouseMove);
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('mousedown', handleMouseDown);
       if (canvas) canvas.removeEventListener('click', onCanvasClick);
       document.removeEventListener('mousemove', onMouseMove);
     };
-  }, [keys]);
+  }, [keys, camera, glScene]);
 
   // Cache animation action names
   const actionNames = actions ? Object.keys(actions) : [];

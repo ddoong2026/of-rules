@@ -1,6 +1,7 @@
 'use client';
 
 import useMapStore from '@/store/useMapStore';
+import useInventoryStore from '@/store/useInventoryStore';
 import { Decal, useTexture } from '@react-three/drei';
 import * as THREE from 'three';
 
@@ -90,12 +91,25 @@ function Lake({ id, position, onErase }) {
 }
 
 export default function AssetManager() {
-  const { mode, assets, decals, removeAsset, removeDecal } = useMapStore();
+  const { mode, assets, decals, removeAsset, removeDecal, isPlaying } = useMapStore();
+  const { addItem } = useInventoryStore();
 
-  const handleEraseAsset = (e, id) => {
+  const handleInteractAsset = (e, id) => {
     if (mode === 'erase') {
       e.stopPropagation();
       removeAsset(id);
+    } else if (isPlaying) {
+      e.stopPropagation();
+      const asset = assets.find(a => a.id === id);
+      if (asset) {
+        // 카메라(캐릭터)와 에셋의 거리 계산 (X, Z 기준)
+        const camPos = e.camera.position;
+        const distSq = Math.pow(camPos.x - asset.position[0], 2) + Math.pow(camPos.z - asset.position[2], 2);
+        if (distSq < 25) { // 거리 5 이하일 때 채집 가능 (5*5=25)
+          removeAsset(id);
+          addItem(asset.type, 1);
+        }
+      }
     }
   };
 
@@ -109,11 +123,11 @@ export default function AssetManager() {
   return (
     <>
       {assets.map(asset => {
-        if (asset.type === 'tree') return <Tree key={asset.id} id={asset.id} position={asset.position} onErase={handleEraseAsset} />;
-        if (asset.type === 'rock') return <Rock key={asset.id} id={asset.id} position={asset.position} onErase={handleEraseAsset} />;
-        if (asset.type === 'house') return <House key={asset.id} id={asset.id} position={asset.position} onErase={handleEraseAsset} />;
-        if (asset.type === 'cave') return <Cave key={asset.id} id={asset.id} position={asset.position} onErase={handleEraseAsset} />;
-        if (asset.type === 'lake') return <Lake key={asset.id} id={asset.id} position={asset.position} onErase={handleEraseAsset} />;
+        if (asset.type === 'tree') return <Tree key={asset.id} id={asset.id} position={asset.position} onErase={handleInteractAsset} />;
+        if (asset.type === 'rock') return <Rock key={asset.id} id={asset.id} position={asset.position} onErase={handleInteractAsset} />;
+        if (asset.type === 'house') return <House key={asset.id} id={asset.id} position={asset.position} onErase={handleInteractAsset} />;
+        if (asset.type === 'cave') return <Cave key={asset.id} id={asset.id} position={asset.position} onErase={handleInteractAsset} />;
+        if (asset.type === 'lake') return <Lake key={asset.id} id={asset.id} position={asset.position} onErase={handleInteractAsset} />;
         return null;
       })}
 

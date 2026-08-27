@@ -110,14 +110,18 @@ export default function Player() {
         }
         
         if (closestAssetId) {
+          const targetAsset = assets.find(a => a.id === closestAssetId);
+          const isTree = targetAsset?.type === 'tree';
+          const increment = isTree ? (5 / 3) : 1;
+          
           if (mineTargetIdRef.current !== closestAssetId) {
             mineTargetIdRef.current = closestAssetId;
-            mineProgressRef.current = 1;
+            mineProgressRef.current = increment;
           } else {
-            mineProgressRef.current += 1;
+            mineProgressRef.current += increment;
           }
           
-          window.dispatchEvent(new CustomEvent('mine-jiggle', { detail: { id: closestAssetId } }));
+          window.dispatchEvent(new CustomEvent('mine-jiggle', { detail: { id: closestAssetId, type: targetAsset?.type } }));
           
           // 채집 성공 시 제자리에서 살짝 폴짝 뜀
           if (wasGrounded.current) {
@@ -125,8 +129,9 @@ export default function Player() {
             group.current.position.y += 0.01;
           }
           
-          if (mineProgressRef.current >= 5) {
-            window.dispatchEvent(new CustomEvent('mine-complete', { detail: { id: closestAssetId } }));
+          // 부동소수점 오차 방지를 위해 4.9 이상이면 완료로 처리
+          if (mineProgressRef.current >= 4.9) {
+            window.dispatchEvent(new CustomEvent('mine-complete', { detail: { id: closestAssetId, type: targetAsset?.type } }));
             mineProgressRef.current = 0;
             mineTargetIdRef.current = null;
           }

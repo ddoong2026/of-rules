@@ -12,6 +12,10 @@ const getAssetInfo = (type) => {
     case 'house': return { name: '집', img: '🏠' };
     case 'cave': return { name: '동굴', img: '🕳️' };
     case 'lake': return { name: '호수', img: '💧' };
+    case '도토리': return { name: '도토리', img: '🌰' };
+    case '나뭇가지': return { name: '나뭇가지', img: '🪵' };
+    case '나무껍질': return { name: '나무껍질', img: '🍂' };
+    case '나무뿌리': return { name: '나무뿌리', img: '🌱' };
     default: return { name: type, img: '❓' };
   }
 };

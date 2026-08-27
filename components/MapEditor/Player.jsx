@@ -16,6 +16,7 @@ export default function Player() {
   const { actions } = useAnimations(animations, group);
   const { camera } = useThree();
   const heights = useMapStore((state) => state.heights);
+  const assets = useMapStore((state) => state.assets);
 
   const [keys, setKeys] = useState({ w: false, a: false, s: false, d: false, shift: false, space: false, control: false });
   const currentAction = useRef('');
@@ -195,6 +196,38 @@ export default function Player() {
       canMoveXZ = false;
       currentVelocity.current.x = 0;
       currentVelocity.current.z = 0;
+    }
+
+    // Asset Collision Check
+    const PLAYER_RADIUS = 0.2;
+    const ASSET_RADII = {
+      tree: 0.3,
+      rock: 0.5,
+      house: 0.8,
+      cave: 1.0,
+      lake: 0.0 // 호수는 평면이므로 충돌 무시
+    };
+
+    if (canMoveXZ) {
+      for (const asset of assets) {
+        const radius = ASSET_RADII[asset.type] || 0.5;
+        if (radius === 0) continue;
+        
+        const dx = nextX - asset.position[0];
+        const dz = nextZ - asset.position[2];
+        const distSq = dx*dx + dz*dz;
+        
+        const minDist = PLAYER_RADIUS + radius;
+        // Y축 검사 (에셋 위로 점프해서 넘어갈 수 있는지). 대부분 에셋 높이가 높으므로 단순 원기둥 충돌 처리
+        // 만약 캐릭터 높이가 에셋보다 충분히 높다면 통과(점프), 아니면 충돌
+        const yDist = group.current.position.y - asset.position[1];
+        if (distSq < minDist * minDist && yDist < 1.5) {
+          canMoveXZ = false;
+          currentVelocity.current.x = 0;
+          currentVelocity.current.z = 0;
+          break;
+        }
+      }
     }
     
     if (canMoveXZ) {

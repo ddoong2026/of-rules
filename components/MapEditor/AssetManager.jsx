@@ -5,9 +5,10 @@
 import { useRef, useEffect, useMemo, useState } from 'react';
 import useMapStore from '@/store/useMapStore';
 import useInventoryStore from '@/store/useInventoryStore';
-import { useTexture, Html, useGLTF, Clone } from '@react-three/drei';
+import { useTexture, Html, useGLTF, Clone, Center } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import { SkeletonUtils } from 'three-stdlib';
 
 function Tree() {
   return (
@@ -76,6 +77,7 @@ function Lake() {
 function NPC({ asset, isPlaying }) {
   const [showBubble, setShowBubble] = useState(false);
   const { scene } = useGLTF(`/models/${asset.type}.glb`);
+  const clone = useMemo(() => SkeletonUtils.clone(scene), [scene]);
 
   useEffect(() => {
     if (!isPlaying || !asset.dialogue) return;
@@ -91,7 +93,9 @@ function NPC({ asset, isPlaying }) {
 
   return (
     <group position={[0, 0, 0]}>
-      <Clone object={scene} scale={0.04} position={[0, 0, 0]} />
+      <Center position={[0, 0, 0]} bottom>
+        <primitive object={clone} scale={0.04} />
+      </Center>
       
       {isPlaying && showBubble && asset.dialogue && (
         <Html position={[0, 1.5, 0]} center sprite zIndexRange={[100, 0]}>

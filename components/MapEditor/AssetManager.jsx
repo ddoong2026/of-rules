@@ -6,7 +6,7 @@ import { useRef, useEffect, useMemo, useState } from 'react';
 import useMapStore from '@/store/useMapStore';
 import useInventoryStore from '@/store/useInventoryStore';
 import { useTexture, Html, useGLTF, Clone, Center } from '@react-three/drei';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, useGraph } from '@react-three/fiber';
 import * as THREE from 'three';
 import { SkeletonUtils } from 'three-stdlib';
 
@@ -76,8 +76,10 @@ function Lake() {
 
 function NPC({ asset, isPlaying }) {
   const [showBubble, setShowBubble] = useState(false);
+  const group = useRef();
   const { scene } = useGLTF(`/models/${asset.type}.glb`);
   const clone = useMemo(() => SkeletonUtils.clone(scene), [scene]);
+  const { nodes, materials } = useGraph(clone);
 
   useEffect(() => {
     if (!isPlaying || !asset.dialogue) return;
@@ -93,7 +95,19 @@ function NPC({ asset, isPlaying }) {
 
   return (
     <group position={[0, 0, 0]}>
-      <primitive object={clone} scale={0.04} dispose={null} />
+      <group ref={group} scale={0.04} dispose={null}>
+        <group name="Scene">
+          <group name="Armature" scale={0.01}>
+            <primitive object={nodes.Hips} />
+            <skinnedMesh 
+              name="char1" 
+              geometry={nodes.char1.geometry} 
+              material={materials.Material_1} 
+              skeleton={nodes.char1.skeleton} 
+            />
+          </group>
+        </group>
+      </group>
       
       {isPlaying && showBubble && asset.dialogue && (
         <Html position={[0, 1.5, 0]} center sprite zIndexRange={[100, 0]}>

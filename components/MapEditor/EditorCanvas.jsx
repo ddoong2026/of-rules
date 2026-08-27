@@ -27,24 +27,14 @@ export default function EditorCanvas() {
         camera={{ position: [0, 20, 20], fov: 60 }}
         style={{ background: '#87CEEB', cursor: isPlaying ? 'none' : (isCameraMode ? 'grab' : (mode === 'erase' ? 'cell' : 'crosshair')) }}
         onContextMenu={(e) => e.preventDefault()}
-        shadows
-        dpr={[1, 1.2]}
+        dpr={1}
         performance={{ min: 0.5 }}
       >
         <Sky distance={450000} sunPosition={sunPosition} />
         <ambientLight intensity={sunY > 0 ? 0.5 : 0.1} />
         <directionalLight 
-          castShadow 
           position={sunPosition} 
           intensity={Math.max(0, sunY) * 0.05 + 0.1} 
-          shadow-mapSize-width={512} 
-          shadow-mapSize-height={512}
-          shadow-camera-far={100}
-          shadow-camera-left={-30}
-          shadow-camera-right={30}
-          shadow-camera-top={30}
-          shadow-camera-bottom={-30}
-          shadow-bias={-0.001}
         />
         
         <Terrain />

@@ -90,23 +90,12 @@ function Building({ position, label, path, onClick, scale = 1 }) {
 
 function BackgroundEffect({ zoomStage }) {
   const { scene } = useThree();
-  const starsRef = useRef();
   
   useEffect(() => {
     scene.background = null; // Transparent to show CSS background
   }, [scene]);
 
-  useFrame((state, delta) => {
-    if (starsRef.current) {
-      starsRef.current.rotation.y += delta * 0.05; // Counter-clockwise rotation
-    }
-  });
-
-  return (
-    <group ref={starsRef}>
-      {zoomStage > 0 && <Stars radius={150} depth={50} count={1000} factor={3} saturation={0} fade speed={1} />}
-    </group>
-  );
+  return null;
 }
 
 function TimeMachine({ position, scale = 1, onZoomStart, onZoomComplete, zoomStage, setZoomStage }) {
@@ -156,17 +145,7 @@ function TimeMachine({ position, scale = 1, onZoomStart, onZoomComplete, zoomSta
       onPointerOver={(e) => { e.stopPropagation(); setHovered(true); }}
       onPointerOut={() => setHovered(false)}
     >
-      <Cloud 
-        position={[0, -5, 0]} // Positioned slightly lower
-        scale={scale * 0.1} // Increased base scale
-        opacity={0.6} 
-        speed={0.4} 
-        width={50} // Much wider X area
-        depth={50} // Much deeper Z area
-        segments={20} // More particles to fill the area
-        color="#ffffff"
-        seed={1} // Static seed to prevent shape regeneration on re-renders
-      />
+
       
       <primitive object={clonedScene} scale={scale} />
       <Text
@@ -223,15 +202,15 @@ export default function Map3D() {
           zIndex: 0
         }}
       />
-      <Canvas style={{ position: 'relative', zIndex: 1 }} camera={{ position: [0, 40, 60], fov: 45 }} dpr={[1, 1.2]} performance={{ min: 0.5 }}>
+      <Canvas style={{ position: 'relative', zIndex: 1 }} camera={{ position: [0, 40, 60], fov: 45 }} dpr={1} performance={{ min: 0.5 }}>
         <BackgroundEffect zoomStage={zoomStage} />
         {/* Lighting */}
         <ambientLight intensity={1.5} />
-        <directionalLight position={[50, 100, 50]} intensity={2} castShadow shadow-mapSize-width={512} shadow-mapSize-height={512} />
+        <directionalLight position={[50, 100, 50]} intensity={2} />
         <pointLight position={[-50, -50, -50]} intensity={0.5} />
 
         {/* Environment / Ground - Kept normal size */}
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.1, 0]} receiveShadow>
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.1, 0]}>
           <planeGeometry args={[150, 150]} />
           <meshStandardMaterial color="#e5e7eb" roughness={0.8} />
         </mesh>

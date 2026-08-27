@@ -91,7 +91,7 @@ function NPC({ asset, isPlaying }) {
 
   return (
     <group position={[0, 0, 0]}>
-      <Clone object={scene} scale={0.2} position={[0, 0, 0]} />
+      <Clone object={scene} scale={0.04} position={[0, 0, 0]} />
       
       {isPlaying && showBubble && asset.dialogue && (
         <Html position={[0, 1.5, 0]} center sprite zIndexRange={[100, 0]}>
@@ -233,11 +233,13 @@ function MineableAsset({ asset, onInteract, mode, isPlaying, children }) {
     };
   }, [id, type, isPlaying, onInteract]);
 
+  const canInteract = mode === 'erase' || mode === 'select';
+
   return (
     <group 
       ref={groupRef} 
       position={position} 
-      onClick={handleClick} 
+      onClick={canInteract ? handleClick : undefined} 
       scale={0.5}
       userData={{ isAsset: true, assetId: id }} 
     >

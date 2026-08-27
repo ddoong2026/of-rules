@@ -7,7 +7,7 @@ import * as THREE from 'three';
 import useMapStore, { GRID_SIZE } from '@/store/useMapStore';
 
 const WALK_SPEED = 1.2;
-const RUN_SPEED = 3.5;
+const RUN_SPEED = 2.8;
 const ROTATION_SPEED = 5;
 
 function PlayerGauge({ progressRef }) {
@@ -89,22 +89,30 @@ export default function Player() {
         const forward = new THREE.Vector3(0, 0, 1).applyEuler(new THREE.Euler(0, yaw.current, 0));
         
         let closestAssetId = null;
-        let minDistance = 2.5; // 최대 채집 거리 (매우 가깝게 제한하여 붙어있어야 캐지도록 설정)
+        let minDistance = 2.5; // 최대 채집 거리
         
-        for (const asset of assets) {
-          const dx = asset.position[0] - playerPos.x;
-          const dz = asset.position[2] - playerPos.z;
+        const assetNodes = [];
+        glScene.traverse(child => {
+          if (child.userData && child.userData.isAsset) {
+            assetNodes.push(child);
+          }
+        });
+
+        for (const node of assetNodes) {
+          const worldPos = new THREE.Vector3();
+          node.getWorldPosition(worldPos);
+          
+          const dx = worldPos.x - playerPos.x;
+          const dz = worldPos.z - playerPos.z;
           const distance = Math.sqrt(dx*dx + dz*dz);
           
           if (distance < minDistance) {
             const dir = new THREE.Vector3(dx, 0, dz).normalize();
             const dot = forward.dot(dir);
             
-            // dot > 0.5 이면 캐릭터 정면(좌우 60도)에 위치함. 
-            // 거리가 매우 가깝다면(1.0 이하) 정면 판정을 조금 더 너그럽게 함
             if (dot > 0.3 || distance < 1.0) {
               minDistance = distance;
-              closestAssetId = asset.id;
+              closestAssetId = node.userData.assetId;
             }
           }
         }
@@ -112,6 +120,16 @@ export default function Player() {
         if (closestAssetId) {
           const targetAsset = assets.find(a => a.id === closestAssetId);
           const isTree = targetAsset?.type === 'tree';
+          const isNPC = targetAsset?.type?.startsWith('caveman');
+          
+          if (isNPC) {
+            window.dispatchEvent(new CustomEvent('npc-interact', { detail: { asset: targetAsset } }));
+            if (document.pointerLockElement === canvas) {
+              document.exitPointerLock();
+            }
+            return;
+          }
+
           const increment = isTree ? (5 / 3) : 1;
           
           if (mineTargetIdRef.current !== closestAssetId) {
@@ -299,22 +317,38 @@ export default function Player() {
       rock: 0.5,
       house: 0.8,
       cave: 1.0,
-      lake: 0.0 // 호수는 평면이므로 충돌 무시
+      lake: 0.0,
+      caveman1: 0.3,
+      caveman2: 0.3,
+      caveman3: 0.3,
+      caveman4: 0.3
     };
 
     if (canMoveXZ) {
-      for (const asset of assets) {
+      const assetNodes = [];
+      glScene.traverse(child => {
+        if (child.userData && child.userData.isAsset) {
+          assetNodes.push(child);
+        }
+      });
+
+      for (const node of assetNodes) {
+        const asset = assets.find(a => a.id === node.userData.assetId);
+        if (!asset) continue;
         const radius = ASSET_RADII[asset.type] || 0.5;
         if (radius === 0) continue;
         
-        const dx = nextX - asset.position[0];
-        const dz = nextZ - asset.position[2];
+        const worldPos = new THREE.Vector3();
+        node.getWorldPosition(worldPos);
+
+        const dx = nextX - worldPos.x;
+        const dz = nextZ - worldPos.z;
         const distSq = dx*dx + dz*dz;
         
         const minDist = PLAYER_RADIUS + radius;
         // Y축 검사 (에셋 위로 점프해서 넘어갈 수 있는지). 대부분 에셋 높이가 높으므로 단순 원기둥 충돌 처리
         // 만약 캐릭터 높이가 에셋보다 충분히 높다면 통과(점프), 아니면 충돌
-        const yDist = group.current.position.y - asset.position[1];
+        const yDist = group.current.position.y - worldPos.y;
         if (distSq < minDist * minDist && yDist < 1.5) {
           canMoveXZ = false;
           currentVelocity.current.x = 0;
@@ -362,7 +396,7 @@ export default function Player() {
       }
       
       if (keys.space && !isJumping.current) {
-        currentVelocity.current.y = 3.0; // JUMP_FORCE (요청하신 3.0으로 설정)
+        currentVelocity.current.y = 2.5; // JUMP_FORCE
         group.current.position.y += 0.01; // 아주 미세한 값만 올려 바닥 판정을 피함 (0.25 순간이동 제거)
         
         isJumping.current = true;

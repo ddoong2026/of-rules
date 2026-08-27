@@ -18,6 +18,10 @@ const ASSETS = [
   { id: 'house', name: '집 (사각형)' },
   { id: 'cave', name: '동굴 입구 (반구)' },
   { id: 'lake', name: '고인 물/호수 (원형)' },
+  { id: 'caveman1', name: '원시인 1 (NPC)' },
+  { id: 'caveman2', name: '원시인 2 (NPC)' },
+  { id: 'caveman3', name: '원시인 3 (NPC)' },
+  { id: 'caveman4', name: '원시인 4 (NPC)' },
 ];
 
 export default function EditorUI({ onSave, isSaving }) {
@@ -27,6 +31,7 @@ export default function EditorUI({ onSave, isSaving }) {
     brushIntensity, setBrushIntensity,
     selectedColor, setSelectedColor,
     selectedAsset, setSelectedAsset,
+    selectedAssetId, setSelectedAssetId,
     selectedDecalImage, setSelectedDecalImage,
     currentMapId, mapName,
     undo, history,
@@ -112,6 +117,7 @@ export default function EditorUI({ onSave, isSaving }) {
           <ModeButton current={mode} id="asset" label="🌲 에셋 배치" onClick={() => setMode('asset')} />
           <ModeButton current={mode} id="decal" label="🛣️ 도로/타일" onClick={() => setMode('decal')} />
           <ModeButton current={mode} id="erase" label="🗑️ 지우개" onClick={() => setMode('erase')} />
+          <ModeButton current={mode} id="select" label="🖱️ 선택/편집" onClick={() => setMode('select')} />
         </div>
       </div>
 
@@ -232,6 +238,20 @@ export default function EditorUI({ onSave, isSaving }) {
         </div>
       )}
 
+      {/* Select / Edit Mode */}
+      {mode === 'select' && (
+        <div style={{ background: '#e0e7ff', padding: '1rem', borderRadius: '6px' }}>
+          <h4 style={{ margin: '0 0 0.5rem 0', color: '#3730a3' }}>선택/편집 모드</h4>
+          {!selectedAssetId ? (
+            <p style={{ fontSize: '0.8rem', color: '#4338ca', margin: 0 }}>
+              맵에 배치된 에셋이나 NPC를 클릭하여 속성을 편집하세요.
+            </p>
+          ) : (
+            <PropertyEditor />
+          )}
+        </div>
+      )}
+
       {/* Lighting Control */}
       <div style={{ background: '#f3f4f6', padding: '1rem', borderRadius: '6px' }}>
         <h4 style={{ margin: '0 0 0.5rem 0', color: '#4b5563' }}>태양 위치 (시간대)</h4>
@@ -272,5 +292,92 @@ function ModeButton({ id, label, current, onClick }) {
     >
       {label}
     </button>
+  );
+}
+
+function PropertyEditor() {
+  const { selectedAssetId, assets, updateAsset, setSelectedAssetId } = useMapStore();
+  
+  const asset = assets.find(a => a.id === selectedAssetId);
+  
+  if (!asset) {
+    return <div style={{ fontSize: '0.8rem', color: '#ef4444' }}>에셋을 찾을 수 없습니다.</div>;
+  }
+
+  const isNPC = asset.type.startsWith('caveman');
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', marginTop: '1rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h5 style={{ margin: 0 }}>타입: {asset.type}</h5>
+        <button 
+          onClick={() => setSelectedAssetId(null)}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}
+        >
+          ✖
+        </button>
+      </div>
+
+      {isNPC && (
+        <>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+            <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>NPC 이름</label>
+            <input 
+              type="text" 
+              className="glass-input" 
+              value={asset.npcName || ''} 
+              onChange={(e) => updateAsset(asset.id, { npcName: e.target.value })}
+              placeholder="예: 촌장님"
+              style={{ padding: '0.4rem' }}
+            />
+          </div>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+            <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>대사 (Dialogue)</label>
+            <textarea 
+              className="glass-input" 
+              value={asset.dialogue || ''} 
+              onChange={(e) => updateAsset(asset.id, { dialogue: e.target.value })}
+              placeholder="대화창에 표시될 대사"
+              rows={3}
+              style={{ padding: '0.4rem', resize: 'vertical' }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+            <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>퀘스트 (Quest)</label>
+            <textarea 
+              className="glass-input" 
+              value={asset.quest || ''} 
+              onChange={(e) => updateAsset(asset.id, { quest: e.target.value })}
+              placeholder="퀘스트 내용"
+              rows={3}
+              style={{ padding: '0.4rem', resize: 'vertical' }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+            <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>배회 구역 반경 (Roam Radius)</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <input 
+                type="range" 
+                min="0" max="20" step="1"
+                value={asset.roamRadius || 0} 
+                onChange={(e) => updateAsset(asset.id, { roamRadius: Number(e.target.value) })}
+                style={{ flex: 1 }}
+              />
+              <span style={{ fontSize: '0.8rem', width: '20px' }}>{asset.roamRadius || 0}</span>
+            </div>
+            <span style={{ fontSize: '0.7rem', color: '#6b7280' }}>0이면 제자리에 멈춰 있습니다.</span>
+          </div>
+        </>
+      )}
+      
+      {!isNPC && (
+        <p style={{ fontSize: '0.8rem', color: '#6b7280' }}>
+          이 에셋은 편집할 수 있는 속성이 없습니다.
+        </p>
+      )}
+    </div>
   );
 }

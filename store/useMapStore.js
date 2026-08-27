@@ -5,11 +5,12 @@ export const VERTEX_COUNT = (GRID_SIZE + 1) * (GRID_SIZE + 1);
 
 const useMapStore = create((set, get) => ({
   // Editor State
-  mode: 'none', // sculpt, paint, water, asset, decal, erase, none
+  mode: 'none', // sculpt, paint, water, asset, decal, erase, select, none
   brushSize: 2,
   brushIntensity: 1, // height change amount or paint opacity
   selectedColor: '#3d8c40', // default grass color
   selectedAsset: 'tree',
+  selectedAssetId: null, // For editing properties in select mode
   selectedDecalImage: null,
   isCameraMode: false,
   isPlaying: false,
@@ -36,6 +37,7 @@ const useMapStore = create((set, get) => ({
   setBrushIntensity: (intensity) => set({ brushIntensity: intensity }),
   setSelectedColor: (color) => set({ selectedColor: color }),
   setSelectedAsset: (asset) => set({ selectedAsset: asset }),
+  setSelectedAssetId: (id) => set({ selectedAssetId: id }),
   setSelectedDecalImage: (url) => set({ selectedDecalImage: url }),
   setCameraMode: (isCameraMode) => set({ isCameraMode }),
   setIsPlaying: (isPlaying) => set({ isPlaying }),
@@ -106,7 +108,10 @@ const useMapStore = create((set, get) => ({
   updateColors: (newColors) => set({ colors: newColors }),
   
   addAsset: (asset) => set((state) => ({ assets: [...state.assets, asset] })),
-  removeAsset: (id) => set((state) => ({ assets: state.assets.filter(a => a.id !== id) })),
+  removeAsset: (id) => set((state) => ({ assets: state.assets.filter(a => a.id !== id), selectedAssetId: state.selectedAssetId === id ? null : state.selectedAssetId })),
+  updateAsset: (id, updates) => set((state) => ({
+    assets: state.assets.map(a => a.id === id ? { ...a, ...updates } : a)
+  })),
   
   addDecal: (decal) => set((state) => ({ decals: [...state.decals, decal] })),
   removeDecal: (id) => set((state) => ({ decals: state.decals.filter(d => d.id !== id) })),

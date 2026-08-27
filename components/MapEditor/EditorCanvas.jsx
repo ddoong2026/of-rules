@@ -7,6 +7,7 @@ import AssetManager from './AssetManager';
 import FluidSystem from './FluidSystem';
 import Player from './Player';
 import InventoryUI from './InventoryUI';
+import NPCDialogueUI from './NPCDialogueUI';
 import useMapStore from '@/store/useMapStore';
 
 export default function EditorCanvas() {
@@ -70,6 +71,7 @@ export default function EditorCanvas() {
       )}
 
       <InventoryUI />
+      <NPCDialogueUI />
     </div>
   );
 }

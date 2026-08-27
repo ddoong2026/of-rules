@@ -2,10 +2,10 @@
 
 
 
-import { useRef, useEffect, useMemo } from 'react';
+import { useRef, useEffect, useMemo, useState } from 'react';
 import useMapStore from '@/store/useMapStore';
 import useInventoryStore from '@/store/useInventoryStore';
-import { useTexture } from '@react-three/drei';
+import { useTexture, Html, useGLTF } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
@@ -73,29 +73,142 @@ function Lake() {
   );
 }
 
-function MineableAsset({ id, type, position, onInteract, mode, isPlaying, children }) {
+function NPC({ asset, isPlaying }) {
+  const [showBubble, setShowBubble] = useState(false);
+  const { scene } = useGLTF(`/models/${asset.type}.glb`);
+
+  useEffect(() => {
+    if (!isPlaying || !asset.dialogue) return;
+    
+    // 간헐적으로 말풍선 띄우기 (3~8초 간격으로 2초간 표시)
+    const interval = setInterval(() => {
+      setShowBubble(true);
+      setTimeout(() => setShowBubble(false), 2000);
+    }, Math.random() * 5000 + 3000);
+    
+    return () => clearInterval(interval);
+  }, [isPlaying, asset.dialogue]);
+
+  return (
+    <group position={[0, 0, 0]}>
+      <primitive object={scene.clone()} scale={0.6} position={[0, 0, 0]} />
+      
+      {isPlaying && showBubble && asset.dialogue && (
+        <Html position={[0, 3, 0]} center sprite zIndexRange={[100, 0]}>
+          <div style={{
+            background: 'white',
+            padding: '4px 8px',
+            borderRadius: '12px',
+            border: '2px solid black',
+            fontSize: '0.8rem',
+            fontWeight: 'bold',
+            whiteSpace: 'nowrap',
+            pointerEvents: 'none',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+          }}>
+            💬 {asset.dialogue.substring(0, 10)}{asset.dialogue.length > 10 ? '...' : ''}
+          </div>
+        </Html>
+      )}
+      {!isPlaying && asset.npcName && (
+        <Html position={[0, 3, 0]} center sprite>
+          <div style={{
+            background: 'rgba(0,0,0,0.6)', color: 'white', padding: '2px 6px', 
+            borderRadius: '4px', fontSize: '0.7rem', pointerEvents: 'none'
+          }}>
+            {asset.npcName}
+          </div>
+        </Html>
+      )}
+    </group>
+  );
+}
+
+function MineableAsset({ asset, onInteract, mode, isPlaying, children }) {
+  const { id, type, position } = asset;
   const groupRef = useRef();
   const jiggleTimeRef = useRef(0);
+  
+  const { selectedAssetId } = useMapStore();
+  const isSelected = mode === 'select' && selectedAssetId === id;
+  
+  const roamRadius = (type.startsWith('caveman') && asset.roamRadius) ? asset.roamRadius : 0;
+  const targetLocalPos = useRef(new THREE.Vector3(0, 0, 0));
+  const currentLocalPos = useRef(new THREE.Vector3(0, 0, 0));
+  const [roaming, setRoaming] = useState(false);
+
+  useEffect(() => {
+    if (!isPlaying || roamRadius <= 0) return;
+    
+    const interval = setInterval(() => {
+      if (Math.random() > 0.4) {
+        const angle = Math.random() * Math.PI * 2;
+        const r = Math.random() * roamRadius;
+        targetLocalPos.current.set(Math.cos(angle) * r, 0, Math.sin(angle) * r);
+        setRoaming(true);
+      } else {
+        setRoaming(false);
+      }
+    }, Math.random() * 3000 + 3000);
+    
+    return () => clearInterval(interval);
+  }, [isPlaying, roamRadius]);
 
   useFrame((state, delta) => {
+    let jiggle = 0;
     if (jiggleTimeRef.current > 0) {
       jiggleTimeRef.current = Math.max(0, jiggleTimeRef.current - delta);
-      if (groupRef.current) {
-        // jiggleTimeRef.current 값이 클수록 움찔거림이 강해짐
-        const jiggle = Math.sin(state.clock.elapsedTime * 40) * 0.05 * jiggleTimeRef.current;
-        groupRef.current.scale.set(0.5 + jiggle, 0.5 - jiggle, 0.5 + jiggle);
-      }
-    } else {
-      if (groupRef.current) {
-        groupRef.current.scale.set(0.5, 0.5, 0.5);
+      jiggle = Math.sin(state.clock.elapsedTime * 40) * 0.05 * jiggleTimeRef.current;
+    }
+    
+    if (groupRef.current) {
+      groupRef.current.scale.set(0.5 + jiggle, 0.5 - jiggle, 0.5 + jiggle);
+      
+      if (isPlaying && roamRadius > 0) {
+        if (roaming) {
+          const speed = 0.8;
+          const dir = targetLocalPos.current.clone().sub(currentLocalPos.current);
+          const dist = dir.length();
+          
+          if (dist > 0.05) {
+            dir.normalize();
+            currentLocalPos.current.add(dir.multiplyScalar(speed * delta));
+            const angle = Math.atan2(dir.x, dir.z);
+            
+            // Normalize current rotation to match target angle closely
+            let currentRot = groupRef.current.rotation.y;
+            while (currentRot - angle > Math.PI) currentRot -= Math.PI * 2;
+            while (currentRot - angle < -Math.PI) currentRot += Math.PI * 2;
+            groupRef.current.rotation.y = currentRot;
+            
+            groupRef.current.rotation.y = THREE.MathUtils.lerp(groupRef.current.rotation.y, angle, 5 * delta);
+          } else {
+            setRoaming(false);
+          }
+        }
+        
+        groupRef.current.position.set(
+          position[0] + currentLocalPos.current.x,
+          position[1],
+          position[2] + currentLocalPos.current.z
+        );
+      } else if (!isPlaying && roamRadius > 0) {
+        currentLocalPos.current.set(0, 0, 0);
+        groupRef.current.position.set(position[0], position[1], position[2]);
+        groupRef.current.rotation.y = 0;
       }
     }
   });
+
+  const { setSelectedAssetId } = useMapStore();
 
   const handleClick = (e) => {
     if (mode === 'erase') {
       e.stopPropagation();
       onInteract(id, type, true);
+    } else if (mode === 'select') {
+      e.stopPropagation();
+      setSelectedAssetId(id);
     }
   };
 
@@ -129,6 +242,12 @@ function MineableAsset({ id, type, position, onInteract, mode, isPlaying, childr
       userData={{ isAsset: true, assetId: id }} 
     >
       {children}
+      {isSelected && roamRadius > 0 && (
+        <mesh position={[0, 0.1, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[roamRadius * 2 - 0.1, roamRadius * 2 + 0.1, 32]} />
+          <meshBasicMaterial color="#eab308" transparent opacity={0.6} side={THREE.DoubleSide} />
+        </mesh>
+      )}
     </group>
   );
 }
@@ -180,8 +299,11 @@ export default function AssetManager() {
     }
   };
 
-  const renderAssetInner = (type) => {
-    switch(type) {
+  const renderAssetInner = (asset) => {
+    if (asset.type.startsWith('caveman')) {
+      return <NPC asset={asset} isPlaying={isPlaying} />;
+    }
+    switch(asset.type) {
       case 'tree': return <Tree />;
       case 'rock': return <Rock />;
       case 'house': return <House />;
@@ -196,14 +318,12 @@ export default function AssetManager() {
       {assets.map(asset => (
         <MineableAsset 
           key={asset.id} 
-          id={asset.id} 
-          type={asset.type} 
-          position={asset.position} 
+          asset={asset}
           mode={mode} 
           isPlaying={isPlaying} 
           onInteract={handleInteract}
         >
-          {renderAssetInner(asset.type)}
+          {renderAssetInner(asset)}
         </MineableAsset>
       ))}
 
@@ -213,3 +333,8 @@ export default function AssetManager() {
     </>
   );
 }
+
+useGLTF.preload('/models/caveman1.glb');
+useGLTF.preload('/models/caveman2.glb');
+useGLTF.preload('/models/caveman3.glb');
+useGLTF.preload('/models/caveman4.glb');

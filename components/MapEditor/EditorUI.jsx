@@ -341,35 +341,22 @@ function PropertyEditor() {
             style={{ padding: '0.4rem' }}
           />
         </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+          <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>접근 차단 메시지</label>
+          <input 
+            type="text" 
+            className="glass-input" 
+            placeholder="예: 돌멩이를 더 모아오세요!"
+            value={boundary.condition?.message || ''} 
+            onChange={(e) => updateBoundary(boundary.id, { condition: { ...boundary.condition, message: e.target.value } })}
+            style={{ padding: '0.4rem' }}
+          />
+        </div>
         
         <button 
           onClick={() => removeBoundary(boundary.id)}
-          style={{ padding: '0.5rem', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', marginTop: '0.5rem' }}
-        >
-          🗑️ 이 경계선 삭제하기
-        </button>
-      </div>
-    );
-  }
-
-  const asset = assets.find(a => a.id === selectedAssetId);
-  if (!asset) return <div style={{ fontSize: '0.8rem', color: '#ef4444' }}>에셋을 찾을 수 없습니다.</div>;
-
-  const isNPC = asset.type.startsWith('caveman');
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', marginTop: '1rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h5 style={{ margin: 0 }}>타입: {asset.type}</h5>
-        <button 
-          onClick={() => setSelectedAssetId(null)}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}
-        >
-          ✖
-        </button>
-      </div>
-
-      {isNPC && (
+          style={{ padding: '0.5rem', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px',       {isNPC && (
         <>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
             <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>NPC 이름</label>
@@ -382,7 +369,7 @@ function PropertyEditor() {
               style={{ padding: '0.4rem' }}
             />
           </div>
-          
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
             <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>말풍선 대사 (Bubble Dialogue)</label>
             <span style={{ fontSize: '0.7rem', color: '#6b7280' }}>엔터로 구분하면 무작위로 하나씩 뜹니다.</span>
@@ -396,30 +383,44 @@ function PropertyEditor() {
             />
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-            <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>스크립트 대화 (Sequential Dialogue)</label>
-            <span style={{ fontSize: '0.7rem', color: '#6b7280' }}>엔터로 구분하면 순서대로 진행됩니다.</span>
-            <textarea 
-              className="glass-input" 
-              value={asset.dialogue || ''} 
-              onChange={(e) => updateAsset(asset.id, { dialogue: e.target.value })}
-              placeholder="클릭 시 나타날 순차적 대화 스크립트"
-              rows={3}
-              style={{ padding: '0.4rem', resize: 'vertical' }}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem', marginBottom: '0.5rem' }}>
+            <input 
+              type="checkbox" 
+              id="hasDialogue"
+              checked={asset.hasDialogue !== false} 
+              onChange={(e) => updateAsset(asset.id, { hasDialogue: e.target.checked })}
             />
+            <label htmlFor="hasDialogue" style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>클릭 상호작용(대화창) 활성화</label>
           </div>
+          
+          {asset.hasDialogue !== false && (
+            <>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>스크립트 대화 (Sequential Dialogue)</label>
+                <span style={{ fontSize: '0.7rem', color: '#6b7280' }}>엔터로 구분하면 순서대로 진행됩니다.</span>
+                <textarea 
+                  className="glass-input" 
+                  value={asset.dialogue || ''} 
+                  onChange={(e) => updateAsset(asset.id, { dialogue: e.target.value })}
+                  placeholder="클릭 시 나타날 순차적 대화 스크립트"
+                  rows={3}
+                  style={{ padding: '0.4rem', resize: 'vertical' }}
+                />
+              </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-            <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>퀘스트 (Quest)</label>
-            <textarea 
-              className="glass-input" 
-              value={asset.quest || ''} 
-              onChange={(e) => updateAsset(asset.id, { quest: e.target.value })}
-              placeholder="퀘스트 내용"
-              rows={3}
-              style={{ padding: '0.4rem', resize: 'vertical' }}
-            />
-          </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>퀘스트 (Quest)</label>
+                <textarea 
+                  className="glass-input" 
+                  value={asset.quest || ''} 
+                  onChange={(e) => updateAsset(asset.id, { quest: e.target.value })}
+                  placeholder="퀘스트 내용"
+                  rows={2}
+                  style={{ padding: '0.4rem', resize: 'vertical' }}
+                />
+              </div>
+            </>
+          )}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
             <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>배회 구역 반경 (Roam Radius)</label>

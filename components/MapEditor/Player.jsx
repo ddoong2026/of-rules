@@ -126,9 +126,11 @@ export default function Player() {
           const isNPC = targetAsset?.type?.startsWith('caveman');
           
           if (isNPC) {
-            window.dispatchEvent(new CustomEvent('npc-interact', { detail: { asset: targetAsset } }));
-            if (document.pointerLockElement === canvas) {
-              document.exitPointerLock();
+            if (targetAsset.hasDialogue !== false) {
+              window.dispatchEvent(new CustomEvent('npc-interact', { detail: { asset: targetAsset } }));
+              if (document.pointerLockElement === canvas) {
+                document.exitPointerLock();
+              }
             }
             return;
           }
@@ -228,6 +230,7 @@ export default function Player() {
   const currentVelocity = useRef(new THREE.Vector3());
   const smoothedPlayerPos = useRef(new THREE.Vector3());
   const wasGrounded = useRef(true);
+  const lastBoundaryMessageTime = useRef(0);
   const cameraOffset = new THREE.Vector3(0, 3, -5); // 3rd person offset (behind the character)
 
   useFrame((state, delta) => {
@@ -369,12 +372,17 @@ export default function Player() {
               const ua = ((p2.x - p1.x) * (b1.z - p1.z) - (p2.z - p1.z) * (b1.x - p1.x)) / denom;
               const ub = ((b2.x - b1.x) * (b1.z - p1.z) - (b2.z - b1.z) * (b1.x - p1.x)) / denom;
               
-              // Check if player's intended path intersects the boundary segment
-              // We use a slight margin (-0.1 to 1.1) to account for player radius intuitively
               if (ua >= -0.1 && ua <= 1.1 && ub >= 0 && ub <= 1) {
                 canMoveXZ = false;
                 currentVelocity.current.x = 0;
                 currentVelocity.current.z = 0;
+                
+                const now = performance.now();
+                if (now - lastBoundaryMessageTime.current > 2000) {
+                  lastBoundaryMessageTime.current = now;
+                  const message = b.condition.message || "조건을 달성해야 통과할 수 있습니다.";
+                  window.dispatchEvent(new CustomEvent('boundary-collide', { detail: { message } }));
+                }
                 break;
               }
             }

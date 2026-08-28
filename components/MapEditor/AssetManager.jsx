@@ -120,7 +120,7 @@ function getTerrainHeightAt(x, z, heights) {
   return h0 * (1 - tz) + h1 * tz;
 }
 
-function NPC({ asset, isPlaying, roaming }) {
+function NPC({ asset, isPlaying, roaming, mode, onSelect }) {
   const [showBubble, setShowBubble] = useState(false);
   const [currentBubbleText, setCurrentBubbleText] = useState('');
   const { scene, animations } = useGLTF(`/models/${asset.type}.glb`);
@@ -230,12 +230,19 @@ function NPC({ asset, isPlaying, roaming }) {
       )}
       {!isPlaying && (
         <Html position={[0, 0.45, 0]} center sprite zIndexRange={[100, 0]}>
-          <div style={{
-            background: 'rgba(0,0,0,0.75)', color: 'white', padding: '2px 6px', 
-            borderRadius: '4px', fontSize: '0.7rem', fontWeight: 'bold',
-            whiteSpace: 'nowrap', pointerEvents: 'none', border: '1px solid rgba(255,255,255,0.4)',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.4)'
-          }}>
+          <div 
+            onClick={(e) => {
+              if (onSelect && (mode === 'select' || mode === 'erase')) {
+                e.stopPropagation();
+                onSelect(e);
+              }
+            }}
+            style={{
+              background: 'rgba(0,0,0,0.75)', color: 'white', padding: '2px 6px', 
+              borderRadius: '4px', fontSize: '0.7rem', fontWeight: 'bold',
+              whiteSpace: 'nowrap', pointerEvents: 'auto', cursor: (mode === 'select' || mode === 'erase') ? 'pointer' : 'default', border: '1px solid rgba(255,255,255,0.4)',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.4)'
+            }}>
             👤 {displayName}
           </div>
         </Html>
@@ -467,9 +474,9 @@ export default function AssetManager() {
     }
   };
 
-  const renderAssetInner = (asset, roaming) => {
+  const renderAssetInner = (asset, roaming, handleClick) => {
     if (asset.type.startsWith('caveman')) {
-      return <NPC asset={asset} isPlaying={isPlaying} roaming={roaming} />;
+      return <NPC asset={asset} isPlaying={isPlaying} roaming={roaming} mode={mode} onSelect={handleClick} />;
     }
     switch(asset.type) {
       case 'tree': return <Tree />;
@@ -493,7 +500,7 @@ export default function AssetManager() {
             isPlaying={isPlaying} 
             onInteract={handleInteract}
           >
-            {(roaming) => renderAssetInner(asset, roaming)}
+            {(roaming, handleClick) => renderAssetInner(asset, roaming, handleClick)}
           </MineableAsset>
         );
       })}

@@ -9,6 +9,7 @@ import Player from './Player';
 import InventoryUI from './InventoryUI';
 import NPCDialogueUI from './NPCDialogueUI';
 import MiningMiniGameUI from './MiningMiniGameUI';
+import BoundaryMessageUI from './BoundaryMessageUI';
 import BoundaryManager from './BoundaryManager';
 import useMapStore from '@/store/useMapStore';
 
@@ -76,6 +77,7 @@ export default function EditorCanvas() {
       <InventoryUI />
       <NPCDialogueUI />
       <MiningMiniGameUI />
+      <BoundaryMessageUI />
     </div>
   );
 }

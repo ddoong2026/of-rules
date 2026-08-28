@@ -1,8 +1,7 @@
 import './globals.css';
 import { AuthProvider } from '@/components/AuthProvider';
 import Navbar from '@/components/Navbar';
-import dynamic from 'next/dynamic';
-const RoamingPet = dynamic(() => import('@/components/RoamingPet'), { ssr: false });
+import RoamingPetWrapper from '@/components/RoamingPetWrapper';
 
 export const metadata = {
   title: '규칙의나라 (Class Republic)',
@@ -18,7 +17,7 @@ export default function RootLayout({ children }) {
           <main>
             {children}
           </main>
-          <RoamingPet />
+          <RoamingPetWrapper />
         </AuthProvider>
       </body>
     </html>

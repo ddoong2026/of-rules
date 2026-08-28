@@ -301,7 +301,7 @@ function ModeButton({ id, label, current, onClick }) {
 }
 
 function PropertyEditor() {
-  const { selectedAssetId, assets, updateAsset, setSelectedAssetId, selectedBoundaryId, boundaries, updateBoundary, removeBoundary, setSelectedBoundaryId } = useMapStore();
+  const { selectedAssetId, assets, updateAsset, setSelectedAssetId, selectedBoundaryId, boundaries, updateBoundary, removeBoundary, setSelectedBoundaryId, mode, setMode } = useMapStore();
   
   if (selectedBoundaryId) {
     const boundary = boundaries.find(b => b.id === selectedBoundaryId);

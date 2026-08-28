@@ -9,6 +9,7 @@ import Player from './Player';
 import InventoryUI from './InventoryUI';
 import NPCDialogueUI from './NPCDialogueUI';
 import MiningMiniGameUI from './MiningMiniGameUI';
+import BoundaryManager from './BoundaryManager';
 import useMapStore from '@/store/useMapStore';
 
 export default function EditorCanvas() {
@@ -43,6 +44,7 @@ export default function EditorCanvas() {
         <Terrain />
         <AssetManager />
         <FluidSystem />
+        <BoundaryManager />
         
         {isPlaying && <Player />}
         

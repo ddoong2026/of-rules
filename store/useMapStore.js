@@ -11,6 +11,7 @@ const useMapStore = create((set, get) => ({
   selectedColor: '#3d8c40', // default grass color
   selectedAsset: 'tree',
   selectedAssetId: null, // For editing properties in select mode
+  selectedBoundaryId: null,
   selectedDecalImage: null,
   isCameraMode: false,
   isPlaying: false,
@@ -26,6 +27,8 @@ const useMapStore = create((set, get) => ({
   colors: new Float32Array(VERTEX_COUNT * 3).fill(1), // initialized to white or grass
   assets: [], // { id, type, position: [x,y,z] }
   decals: [], // { id, url, position: [x,y,z], scale: [x,y,z] }
+  boundaries: [], // { id, start: [x,z], end: [x,z], condition: { type: 'item_count', itemType: 'rock', amount: 5 } }
+  boundaryDrawing: null, // { start: [x,z], current: [x,z] }
   
   // Fluid Data (Dynamic Water)
   waterSources: [], // { x, z, amount }
@@ -41,7 +44,8 @@ const useMapStore = create((set, get) => ({
   setBrushIntensity: (intensity) => set({ brushIntensity: intensity }),
   setSelectedColor: (color) => set({ selectedColor: color }),
   setSelectedAsset: (asset) => set({ selectedAsset: asset }),
-  setSelectedAssetId: (id) => set({ selectedAssetId: id }),
+  setSelectedAssetId: (id) => set({ selectedAssetId: id, selectedBoundaryId: null }),
+  setSelectedBoundaryId: (id) => set({ selectedBoundaryId: id, selectedAssetId: null }),
   setSelectedDecalImage: (url) => set({ selectedDecalImage: url }),
   setCameraMode: (isCameraMode) => set({ isCameraMode }),
   setIsPlaying: (isPlaying) => set({ isPlaying }),
@@ -90,6 +94,7 @@ const useMapStore = create((set, get) => ({
       colors,
       assets: mapData.assets || [],
       decals: mapData.decals || [],
+      boundaries: mapData.boundaries || [],
       history: [], // Reset history on load
     });
   },
@@ -106,6 +111,7 @@ const useMapStore = create((set, get) => ({
       colors,
       assets: [],
       decals: [],
+      boundaries: [],
       history: [], // Reset history on new map
     });
   },
@@ -121,6 +127,13 @@ const useMapStore = create((set, get) => ({
   
   addDecal: (decal) => set((state) => ({ decals: [...state.decals, decal] })),
   removeDecal: (id) => set((state) => ({ decals: state.decals.filter(d => d.id !== id) })),
+  
+  addBoundary: (boundary) => set((state) => ({ boundaries: [...state.boundaries, boundary] })),
+  removeBoundary: (id) => set((state) => ({ boundaries: state.boundaries.filter(b => b.id !== id), selectedBoundaryId: state.selectedBoundaryId === id ? null : state.selectedBoundaryId })),
+  updateBoundary: (id, updates) => set((state) => ({
+    boundaries: state.boundaries.map(b => b.id === id ? { ...b, ...updates } : b)
+  })),
+  setBoundaryDrawing: (data) => set({ boundaryDrawing: data }),
   
   addWaterSource: (x, z) => set((state) => ({
     waterSources: [...state.waterSources, { x, z, amount: 10 }]

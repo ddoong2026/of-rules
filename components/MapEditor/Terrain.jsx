@@ -225,6 +225,19 @@ export default function Terrain() {
         position: [targetPoint.x, targetPoint.y, targetPoint.z],
         scale: [brushSize * 2, brushSize * 2, brushSize * 2] // Arbitrary scaling based on brush
       });
+    } else if (mode === 'boundary') {
+      const { boundaryDrawing, setBoundaryDrawing, addBoundary } = useMapStore.getState();
+      if (!boundaryDrawing) {
+        setBoundaryDrawing({ start: [targetPoint.x, targetPoint.z], current: [targetPoint.x, targetPoint.z] });
+      } else {
+        addBoundary({
+          id: crypto.randomUUID(),
+          start: boundaryDrawing.start,
+          end: [targetPoint.x, targetPoint.z],
+          condition: { itemType: 'rock', amount: 3 }
+        });
+        setBoundaryDrawing(null);
+      }
     }
   };
 
@@ -258,6 +271,11 @@ export default function Terrain() {
     if (mode === 'sculpt' || mode === 'dig' || mode === 'flatten' || mode === 'paint') {
       e.stopPropagation();
       applyBrush(targetPoint, e.buttons === 2 || e.shiftKey);
+    } else if (mode === 'boundary') {
+      const { boundaryDrawing, setBoundaryDrawing } = useMapStore.getState();
+      if (boundaryDrawing) {
+        setBoundaryDrawing({ ...boundaryDrawing, current: [targetPoint.x, targetPoint.z] });
+      }
     }
   };
 

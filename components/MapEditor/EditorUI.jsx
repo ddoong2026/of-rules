@@ -36,7 +36,8 @@ export default function EditorUI({ onSave, isSaving }) {
     currentMapId, mapName,
     undo, history,
     sunTime, setSunTime,
-    isPlaying, setIsPlaying
+    isPlaying, setIsPlaying,
+    selectedBoundaryId
   } = useMapStore();
 
   const fileInputRef = useRef(null);
@@ -116,6 +117,7 @@ export default function EditorUI({ onSave, isSaving }) {
           <ModeButton current={mode} id="water" label="💧 수원 배치" onClick={() => setMode('water')} />
           <ModeButton current={mode} id="asset" label="🌲 에셋 배치" onClick={() => setMode('asset')} />
           <ModeButton current={mode} id="decal" label="🛣️ 도로/타일" onClick={() => setMode('decal')} />
+          <ModeButton current={mode} id="boundary" label="🚧 경계선" onClick={() => setMode('boundary')} />
           <ModeButton current={mode} id="erase" label="🗑️ 지우개" onClick={() => setMode('erase')} />
           <ModeButton current={mode} id="select" label="🖱️ 선택/편집" onClick={() => setMode('select')} />
         </div>
@@ -242,9 +244,9 @@ export default function EditorUI({ onSave, isSaving }) {
       {mode === 'select' && (
         <div style={{ background: '#e0e7ff', padding: '1rem', borderRadius: '6px' }}>
           <h4 style={{ margin: '0 0 0.5rem 0', color: '#3730a3' }}>선택/편집 모드</h4>
-          {!selectedAssetId ? (
+          {(!selectedAssetId && !selectedBoundaryId) ? (
             <p style={{ fontSize: '0.8rem', color: '#4338ca', margin: 0 }}>
-              맵에 배치된 에셋이나 NPC를 클릭하여 속성을 편집하세요.
+              맵에 배치된 에셋, NPC, 또는 경계선을 클릭하여 속성을 편집하세요.
             </p>
           ) : (
             <PropertyEditor />
@@ -296,13 +298,62 @@ function ModeButton({ id, label, current, onClick }) {
 }
 
 function PropertyEditor() {
-  const { selectedAssetId, assets, updateAsset, setSelectedAssetId } = useMapStore();
+  const { selectedAssetId, assets, updateAsset, setSelectedAssetId, selectedBoundaryId, boundaries, updateBoundary, removeBoundary, setSelectedBoundaryId } = useMapStore();
   
-  const asset = assets.find(a => a.id === selectedAssetId);
-  
-  if (!asset) {
-    return <div style={{ fontSize: '0.8rem', color: '#ef4444' }}>에셋을 찾을 수 없습니다.</div>;
+  if (selectedBoundaryId) {
+    const boundary = boundaries.find(b => b.id === selectedBoundaryId);
+    if (!boundary) return <div style={{ fontSize: '0.8rem', color: '#ef4444' }}>경계선을 찾을 수 없습니다.</div>;
+    
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', marginTop: '1rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h5 style={{ margin: 0, color: '#1e3a8a' }}>🚧 경계선 (조건부 게이트)</h5>
+          <button 
+            onClick={() => setSelectedBoundaryId(null)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}
+          >
+            ✖
+          </button>
+        </div>
+        
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+          <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>요구 아이템 (Item Type)</label>
+          <select 
+            className="glass-input"
+            value={boundary.condition?.itemType || 'rock'}
+            onChange={(e) => updateBoundary(boundary.id, { condition: { ...boundary.condition, itemType: e.target.value } })}
+            style={{ padding: '0.4rem' }}
+          >
+            <option value="rock">돌멩이 (rock)</option>
+            <option value="tree">도토리/나뭇가지류 (tree)</option>
+            <option value="caveman1">원시인 관련 (caveman)</option>
+          </select>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+          <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>필요 개수 (Amount)</label>
+          <input 
+            type="number" 
+            className="glass-input" 
+            value={boundary.condition?.amount || 1} 
+            onChange={(e) => updateBoundary(boundary.id, { condition: { ...boundary.condition, amount: parseInt(e.target.value) || 1 } })}
+            min="1"
+            style={{ padding: '0.4rem' }}
+          />
+        </div>
+        
+        <button 
+          onClick={() => removeBoundary(boundary.id)}
+          style={{ padding: '0.5rem', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', marginTop: '0.5rem' }}
+        >
+          🗑️ 이 경계선 삭제하기
+        </button>
+      </div>
+    );
   }
+
+  const asset = assets.find(a => a.id === selectedAssetId);
+  if (!asset) return <div style={{ fontSize: '0.8rem', color: '#ef4444' }}>에셋을 찾을 수 없습니다.</div>;
 
   const isNPC = asset.type.startsWith('caveman');
 

@@ -5,6 +5,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { useGLTF, useAnimations, Html } from '@react-three/drei';
 import * as THREE from 'three';
 import useMapStore, { GRID_SIZE } from '@/store/useMapStore';
+import useInventoryStore from '@/store/useInventoryStore';
 
 const WALK_SPEED = 1.2;
 const RUN_SPEED = 2.8;
@@ -338,6 +339,46 @@ export default function Player() {
       }
     }
     
+    // Boundary Collision Check
+    if (canMoveXZ) {
+      const p1 = { x: group.current.position.x, z: group.current.position.z };
+      const p2 = { x: nextX, z: nextZ };
+      const { boundaries } = useMapStore.getState();
+      const { items } = useInventoryStore.getState();
+      
+      for (const b of boundaries) {
+        let isActive = true;
+        if (b.condition) {
+          let currentAmount = 0;
+          for (let i = 0; i < items.length; i++) {
+            if (items[i] && items[i].type === b.condition.itemType) currentAmount += items[i].count;
+          }
+          if (currentAmount >= (b.condition.amount || 1)) isActive = false;
+        }
+        
+        if (isActive) {
+          const b1 = { x: b.start[0], z: b.start[1] };
+          const b2 = { x: b.end[0], z: b.end[1] };
+          
+          // Line segment intersection math
+          const denom = (p2.z - p1.z) * (b2.x - b1.x) - (p2.x - p1.x) * (b2.z - b1.z);
+          if (denom !== 0) {
+            const ua = ((p2.x - p1.x) * (b1.z - p1.z) - (p2.z - p1.z) * (b1.x - p1.x)) / denom;
+            const ub = ((b2.x - b1.x) * (b1.z - p1.z) - (b2.z - b1.z) * (b1.x - p1.x)) / denom;
+            
+            // Check if player's intended path intersects the boundary segment
+            // We use a slight margin (-0.1 to 1.1) to account for player radius intuitively
+            if (ua >= -0.1 && ua <= 1.1 && ub >= 0 && ub <= 1) {
+              canMoveXZ = false;
+              currentVelocity.current.x = 0;
+              currentVelocity.current.z = 0;
+              break;
+            }
+          }
+        }
+      }
+    }
+
     if (canMoveXZ) {
       group.current.position.x = nextX;
       group.current.position.z = nextZ;

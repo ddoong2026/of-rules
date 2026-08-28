@@ -397,7 +397,7 @@ function MineableAsset({ asset, onInteract, mode, isPlaying, children }) {
       scale={0.5}
       userData={{ isAsset: true, assetId: id }} 
     >
-      {typeof children === 'function' ? children(roaming) : children}
+      {typeof children === 'function' ? children(roaming, canInteract ? handleClick : undefined) : children}
       {isSelected && roamRadius > 0 && (
         <mesh position={[0, 0.1, 0]} rotation={[-Math.PI / 2, 0, 0]}>
           <ringGeometry args={[roamRadius * 2 - 0.1, roamRadius * 2 + 0.1, 32]} />

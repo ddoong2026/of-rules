@@ -228,6 +228,11 @@ export default function Terrain() {
     } else if (mode === 'boundary') {
       const { setBoundaryDrawing } = useMapStore.getState();
       setBoundaryDrawing({ points: [[targetPoint.x, targetPoint.z]] });
+    } else if (mode === 'select') {
+      const { selectedAssetId, updateAsset } = useMapStore.getState();
+      if (selectedAssetId) {
+        updateAsset(selectedAssetId, { position: [targetPoint.x, targetPoint.y, targetPoint.z] });
+      }
     }
   };
 

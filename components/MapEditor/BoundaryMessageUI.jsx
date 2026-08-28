@@ -57,7 +57,6 @@ export default function BoundaryMessageUI() {
           }
         `}
       </style>
-      <span style={{ fontSize: '1.5rem', marginRight: '8px', verticalAlign: 'middle' }}>🚧</span>
       {message}
     </div>
   );

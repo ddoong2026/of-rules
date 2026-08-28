@@ -3,32 +3,23 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import useMapStore from '@/store/useMapStore';
 
-function generateCondition() {
-  const isRange = Math.random() > 0.5;
-  const isNumberLine = Math.random() > 0.5;
-
+function generateSingleCondition(isRange) {
   if (!isRange) {
-    // Single boundary
     const type = ['초과', '미만', '이상', '이하'][Math.floor(Math.random() * 4)];
     const value = Math.floor(Math.random() * 8) + 2; // 2 to 9
-    
     return {
       isRange: false,
       type,
       value,
-      isNumberLine,
       text: `${value} ${type}`
     };
   } else {
-    // Double boundary (e.g. 3 이상 7 이하)
     const type1 = ['초과', '이상'][Math.floor(Math.random() * 2)];
     const type2 = ['미만', '이하'][Math.floor(Math.random() * 2)];
-    
-    // Ensure value1 < value2 and there is at least 1 valid natural number between them
     let value1, value2;
     while (true) {
-      value1 = Math.floor(Math.random() * 7) + 1; // 1 to 7
-      value2 = Math.floor(Math.random() * 7) + 4; // 4 to 10
+      value1 = Math.floor(Math.random() * 7) + 1;
+      value2 = Math.floor(Math.random() * 7) + 4;
       if (value1 >= value2) continue;
       
       let hasValid = false;
@@ -42,17 +33,40 @@ function generateCondition() {
       }
       if (hasValid) break;
     }
-
     return {
       isRange: true,
       type1,
       type2,
       value1,
       value2,
-      isNumberLine,
       text: `${value1} ${type1} ${value2} ${type2}`
     };
   }
+}
+
+function generateCondition() {
+  const isRange = Math.random() > 0.5;
+  const gameTypeRand = Math.random();
+  let gameType = 'multi-select';
+  if (gameTypeRand > 0.66) gameType = 'text-to-line';
+  else if (gameTypeRand > 0.33) gameType = 'line-to-text';
+
+  const trueCond = generateSingleCondition(isRange);
+  trueCond.gameType = gameType;
+  
+  if (gameType === 'multi-select') {
+    trueCond.isNumberLine = Math.random() > 0.5;
+  } else {
+    const options = [trueCond];
+    while(options.length < 4) {
+      const f = generateSingleCondition(isRange);
+      if (!options.some(o => o.text === f.text)) {
+        options.push(f);
+      }
+    }
+    trueCond.options = options.sort(() => Math.random() - 0.5);
+  }
+  return trueCond;
 }
 
 function checkCondition(val, cond) {
@@ -74,34 +88,20 @@ export default function MiningMiniGameUI() {
   const { active, assetId, assetType } = mineMiniGame;
 
   const [condition, setCondition] = useState(null);
-  const [isStopped, setIsStopped] = useState(false);
   const [successCount, setSuccessCount] = useState(0);
   const [feedback, setFeedback] = useState(null);
 
-  // Performance Optimization: Use refs instead of state for high-frequency animation
-  const currentValueRef = useRef(1);
-  const directionRef = useRef(1);
-  const arrowRef = useRef(null);
-
-  const requestRef = useRef(null);
-  const lastUpdateRef = useRef(0);
-  const SPEED = 120; // 120ms per block (slightly slower for discrete movement)
+  const [selectedNumbers, setSelectedNumbers] = useState(new Set());
+  const [selectedOptionIndex, setSelectedOptionIndex] = useState(null);
+  
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragMode, setDragMode] = useState(null);
 
   const initRound = useCallback(() => {
     setCondition(generateCondition());
-    currentValueRef.current = 1;
-    directionRef.current = 1;
-    setIsStopped(false);
+    setSelectedNumbers(new Set());
+    setSelectedOptionIndex(null);
     setFeedback(null);
-    
-    // Reset arrow style
-    if (arrowRef.current) {
-      const startX = 32 - 12;
-      arrowRef.current.style.transform = `translateX(${startX}px)`;
-      arrowRef.current.style.color = '#3B82F6';
-    }
-    
-    lastUpdateRef.current = performance.now(); // Initialize timer accurately
   }, []);
 
   useEffect(() => {
@@ -111,93 +111,86 @@ export default function MiningMiniGameUI() {
     }
   }, [active, initRound]);
 
-  // Gauge animation loop (Fully contained in useEffect to avoid closure issues)
+  const handleMouseDown = (num) => {
+    if (feedback !== null) return;
+    setIsDragging(true);
+    const newSet = new Set(selectedNumbers);
+    const mode = newSet.has(num) ? 'deselect' : 'select';
+    setDragMode(mode);
+    if (mode === 'select') newSet.add(num);
+    else newSet.delete(num);
+    setSelectedNumbers(newSet);
+  };
+
+  const handleMouseEnter = (num) => {
+    if (!isDragging || !dragMode || feedback !== null) return;
+    const newSet = new Set(selectedNumbers);
+    if (dragMode === 'select') newSet.add(num);
+    else newSet.delete(num);
+    setSelectedNumbers(newSet);
+  };
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false);
+    setDragMode(null);
+  }, []);
+
   useEffect(() => {
-    if (!active || isStopped) return;
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => window.removeEventListener('mouseup', handleMouseUp);
+  }, [handleMouseUp]);
 
-    let frameId;
-    const loop = (time) => {
-      if (time - lastUpdateRef.current > SPEED) {
-        const prev = currentValueRef.current;
-        let next = prev + directionRef.current;
-        if (next >= 10) {
-          directionRef.current = -1;
-          next = 10;
-        } else if (next <= 1) {
-          directionRef.current = 1;
-          next = 1;
+  const handleSubmit = useCallback(() => {
+    if (feedback !== null || !condition) return;
+    
+    let isSuccess = false;
+    if (condition.gameType === 'multi-select') {
+      let correct = true;
+      for (let i = 1; i <= 10; i++) {
+        const shouldBeSelected = checkCondition(i, condition);
+        const isSelected = selectedNumbers.has(i);
+        if (shouldBeSelected !== isSelected) {
+          correct = false;
+          break;
         }
-        
-        // Move arrow only (1 DOM mutation)
-        if (arrowRef.current) {
-          // Box center is 32 + (next - 1) * 44. Arrow width is approx 24px, so subtract 12px for center alignment.
-          const nextX = 32 + (next - 1) * 44 - 12;
-          arrowRef.current.style.transform = `translateX(${nextX}px)`;
-        }
-        
-        currentValueRef.current = next;
-        // Accumulate time properly to prevent jitter and beat frequencies
-        const delta = time - lastUpdateRef.current;
-        lastUpdateRef.current = time - (delta % SPEED);
       }
-      frameId = requestAnimationFrame(loop);
-    };
+      isSuccess = correct;
+    } else {
+      isSuccess = selectedOptionIndex !== null && condition.options[selectedOptionIndex].text === condition.text;
+    }
+    
+    window.dispatchEvent(new CustomEvent('mine-jiggle', { detail: { id: assetId, type: assetType } }));
 
-    frameId = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(frameId);
-  }, [active, isStopped]);
+    if (isSuccess) {
+      setFeedback('SUCCESS');
+      setTimeout(() => {
+        if (successCount + 1 >= 3) {
+          setMineMiniGame(false, null, null);
+          window.dispatchEvent(new CustomEvent('mine-complete', { detail: { id: assetId, type: assetType } }));
+        } else {
+          setSuccessCount(s => s + 1);
+          initRound();
+        }
+      }, 1000);
+    } else {
+      setFeedback('FAIL');
+      setTimeout(() => {
+        initRound();
+      }, 1500);
+    }
+  }, [feedback, condition, selectedNumbers, selectedOptionIndex, successCount, assetId, assetType, setMineMiniGame, initRound]);
 
-  // Handle Spacebar
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (!active) return;
-      
-      // 스페이스바를 누르면 정지 및 판별
-      if (e.code === 'Space' && !isStopped) {
+      if (!active || feedback !== null) return;
+      if (e.code === 'Space') {
         e.preventDefault();
-        e.stopPropagation();
-        
-        setIsStopped(true);
-        const isSuccess = checkCondition(currentValueRef.current, condition);
-        
-        // Jiggle 
-        window.dispatchEvent(new CustomEvent('mine-jiggle', { detail: { id: assetId, type: assetType } }));
-
-        if (isSuccess) {
-          setFeedback('SUCCESS');
-          const nextCount = successCount + 1;
-          if (nextCount >= 3) {
-            // 채집 완료
-            setTimeout(() => {
-              window.dispatchEvent(new CustomEvent('mine-complete', { detail: { id: assetId, type: assetType } }));
-              setMineMiniGame(false);
-            }, 500);
-          } else {
-            setSuccessCount(nextCount);
-            setTimeout(() => {
-              initRound();
-            }, 800);
-          }
-        } else {
-          setFeedback('FAIL');
-          setTimeout(() => {
-            initRound();
-          }, 800);
-        }
+        handleSubmit();
       }
     };
-    
-    window.addEventListener('keydown', handleKeyDown, { capture: true });
-    return () => window.removeEventListener('keydown', handleKeyDown, { capture: true });
-  }, [active, isStopped, condition, successCount, assetId, assetType, setMineMiniGame, initRound]);
-
-  // Handle color updates when feedback or isStopped changes
-  useEffect(() => {
-    if (!active || !isStopped) return;
-    if (arrowRef.current) {
-      arrowRef.current.style.color = feedback === 'SUCCESS' ? '#10B981' : (feedback === 'FAIL' ? '#EF4444' : '#3B82F6');
-    }
-  }, [isStopped, feedback, active]);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [active, feedback, handleSubmit]);
 
   if (!active || !condition) return null;
 
@@ -205,124 +198,71 @@ export default function MiningMiniGameUI() {
     <div style={{
       position: 'fixed',
       top: 0, left: 0, right: 0, bottom: 0,
-      background: 'rgba(0, 0, 0, 0.65)',
-      backdropFilter: 'blur(4px)',
-      display: 'flex',
-      flexDirection: 'column',
-      justifyContent: 'center',
-      alignItems: 'center',
+      background: 'rgba(0,0,0,0.6)',
+      display: 'flex', justifyContent: 'center', alignItems: 'center',
       zIndex: 1000,
       userSelect: 'none'
     }}>
       <div style={{
-        background: 'rgba(255, 255, 255, 0.95)',
-        padding: '2rem 3rem',
+        background: '#fff',
+        padding: '2rem',
         borderRadius: '24px',
-        boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
+        width: '100%',
+        maxWidth: '700px',
         display: 'flex',
         flexDirection: 'column',
-        alignItems: 'center',
-        gap: '2rem',
-        minWidth: '500px'
+        gap: '1.5rem'
       }}>
-        {/* Title & Progress */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
-          <h2 style={{ margin: 0, fontSize: '1.5rem', color: '#111827' }}>수학 채집 게임</h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <h2>{condition.gameType === 'multi-select' ? '조건에 맞는 숫자 고르기' : '올바른 짝 찾기'}</h2>
           <div style={{ display: 'flex', gap: '8px' }}>
-            {[0, 1, 2].map(i => (
-              <div key={i} style={{
-                width: '24px', height: '24px', borderRadius: '50%',
-                background: i < successCount ? '#10B981' : '#E5E7EB',
-                border: '2px solid',
-                borderColor: i < successCount ? '#059669' : '#D1D5DB'
-              }} />
-            ))}
+            {[0, 1, 2].map(i => <div key={i} style={{ width: 24, height: 24, borderRadius: '50%', background: i < successCount ? '#10B981' : '#ccc' }} />)}
           </div>
         </div>
 
-        {/* Condition Display */}
-        <div style={{
-          padding: '1.5rem',
-          background: '#F3F4F6',
-          borderRadius: '16px',
-          width: '100%',
-          textAlign: 'center',
-          minHeight: '120px',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center'
-        }}>
-          {condition.isNumberLine ? (
+        <div style={{ padding: '1rem', background: '#f3f4f6', borderRadius: '12px' }}>
+          {condition.gameType === 'line-to-text' || (condition.gameType === 'multi-select' && condition.isNumberLine) ? (
             <NumberLine condition={condition} />
           ) : (
-            <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#1F2937' }}>
-              {condition.text}
-            </div>
+            <div style={{ textAlign: 'center', fontSize: '1.5rem', fontWeight: 'bold' }}>{condition.text}</div>
           )}
         </div>
 
-        {/* Gauge */}
-        <div style={{
-          display: 'flex',
-          gap: '4px',
-          padding: '12px 12px 36px 12px', // Bottom padding for arrow
-          background: '#E5E7EB',
-          borderRadius: '12px',
-          position: 'relative',
-          marginBottom: '10px'
-        }}>
-          {Array.from({ length: 10 }, (_, i) => i + 1).map(num => (
-            <div 
-              key={num} 
-              style={{
-              width: '40px',
-              height: '50px',
-              borderRadius: '8px',
-              background: '#FFFFFF',
-              border: '1px solid #D1D5DB',
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              fontSize: '1.25rem',
-              fontWeight: 'bold',
-              color: '#374151',
-            }}>
-              {num}
-            </div>
-          ))}
-          {/* Moving Arrow */}
-          <div 
-            ref={arrowRef}
-            style={{
-              position: 'absolute',
-              bottom: '4px',
-              left: 0,
-              fontSize: '24px',
-              color: '#3B82F6',
-              transform: 'translateX(20px)', // initial roughly centered on first block (32 - 12 = 20)
-              textShadow: '0 2px 4px rgba(0,0,0,0.3)',
-              fontWeight: 'bold',
-              lineHeight: 1
-            }}
-          >
-            ⇧
+        {condition.gameType === 'multi-select' && (
+          <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+            {Array.from({ length: 10 }, (_, i) => i + 1).map(num => {
+              const isSelected = selectedNumbers.has(num);
+              return (
+                <div key={num} onMouseDown={() => handleMouseDown(num)} onMouseEnter={() => handleMouseEnter(num)} style={{
+                  width: 40, height: 50, background: isSelected ? '#3B82F6' : '#fff', border: '2px solid #ccc',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', borderRadius: 8, color: isSelected ? '#fff' : '#000'
+                }}>{num}</div>
+              );
+            })}
           </div>
-        </div>
+        )}
 
-        {/* Instructions / Feedback */}
-        <div style={{
-          height: '40px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: '1.5rem',
-          fontWeight: 'bold',
-          color: feedback === 'SUCCESS' ? '#10B981' : (feedback === 'FAIL' ? '#EF4444' : '#6B7280')
-        }}>
-          {feedback === 'SUCCESS' ? '정답입니다! 🎯' : 
-           feedback === 'FAIL' ? '틀렸습니다! 💦' : 
-           '스페이스바를 눌러 멈추세요!'}
-        </div>
+        {condition.gameType === 'text-to-line' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {condition.options.map((opt, idx) => (
+              <div key={idx} onClick={() => feedback === null && setSelectedOptionIndex(idx)} style={{ padding: 10, border: `2px solid ${selectedOptionIndex === idx ? '#3B82F6' : '#ccc'}`, borderRadius: 8, cursor: 'pointer' }}>
+                <NumberLine condition={opt} />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {condition.gameType === 'line-to-text' && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            {condition.options.map((opt, idx) => (
+              <div key={idx} onClick={() => feedback === null && setSelectedOptionIndex(idx)} style={{ padding: 20, border: `2px solid ${selectedOptionIndex === idx ? '#3B82F6' : '#ccc'}`, borderRadius: 8, cursor: 'pointer', textAlign: 'center' }}>
+                {opt.text}
+              </div>
+            ))}
+          </div>
+        )}
+
+        <button onClick={handleSubmit} style={{ padding: '15px', fontSize: '1.2rem', background: '#10B981', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer' }}>제출</button>
       </div>
     </div>
   );

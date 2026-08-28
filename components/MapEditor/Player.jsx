@@ -401,6 +401,11 @@ export default function Player() {
                       cameraOverride.current.active = true;
                       cameraOverride.current.targetPos.set(targetAsset.position[0], targetAsset.position[1], targetAsset.position[2]);
                       cameraOverride.current.startTime = now;
+                      
+                      // Turn player to face the asset immediately
+                      const dx = targetAsset.position[0] - group.current.position.x;
+                      const dz = targetAsset.position[2] - group.current.position.z;
+                      yaw.current = Math.atan2(dx, dz);
                     }
                   }
                   
@@ -498,7 +503,6 @@ export default function Player() {
       const elapsed = now - cameraOverride.current.startTime;
       if (elapsed > 3500) { // 3.5 seconds total duration
         cameraOverride.current.active = false;
-        yaw.current = (yaw.current + Math.PI) % (Math.PI * 2); // Turn character around
       } else {
         const tAsset = cameraOverride.current.targetPos;
         const overrideLookAt = tAsset.clone().add(new THREE.Vector3(0, 0.5, 0));
@@ -532,6 +536,11 @@ export default function Player() {
     
     // Snap camera position to the smoothed target position
     camera.position.copy(finalIdealCameraPos);
+    
+    if (cameraOverride.current.active) {
+      finalTargetLookAt.y = finalIdealCameraPos.y;
+    }
+    
     camera.lookAt(finalTargetLookAt);
 
     // Handle Animation state based on movement and grounding

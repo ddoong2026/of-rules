@@ -110,6 +110,8 @@ export default function MiningMiniGameUI() {
   const [successCount, setSuccessCount] = useState(0);
   const [feedback, setFeedback] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
+  const [canRetry, setCanRetry] = useState(false);
+  const [userAnswerStr, setUserAnswerStr] = useState('');
 
   const [selectedNumbers, setSelectedNumbers] = useState(new Set());
   const [selectedOptionIndex, setSelectedOptionIndex] = useState(null);
@@ -123,6 +125,8 @@ export default function MiningMiniGameUI() {
     setSelectedOptionIndex(null);
     setFeedback(null);
     setErrorMessage('');
+    setCanRetry(false);
+    setUserAnswerStr('');
   }, []);
 
   useEffect(() => {
@@ -164,6 +168,17 @@ export default function MiningMiniGameUI() {
   const handleSubmit = useCallback(() => {
     if (feedback !== null || !condition) return;
     
+    let userAnswer = '';
+    if (condition.gameType === 'multi-select') {
+      userAnswer = Array.from(selectedNumbers).sort((a,b)=>a-b).join(', ');
+      if (userAnswer === '') userAnswer = '선택 안 함';
+    } else {
+      if (selectedOptionIndex !== null) {
+        userAnswer = condition.options[selectedOptionIndex].text;
+      }
+    }
+    setUserAnswerStr(userAnswer);
+
     let isSuccess = false;
     let err = '';
     
@@ -239,12 +254,14 @@ export default function MiningMiniGameUI() {
       setFeedback('FAIL');
       setErrorMessage(err);
       setTimeout(() => {
-        initRound();
-      }, 3500); // 텍스트가 길어졌으므로 3.5초로 연장
+        setCanRetry(true);
+      }, 4000); // 4초 대기
     }
   }, [feedback, condition, selectedNumbers, selectedOptionIndex, successCount, assetId, assetType, setMineMiniGame, initRound]);
 
   const handleCancel = useCallback(() => {
+    if (feedback === 'FAIL' && !canRetry) return; // 4초간 창 닫기 불가
+    
     setMineMiniGame(false, null, null);
     const canvas = document.querySelector('canvas');
     if (canvas && typeof canvas.requestPointerLock === 'function') {
@@ -262,6 +279,13 @@ export default function MiningMiniGameUI() {
         handleCancel();
         return;
       }
+      
+      if (feedback === 'FAIL' && canRetry && (e.code === 'Space' || e.key === 'Enter')) {
+        e.preventDefault();
+        initRound();
+        return;
+      }
+      
       if (feedback !== null) return;
       if (e.code === 'Space') {
         e.preventDefault();
@@ -270,7 +294,7 @@ export default function MiningMiniGameUI() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [active, feedback, handleSubmit, handleCancel]);
+  }, [active, feedback, handleSubmit, handleCancel, canRetry, initRound]);
 
   if (!active || !condition) return null;
 
@@ -295,11 +319,18 @@ export default function MiningMiniGameUI() {
           padding: '2rem',
           zIndex: 10
         }}>
-          <div>{feedback === 'SUCCESS' ? '성공!' : '실패!'}</div>
+          <div>{feedback === 'SUCCESS' ? '성공!' : '오답입니다!'}</div>
           {feedback === 'FAIL' && errorMessage && (
-            <div style={{ fontSize: '1.5rem', marginTop: '1rem', background: 'rgba(0,0,0,0.5)', padding: '12px 24px', borderRadius: '12px', whiteSpace: 'pre-wrap' }}>
-              {errorMessage}
+            <div style={{ fontSize: '1.5rem', marginTop: '1rem', background: 'rgba(0,0,0,0.5)', padding: '16px 32px', borderRadius: '12px', whiteSpace: 'pre-wrap', display: 'flex', flexDirection: 'column', gap: '12px', textAlign: 'left', minWidth: '400px' }}>
+              <div style={{ color: '#FCD34D' }}>📝 조건: {condition.gameType === 'multi-select' ? (condition.isNumberLine ? '수직선 영역' : condition.text) : condition.text}</div>
+              <div style={{ color: '#F87171' }}>🚫 내 제출: {userAnswerStr}</div>
+              <div style={{ color: '#34D399', borderTop: '1px solid rgba(255,255,255,0.2)', paddingTop: '12px', marginTop: '4px' }}>💡 {errorMessage}</div>
             </div>
+          )}
+          {feedback === 'FAIL' && canRetry && (
+            <button onClick={initRound} style={{ marginTop: '2rem', padding: '12px 32px', fontSize: '1.5rem', background: '#3B82F6', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
+              다음 문제 도전 (스페이스바)
+            </button>
           )}
         </div>
       )}

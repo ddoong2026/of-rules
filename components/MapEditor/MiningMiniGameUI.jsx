@@ -218,18 +218,54 @@ export default function MiningMiniGameUI() {
           let detail = '';
           if (!condition.isRange) {
             const v = condition.value;
-            if (condition.type === '초과') detail = `'초과'란 ${v}보다 크다는 뜻입니다. ${v}은(는) 포함되지 않아요.`;
-            else if (condition.type === '미만') detail = `'미만'이란 ${v}보다 작다는 뜻입니다. ${v}은(는) 포함되지 않아요.`;
-            else if (condition.type === '이상') detail = `'이상'이란 ${v}보다 크거나 같다는 뜻입니다. ${v}도 포함해야 해요.`;
-            else if (condition.type === '이하') detail = `'이하'란 ${v}보다 작거나 같다는 뜻입니다. ${v}도 포함해야 해요.`;
+            const cType = condition.type;
+            const uType = selected.type;
+            let reason = '';
+            
+            if ((cType === '초과' && uType === '미만') || (cType === '미만' && uType === '초과') ||
+                (cType === '이상' && uType === '이하') || (cType === '이하' && uType === '이상')) {
+              reason = '방향을 반대로 생각했어요! ';
+              if (cType === '초과' || cType === '이상') reason += '오른쪽(더 큰 수)을 의미합니다.';
+              else reason += '왼쪽(더 작은 수)을 의미합니다.';
+            } else if ((cType === '초과' && uType === '이상') || (cType === '미만' && uType === '이하')) {
+              reason = '거의 맞혔어요! 하지만 해당 숫자는 포함하지 않아야 해요. (빈 동그라미)';
+            } else if ((cType === '이상' && uType === '초과') || (cType === '이하' && uType === '미만')) {
+              reason = '거의 맞혔어요! 해당 숫자도 포함해야 해요. (색칠된 동그라미)';
+            } else {
+              reason = '방향과 포함 여부를 다시 한 번 확인해 보세요.';
+            }
+
+            if (cType === '초과') detail = `'초과'란 ${v}보다 크다는 뜻입니다. ${v}은(는) 포함되지 않아요.`;
+            else if (cType === '미만') detail = `'미만'이란 ${v}보다 작다는 뜻입니다. ${v}은(는) 포함되지 않아요.`;
+            else if (cType === '이상') detail = `'이상'이란 ${v}보다 크거나 같다는 뜻입니다. ${v}도 포함해야 해요.`;
+            else if (cType === '이하') detail = `'이하'란 ${v}보다 작거나 같다는 뜻입니다. ${v}도 포함해야 해요.`;
+            
+            err = `틀렸어요! 정답은 '${condition.text}' 입니다.\n${reason}\n💡 ${detail}`;
           } else {
+            const c1 = condition.type1;
+            const c2 = condition.type2;
+            const u1 = selected.type1;
+            const u2 = selected.type2;
+            let reason = '';
+            
+            if (c1 !== u1 && c2 !== u2) {
+              reason = '양쪽 경계의 포함 여부를 모두 다르게 생각했어요.';
+            } else if (c1 !== u1) {
+              reason = `왼쪽 경계(${condition.value1})의 포함 여부를 다르게 생각했어요.`;
+            } else if (c2 !== u2) {
+              reason = `오른쪽 경계(${condition.value2})의 포함 여부를 다르게 생각했어요.`;
+            } else {
+              reason = '수직선의 의미를 다시 확인해 보세요.';
+            }
+
             const v1 = condition.value1;
             const v2 = condition.value2;
-            const exp1 = condition.type1 === '초과' ? `${v1}보다 크고 (${v1} 미포함)` : `${v1}보다 크거나 같고 (${v1} 포함)`;
-            const exp2 = condition.type2 === '미만' ? `${v2}보다 작은 (${v2} 미포함)` : `${v2}보다 작거나 같은 (${v2} 포함)`;
+            const exp1 = c1 === '초과' ? `${v1}보다 크고 (${v1} 미포함)` : `${v1}보다 크거나 같고 (${v1} 포함)`;
+            const exp2 = c2 === '미만' ? `${v2}보다 작은 (${v2} 미포함)` : `${v2}보다 작거나 같은 (${v2} 포함)`;
             detail = `정답은 ${exp1}, ${exp2} 수를 의미합니다.`;
+            
+            err = `틀렸어요! 정답은 '${condition.text}' 입니다.\n${reason}\n💡 ${detail}`;
           }
-          err = `틀렸어요! 정답은 '${condition.text}' 입니다.\n${detail}`;
         }
       }
     }
@@ -350,8 +386,18 @@ export default function MiningMiniGameUI() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <h3 style={{ color: '#EF4444', marginBottom: 0, fontSize: '2rem' }}>오답입니다!</h3>
             <p style={{ fontSize: '1.2rem', margin: 0, padding: '12px', background: '#FEF2F2', borderRadius: '8px', color: '#991B1B' }}>
-              💡 {errorMessage}
+              {errorMessage.split('\n').map((line, idx) => <span key={idx}>{line}<br/></span>)}
             </p>
+
+            {/* 문제 시각화 */}
+            <div style={{ padding: '1rem', border: '2px solid #9CA3AF', borderRadius: '12px', background: '#F3F4F6' }}>
+              <div style={{ fontWeight: 'bold', marginBottom: '8px', color: '#4B5563' }}>📝 원래 문제</div>
+              {condition.gameType === 'line-to-text' || (condition.gameType === 'multi-select' && condition.isNumberLine) ? (
+                <NumberLine condition={condition} />
+              ) : (
+                <div style={{ textAlign: 'center', fontSize: '1.5rem', fontWeight: 'bold', color: '#374151' }}>{condition.text}</div>
+              )}
+            </div>
 
             {/* 내 제출 시각화 */}
             <div style={{ padding: '1rem', border: '2px solid #FCA5A5', borderRadius: '12px', background: '#fef2f2' }}>

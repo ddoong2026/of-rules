@@ -85,7 +85,7 @@ export default function MiningMiniGameUI() {
 
   const requestRef = useRef(null);
   const lastUpdateRef = useRef(0);
-  const SPEED = 80; // ms per block
+  const SPEED = 120; // 120ms per block (slightly slower for discrete movement)
 
   const initRound = useCallback(() => {
     setCondition(generateCondition());
@@ -96,7 +96,8 @@ export default function MiningMiniGameUI() {
     
     // Reset arrow style
     if (arrowRef.current) {
-      arrowRef.current.style.transform = `translateX(32px) translateX(-50%)`;
+      const startX = 32 - 12;
+      arrowRef.current.style.transform = `translateX(${startX}px)`;
       arrowRef.current.style.color = '#3B82F6';
     }
   }, []);
@@ -108,39 +109,39 @@ export default function MiningMiniGameUI() {
     }
   }, [active, initRound]);
 
-  // Gauge animation loop (Single element transform for maximum performance)
-  const animate = useCallback((time) => {
-    if (isStopped || !active) return;
-    
-    if (time - lastUpdateRef.current > SPEED) {
-      const prev = currentValueRef.current;
-      let next = prev + directionRef.current;
-      if (next >= 10) {
-        directionRef.current = -1;
-        next = 10;
-      } else if (next <= 1) {
-        directionRef.current = 1;
-        next = 1;
-      }
-      
-      // Move arrow only (1 DOM mutation)
-      if (arrowRef.current) {
-        const nextX = 32 + (next - 1) * 44;
-        arrowRef.current.style.transform = `translateX(${nextX}px) translateX(-50%)`;
-      }
-      
-      currentValueRef.current = next;
-      lastUpdateRef.current = time;
-    }
-    requestRef.current = requestAnimationFrame(animate);
-  }, [isStopped, active]);
-
+  // Gauge animation loop (Fully contained in useEffect to avoid closure issues)
   useEffect(() => {
-    if (active && !isStopped) {
-      requestRef.current = requestAnimationFrame(animate);
-    }
-    return () => cancelAnimationFrame(requestRef.current);
-  }, [active, isStopped, animate]);
+    if (!active || isStopped) return;
+
+    let frameId;
+    const loop = (time) => {
+      if (time - lastUpdateRef.current > SPEED) {
+        const prev = currentValueRef.current;
+        let next = prev + directionRef.current;
+        if (next >= 10) {
+          directionRef.current = -1;
+          next = 10;
+        } else if (next <= 1) {
+          directionRef.current = 1;
+          next = 1;
+        }
+        
+        // Move arrow only (1 DOM mutation)
+        if (arrowRef.current) {
+          // Box center is 32 + (next - 1) * 44. Arrow width is approx 24px, so subtract 12px for center alignment.
+          const nextX = 32 + (next - 1) * 44 - 12;
+          arrowRef.current.style.transform = `translateX(${nextX}px)`;
+        }
+        
+        currentValueRef.current = next;
+        lastUpdateRef.current = time;
+      }
+      frameId = requestAnimationFrame(loop);
+    };
+
+    frameId = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(frameId);
+  }, [active, isStopped]);
 
   // Handle Spacebar
   useEffect(() => {
@@ -294,10 +295,10 @@ export default function MiningMiniGameUI() {
               left: 0,
               fontSize: '24px',
               color: '#3B82F6',
-              transform: 'translateX(32px) translateX(-50%)',
-              transition: 'transform 0.05s linear',
+              transform: 'translateX(20px)', // initial roughly centered on first block (32 - 12 = 20)
               textShadow: '0 2px 4px rgba(0,0,0,0.3)',
-              fontWeight: 'bold'
+              fontWeight: 'bold',
+              lineHeight: 1
             }}
           >
             ⇧

@@ -506,7 +506,7 @@ export default function Player() {
         yaw.current = Math.atan2(dx, dz);
       } else {
         const tAsset = cameraOverride.current.targetPos;
-        const EYE_LEVEL = 0.8;
+        const EYE_LEVEL = 0.2; // Player capsule height is ~0.27
         
         // Calculate destination in front of asset
         const dirToPlayer = group.current.position.clone().sub(tAsset);
@@ -535,11 +535,25 @@ export default function Player() {
         const pathTerrainY = getTerrainHeight(finalIdealCameraPos.x, finalIdealCameraPos.z);
         finalIdealCameraPos.y = Math.max(interpolatedY, pathTerrainY + EYE_LEVEL);
         
-        // Look At (interpolate towards looking perfectly horizontally at the asset)
+        // Setup start camera orientation
+        const dummyCam = new THREE.Object3D();
+        dummyCam.position.copy(idealCameraPos);
+        dummyCam.lookAt(targetLookAt);
+        const startQuat = dummyCam.quaternion.clone();
+
+        // Setup end camera orientation
+        dummyCam.position.copy(endCamPos);
         const lookAtAsset = tAsset.clone();
-        lookAtAsset.y = finalIdealCameraPos.y; 
-        
-        finalTargetLookAt.lerp(lookAtAsset, alpha);
+        lookAtAsset.y = endCamPos.y; // perfectly horizontal
+        dummyCam.lookAt(lookAtAsset);
+        const endQuat = dummyCam.quaternion.clone();
+
+        // Spherical linear interpolation of rotation
+        startQuat.slerp(endQuat, alpha);
+
+        // Calculate a new lookAt target exactly 1 unit in front of the camera
+        const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(startQuat);
+        finalTargetLookAt.copy(finalIdealCameraPos).add(forward);
       }
     }
     

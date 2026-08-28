@@ -217,6 +217,7 @@ export default function NPCDialogueUI() {
               <kbd style={{ background: '#334155', padding: '2px 6px', borderRadius: '4px', border: '1px solid #64748b' }}>클릭</kbd>
             </div>
           </div>
+        </div>
       </div>
       
       <style dangerouslySetInnerHTML={{__html: `

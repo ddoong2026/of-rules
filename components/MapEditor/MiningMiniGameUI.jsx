@@ -109,6 +109,7 @@ export default function MiningMiniGameUI() {
   const [condition, setCondition] = useState(null);
   const [successCount, setSuccessCount] = useState(0);
   const [feedback, setFeedback] = useState(null);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const [selectedNumbers, setSelectedNumbers] = useState(new Set());
   const [selectedOptionIndex, setSelectedOptionIndex] = useState(null);
@@ -121,6 +122,7 @@ export default function MiningMiniGameUI() {
     setSelectedNumbers(new Set());
     setSelectedOptionIndex(null);
     setFeedback(null);
+    setErrorMessage('');
   }, []);
 
   useEffect(() => {
@@ -163,25 +165,67 @@ export default function MiningMiniGameUI() {
     if (feedback !== null || !condition) return;
     
     let isSuccess = false;
+    let err = '';
+    
     if (condition.gameType === 'multi-select') {
       let correct = true;
+      let missed = [];
+      let wrongSelected = [];
+      
       for (let i = 1; i <= 10; i++) {
         const shouldBeSelected = checkCondition(i, condition);
         const isSelected = selectedNumbers.has(i);
-        if (shouldBeSelected !== isSelected) {
-          correct = false;
-          break;
+        if (shouldBeSelected && !isSelected) missed.push(i);
+        if (!shouldBeSelected && isSelected) wrongSelected.push(i);
+      }
+      
+      if (missed.length > 0 || wrongSelected.length > 0) {
+        correct = false;
+        if (missed.length > 0 && wrongSelected.length > 0) {
+          err = `${missed.join(', ')}은(는) 포함해야 하고, ${wrongSelected.join(', ')}은(는) 빼야 해요.`;
+        } else if (missed.length > 0) {
+          err = `${missed.join(', ')}도 포함해야 해요.`;
+        } else {
+          err = `${wrongSelected.join(', ')}은(는) 포함하면 안 돼요.`;
         }
       }
       isSuccess = correct;
     } else {
-      isSuccess = selectedOptionIndex !== null && condition.options[selectedOptionIndex].text === condition.text;
+      if (selectedOptionIndex === null) {
+        err = '정답을 선택해주세요.';
+        isSuccess = false;
+      } else {
+        const selected = condition.options[selectedOptionIndex];
+        isSuccess = selected.text === condition.text;
+        if (!isSuccess) {
+          let detail = '';
+          if (!condition.isRange) {
+            const v = condition.value;
+            if (condition.type === '초과') detail = `'초과'란 ${v}보다 크다는 뜻입니다. ${v}은(는) 포함되지 않아요.`;
+            else if (condition.type === '미만') detail = `'미만'이란 ${v}보다 작다는 뜻입니다. ${v}은(는) 포함되지 않아요.`;
+            else if (condition.type === '이상') detail = `'이상'이란 ${v}보다 크거나 같다는 뜻입니다. ${v}도 포함해야 해요.`;
+            else if (condition.type === '이하') detail = `'이하'란 ${v}보다 작거나 같다는 뜻입니다. ${v}도 포함해야 해요.`;
+          } else {
+            const v1 = condition.value1;
+            const v2 = condition.value2;
+            const exp1 = condition.type1 === '초과' ? `${v1}보다 크고 (${v1} 미포함)` : `${v1}보다 크거나 같고 (${v1} 포함)`;
+            const exp2 = condition.type2 === '미만' ? `${v2}보다 작은 (${v2} 미포함)` : `${v2}보다 작거나 같은 (${v2} 포함)`;
+            detail = `정답은 ${exp1}, ${exp2} 수를 의미합니다.`;
+          }
+          err = `틀렸어요! 정답은 '${condition.text}' 입니다.\n${detail}`;
+        }
+      }
+    }
+    
+    if (selectedOptionIndex === null && condition.gameType !== 'multi-select') {
+       return;
     }
     
     window.dispatchEvent(new CustomEvent('mine-jiggle', { detail: { id: assetId, type: assetType } }));
 
     if (isSuccess) {
       setFeedback('SUCCESS');
+      setErrorMessage('');
       setTimeout(() => {
         if (successCount + 1 >= 2) {
           window.dispatchEvent(new CustomEvent('mine-complete', { detail: { id: assetId, type: assetType } }));
@@ -193,15 +237,32 @@ export default function MiningMiniGameUI() {
       }, 1000);
     } else {
       setFeedback('FAIL');
+      setErrorMessage(err);
       setTimeout(() => {
         initRound();
-      }, 1500);
+      }, 3500); // 텍스트가 길어졌으므로 3.5초로 연장
     }
   }, [feedback, condition, selectedNumbers, selectedOptionIndex, successCount, assetId, assetType, setMineMiniGame, initRound]);
 
+  const handleCancel = useCallback(() => {
+    setMineMiniGame(false, null, null);
+    const canvas = document.querySelector('canvas');
+    if (canvas && typeof canvas.requestPointerLock === 'function') {
+      try {
+        const p = canvas.requestPointerLock();
+        if (p && typeof p.catch === 'function') p.catch(() => {});
+      } catch (err) {}
+    }
+  }, [setMineMiniGame]);
+
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (!active || feedback !== null) return;
+      if (!active) return;
+      if (e.key === 'Escape' || e.key.toLowerCase() === 'x') {
+        handleCancel();
+        return;
+      }
+      if (feedback !== null) return;
       if (e.code === 'Space') {
         e.preventDefault();
         handleSubmit();
@@ -209,7 +270,7 @@ export default function MiningMiniGameUI() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [active, feedback, handleSubmit]);
+  }, [active, feedback, handleSubmit, handleCancel]);
 
   if (!active || !condition) return null;
 
@@ -222,6 +283,26 @@ export default function MiningMiniGameUI() {
       zIndex: 1000,
       userSelect: 'none'
     }}>
+      {feedback && (
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+          background: feedback === 'SUCCESS' ? 'rgba(16, 185, 129, 0.9)' : 'rgba(239, 68, 68, 0.9)',
+          borderRadius: '24px',
+          display: 'flex', justifyContent: 'center', alignItems: 'center',
+          fontSize: '4rem', fontWeight: 'bold', color: 'white',
+          flexDirection: 'column',
+          textAlign: 'center',
+          padding: '2rem',
+          zIndex: 10
+        }}>
+          <div>{feedback === 'SUCCESS' ? '성공!' : '실패!'}</div>
+          {feedback === 'FAIL' && errorMessage && (
+            <div style={{ fontSize: '1.5rem', marginTop: '1rem', background: 'rgba(0,0,0,0.5)', padding: '12px 24px', borderRadius: '12px', whiteSpace: 'pre-wrap' }}>
+              {errorMessage}
+            </div>
+          )}
+        </div>
+      )}
       <div style={{
         background: '#fff',
         padding: '2rem',
@@ -232,10 +313,15 @@ export default function MiningMiniGameUI() {
         flexDirection: 'column',
         gap: '1.5rem'
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h2>{condition.gameType === 'multi-select' ? '조건에 맞는 숫자 고르기' : '올바른 짝 찾기'}</h2>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            {[0, 1].map(i => <div key={i} style={{ width: 24, height: 24, borderRadius: '50%', background: i < successCount ? '#10B981' : '#ccc' }} />)}
+          <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              {[0, 1].map(i => <div key={i} style={{ width: 24, height: 24, borderRadius: '50%', background: i < successCount ? '#10B981' : '#ccc' }} />)}
+            </div>
+            <button onClick={handleCancel} style={{
+              background: 'transparent', border: 'none', fontSize: '1.5rem', cursor: 'pointer', padding: '0 8px', color: '#666'
+            }}>✕</button>
           </div>
         </div>
 

@@ -310,8 +310,8 @@ function MineableAsset({ asset, onInteract, mode, isPlaying, children }) {
               const nextY = getTerrainHeightAt(nextWorldX, nextWorldZ, heights);
               const currentY = getTerrainHeightAt(position[0] + currentLocalPos.current.x, position[2] + currentLocalPos.current.z, heights);
               
-              // 물속(0.2 이하) 진입 불가 및 급격한 경사(0.5 이상 차이) 진입 불가
-              if (nextY < 0.2 || Math.abs(nextY - currentY) > 0.5) {
+              // 물속(-0.1 미만) 진입 불가 및 급격한 경사(0.5 이상 차이) 진입 불가
+              if (nextY < -0.1 || Math.abs(nextY - currentY) > 0.5) {
                 canMove = false;
               }
             }

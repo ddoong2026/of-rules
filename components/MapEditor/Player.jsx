@@ -197,6 +197,8 @@ export default function Player() {
   };
 
   const hasSpawned = useRef(false);
+  const cameraOverride = useRef({ active: false, targetPos: new THREE.Vector3(), startTime: 0 });
+  
   useEffect(() => {
     if (group.current && !hasSpawned.current) {
       const spawnPoint = useMapStore.getState().spawnPoint;
@@ -385,10 +387,22 @@ export default function Player() {
                 currentVelocity.current.z = 0;
                 
                 const now = performance.now();
-                if (now - lastBoundaryMessageTime.current > 2000) {
+                if (now - lastBoundaryMessageTime.current > 3500) { // 3.5s cooldown
                   lastBoundaryMessageTime.current = now;
                   const message = b.condition.message || "조건을 달성해야 통과할 수 있습니다.";
-                  window.dispatchEvent(new CustomEvent('boundary-collide', { detail: { message, boundaryId: b.id } }));
+                  const additionalMessage = b.condition.additionalMessage;
+                  const targetAssetId = b.condition.targetAssetId;
+                  
+                  if (targetAssetId) {
+                    const targetAsset = useMapStore.getState().assets.find(a => a.id === targetAssetId);
+                    if (targetAsset) {
+                      cameraOverride.current.active = true;
+                      cameraOverride.current.targetPos.set(targetAsset.position[0], targetAsset.position[1], targetAsset.position[2]);
+                      cameraOverride.current.startTime = now;
+                    }
+                  }
+                  
+                  window.dispatchEvent(new CustomEvent('boundary-collide', { detail: { message, additionalMessage, boundaryId: b.id } }));
                 }
                 break;
               }
@@ -474,9 +488,42 @@ export default function Player() {
       idealCameraPos.y = camGroundHeight + 0.5;
     }
     
+    let finalIdealCameraPos = idealCameraPos.clone();
+    let finalTargetLookAt = targetLookAt.clone();
+
+    if (cameraOverride.current.active) {
+      const now = performance.now();
+      const elapsed = now - cameraOverride.current.startTime;
+      if (elapsed > 3500) { // 3.5 seconds total duration
+        cameraOverride.current.active = false;
+      } else {
+        const tAsset = cameraOverride.current.targetPos;
+        const overrideLookAt = tAsset.clone().add(new THREE.Vector3(0, 0.5, 0));
+        
+        // Position camera to see the asset, offset towards the player slightly
+        const dirToPlayer = group.current.position.clone().sub(tAsset);
+        dirToPlayer.y = 0;
+        if (dirToPlayer.lengthSq() < 0.1) {
+          dirToPlayer.set(0, 0, 1);
+        }
+        dirToPlayer.normalize();
+        
+        const overrideCamPos = tAsset.clone().add(dirToPlayer.multiplyScalar(3.0)).add(new THREE.Vector3(0, 1.5, 0));
+
+        // Smooth step alpha
+        let alpha = 1;
+        if (elapsed < 800) alpha = elapsed / 800; // 0.8s to zoom in
+        else if (elapsed > 2700) alpha = (3500 - elapsed) / 800; // 0.8s to zoom out
+        alpha = alpha * alpha * (3 - 2 * alpha);
+
+        finalIdealCameraPos.lerp(overrideCamPos, alpha);
+        finalTargetLookAt.lerp(overrideLookAt, alpha);
+      }
+    }
+    
     // Snap camera position to the smoothed target position
-    camera.position.copy(idealCameraPos);
-    camera.lookAt(targetLookAt);
+    camera.position.copy(finalIdealCameraPos);
+    camera.lookAt(finalTargetLookAt);
 
     // Handle Animation state based on movement and grounding
     if (actions) {

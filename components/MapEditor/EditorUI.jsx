@@ -354,6 +354,37 @@ function PropertyEditor() {
             style={{ padding: '0.4rem' }}
           />
         </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+          <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>카메라 이동 대상 에셋 (선택)</label>
+          <select 
+            className="glass-input"
+            value={boundary.condition?.targetAssetId || ''}
+            onChange={(e) => updateBoundary(boundary.id, { condition: { ...boundary.condition, targetAssetId: e.target.value } })}
+            style={{ padding: '0.4rem' }}
+          >
+            <option value="">-- 이동 안 함 --</option>
+            {assets.map(a => (
+              <option key={a.id} value={a.id}>
+                {a.type.startsWith('caveman') ? `👤 ${a.npcName || '원시인'}` : `🌲 ${a.type}`}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {boundary.condition?.targetAssetId && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+            <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>추가 안내 문구</label>
+            <input 
+              type="text" 
+              className="glass-input" 
+              placeholder="예: 저기 있는 촌장님께 가보세요!"
+              value={boundary.condition?.additionalMessage || ''} 
+              onChange={(e) => updateBoundary(boundary.id, { condition: { ...boundary.condition, additionalMessage: e.target.value } })}
+              style={{ padding: '0.4rem' }}
+            />
+          </div>
+        )}
         
         <button 
           onClick={() => removeBoundary(boundary.id)}

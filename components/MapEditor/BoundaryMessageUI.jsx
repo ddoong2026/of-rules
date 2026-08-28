@@ -2,20 +2,23 @@ import React, { useState, useEffect } from 'react';
 
 export default function BoundaryMessageUI() {
   const [message, setMessage] = useState('');
+  const [additionalMessage, setAdditionalMessage] = useState('');
 
   useEffect(() => {
     let timeoutId;
     
     const handleCollide = (e) => {
       setMessage(e.detail.message);
+      setAdditionalMessage(e.detail.additionalMessage || '');
       
       // Clear previous timeout if it exists
       if (timeoutId) clearTimeout(timeoutId);
       
-      // Hide message after 2.5 seconds
+      // Hide message after 3.5 seconds
       timeoutId = setTimeout(() => {
         setMessage('');
-      }, 2500);
+        setAdditionalMessage('');
+      }, 3500);
     };
 
     window.addEventListener('boundary-collide', handleCollide);
@@ -36,15 +39,18 @@ export default function BoundaryMessageUI() {
         transform: 'translate(-50%, -50%)',
         backgroundColor: 'rgba(239, 68, 68, 0.9)', // Red-500
         color: 'white',
-        padding: '12px 24px',
+        padding: '16px 24px',
         borderRadius: '8px',
         fontSize: '1.2rem',
         fontWeight: 'bold',
         boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
         pointerEvents: 'none',
         zIndex: 1000,
-        animation: 'fadeInOut 2.5s ease-in-out',
-        textAlign: 'center'
+        animation: 'fadeInOut 3.5s ease-in-out',
+        textAlign: 'center',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '8px'
       }}
     >
       <style>
@@ -57,7 +63,12 @@ export default function BoundaryMessageUI() {
           }
         `}
       </style>
-      {message}
+      <div>{message}</div>
+      {additionalMessage && (
+        <div style={{ fontSize: '1rem', color: '#fef08a', fontWeight: 'normal' }}>
+          {additionalMessage}
+        </div>
+      )}
     </div>
   );
 }

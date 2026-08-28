@@ -17,7 +17,7 @@ export default function BoundaryManager() {
       if (timeoutId) clearTimeout(timeoutId);
       timeoutId = setTimeout(() => {
         setCollidedBoundaryId(null);
-      }, 2500);
+      }, 3500);
     };
 
     window.addEventListener('boundary-collide', handleCollide);

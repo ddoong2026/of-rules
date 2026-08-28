@@ -476,7 +476,6 @@ export default function MiningMiniGameUI() {
               </div>
             ))}
           </div>
-          </div>
         )}
 
         <button onClick={handleSubmit} style={{ padding: '15px', fontSize: '1.2rem', background: '#10B981', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer' }}>제출</button>

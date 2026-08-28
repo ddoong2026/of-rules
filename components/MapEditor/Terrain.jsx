@@ -212,7 +212,8 @@ export default function Terrain() {
         position: [targetPoint.x, targetPoint.y, targetPoint.z],
         ...(isNPC ? {
           npcName: defaultNPCNames[selectedAsset] || '주민',
-          dialogue: '안녕하세요! 규칙의 나라에 오신 것을 환영합니다.',
+          dialogue: '안녕하세요!\n규칙의 나라에 오신 것을 환영합니다.\n즐거운 시간 보내세요!',
+          bubbleDialogue: '반갑습니다!\n날씨가 참 좋네요.\n뭐 도와드릴 일 있나요?',
           quest: '',
           roamRadius: 3
         } : {})

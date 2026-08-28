@@ -6,32 +6,28 @@ import useMapStore from '@/store/useMapStore';
 export default function NPCDialogueUI() {
   const { isPlaying } = useMapStore();
   const [activeAsset, setActiveAsset] = useState(null);
+  const [currentStep, setCurrentStep] = useState(0);
 
   useEffect(() => {
     const handleInteract = (e) => {
       if (isPlaying) {
         setActiveAsset(e.detail.asset);
+        setCurrentStep(0);
       }
     };
     window.addEventListener('npc-interact', handleInteract);
     return () => window.removeEventListener('npc-interact', handleInteract);
   }, [isPlaying]);
 
-  useEffect(() => {
-    if (!activeAsset) return;
+  const dialogueLines = activeAsset?.dialogue
+    ? activeAsset.dialogue.split('\n').map(l => l.trim()).filter(l => l)
+    : ['안녕하세요!'];
 
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape' || e.key.toLowerCase() === 'e') {
-        closeDialogue();
-      }
-    };
-    
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeAsset]);
+  const isLastStep = currentStep >= dialogueLines.length - 1;
 
   const closeDialogue = () => {
     setActiveAsset(null);
+    setCurrentStep(0);
     const canvas = document.querySelector('canvas');
     if (canvas && typeof canvas.requestPointerLock === 'function') {
       try {
@@ -40,6 +36,31 @@ export default function NPCDialogueUI() {
       } catch (err) {}
     }
   };
+
+  const handleNext = (e) => {
+    if (e) e.stopPropagation();
+    if (isLastStep) {
+      closeDialogue();
+    } else {
+      setCurrentStep(prev => prev + 1);
+    }
+  };
+
+  useEffect(() => {
+    if (!activeAsset) return;
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' || e.key.toLowerCase() === 'e') {
+        closeDialogue();
+      } else if (e.code === 'Space' || e.key === 'Enter') {
+        e.preventDefault();
+        handleNext();
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeAsset, currentStep, isLastStep]); // added dependencies
 
   if (!isPlaying || !activeAsset) return null;
 
@@ -76,7 +97,7 @@ export default function NPCDialogueUI() {
         paddingBottom: '48px',
         animation: 'fadeIn 0.2s ease-out'
       }}
-      onClick={closeDialogue}
+      onClick={handleNext}
     >
       <div 
         style={{ width: '85%', maxWidth: '850px', display: 'flex', flexDirection: 'column' }}
@@ -122,29 +143,29 @@ export default function NPCDialogueUI() {
         </div>
 
         {/* Dialogue Box */}
-        <div style={{
-          background: 'linear-gradient(145deg, #1e293b 0%, #0f172a 100%)',
-          border: '3px solid #64748b',
-          borderRadius: '16px',
-          padding: '32px 28px 24px 28px',
-          boxShadow: '0 20px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1)',
-          minHeight: '140px',
-          display: 'flex',
-          flexDirection: 'column',
-          position: 'relative',
-          gap: '16px'
-        }}>
+        <div 
+          style={{
+            background: 'linear-gradient(145deg, #1e293b 0%, #0f172a 100%)',
+            border: '3px solid #64748b',
+            borderRadius: '16px',
+            padding: '32px 28px 24px 28px',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1)',
+            minHeight: '140px',
+            display: 'flex',
+            flexDirection: 'column',
+            position: 'relative',
+            gap: '16px',
+            cursor: 'pointer'
+          }}
+          onClick={handleNext}
+        >
           {/* Dialogue Text */}
           <div style={{ color: '#f8fafc', fontSize: '1.15rem', lineHeight: '1.7', fontWeight: '500' }}>
-            {activeAsset.dialogue ? (
-              <p style={{ margin: 0 }}>&ldquo;{activeAsset.dialogue}&rdquo;</p>
-            ) : (
-              <p style={{ margin: 0, fontStyle: 'italic', color: '#94a3b8' }}>&ldquo;안녕하세요!&rdquo;</p>
-            )}
+            <p style={{ margin: 0 }}>&ldquo;{dialogueLines[currentStep]}&rdquo;</p>
           </div>
           
-          {/* Quest Area if present */}
-          {activeAsset.quest && (
+          {/* Quest Area if present - Show only on the last step */}
+          {isLastStep && activeAsset.quest && (
             <div style={{
               background: 'linear-gradient(90deg, rgba(234, 179, 8, 0.15), rgba(234, 179, 8, 0.05))',
               border: '1px solid #facc15',
@@ -169,20 +190,20 @@ export default function NPCDialogueUI() {
             paddingTop: '12px'
           }}>
             <button
-              onClick={closeDialogue}
+              onClick={handleNext}
               style={{
                 padding: '6px 16px',
-                background: '#3b82f6',
+                background: isLastStep ? '#3b82f6' : '#22c55e',
                 color: 'white',
                 border: 'none',
                 borderRadius: '8px',
                 cursor: 'pointer',
                 fontWeight: 'bold',
                 fontSize: '0.9rem',
-                boxShadow: '0 2px 4px rgba(59, 130, 246, 0.4)'
+                boxShadow: `0 2px 4px ${isLastStep ? 'rgba(59, 130, 246, 0.4)' : 'rgba(34, 197, 94, 0.4)'}`
               }}
             >
-              대화 마치기 (닫기)
+              {isLastStep ? '대화 마치기 (닫기)' : '다음 대화 ▼'}
             </button>
             <div style={{
               color: '#94a3b8',
@@ -191,12 +212,11 @@ export default function NPCDialogueUI() {
               alignItems: 'center',
               gap: '4px'
             }}>
-              <kbd style={{ background: '#334155', padding: '2px 6px', borderRadius: '4px', border: '1px solid #64748b' }}>E</kbd>
+              <kbd style={{ background: '#334155', padding: '2px 6px', borderRadius: '4px', border: '1px solid #64748b' }}>Space</kbd>
               <span>또는</span>
-              <kbd style={{ background: '#334155', padding: '2px 6px', borderRadius: '4px', border: '1px solid #64748b' }}>ESC</kbd>
+              <kbd style={{ background: '#334155', padding: '2px 6px', borderRadius: '4px', border: '1px solid #64748b' }}>클릭</kbd>
             </div>
           </div>
-        </div>
       </div>
       
       <style dangerouslySetInnerHTML={{__html: `

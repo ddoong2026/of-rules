@@ -333,12 +333,26 @@ function PropertyEditor() {
           </div>
           
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-            <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>대사 (Dialogue)</label>
+            <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>말풍선 대사 (Bubble Dialogue)</label>
+            <span style={{ fontSize: '0.7rem', color: '#6b7280' }}>엔터로 구분하면 무작위로 하나씩 뜹니다.</span>
+            <textarea 
+              className="glass-input" 
+              value={asset.bubbleDialogue || ''} 
+              onChange={(e) => updateAsset(asset.id, { bubbleDialogue: e.target.value })}
+              placeholder="머리 위에 무작위로 뜰 대사들"
+              rows={2}
+              style={{ padding: '0.4rem', resize: 'vertical' }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+            <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>스크립트 대화 (Sequential Dialogue)</label>
+            <span style={{ fontSize: '0.7rem', color: '#6b7280' }}>엔터로 구분하면 순서대로 진행됩니다.</span>
             <textarea 
               className="glass-input" 
               value={asset.dialogue || ''} 
               onChange={(e) => updateAsset(asset.id, { dialogue: e.target.value })}
-              placeholder="대화창에 표시될 대사"
+              placeholder="클릭 시 나타날 순차적 대화 스크립트"
               rows={3}
               style={{ padding: '0.4rem', resize: 'vertical' }}
             />

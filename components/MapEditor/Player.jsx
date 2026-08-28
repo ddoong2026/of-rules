@@ -51,6 +51,7 @@ export default function Player() {
 
   useEffect(() => {
     const handleKeyDown = (e) => {
+      if (useMapStore.getState().mineMiniGame.active) return;
       if (e.code === 'Space') setKeys(k => ({ ...k, space: true }));
       if (e.key === 'Control') setKeys(k => ({ ...k, control: true }));
       const key = e.key.toLowerCase();
@@ -65,6 +66,7 @@ export default function Player() {
 
     const canvas = document.querySelector('canvas');
     const onCanvasClick = () => {
+      if (useMapStore.getState().mineMiniGame.active) return;
       if (canvas && document.pointerLockElement !== canvas) {
         try {
           const p = canvas.requestPointerLock();
@@ -74,6 +76,7 @@ export default function Player() {
     };
     
     const onMouseMove = (e) => {
+      if (useMapStore.getState().mineMiniGame.active) return;
       if (document.pointerLockElement === canvas) {
         yaw.current -= e.movementX * 0.003;
         pitch.current += e.movementY * 0.003; // Inverted Y-axis
@@ -83,8 +86,9 @@ export default function Player() {
     };
 
     const handleMouseDown = (e) => {
-      // 좌클릭이고 마우스 잠금 상태일 때 순수 거리/방향 수학으로 채집 판정 (3인칭 카메라 레이캐스트 버그 원천 차단)
+      // 좌클릭이고 마우스 잠금 상태일 때 순수 거리/방향 수학으로 채집 판정
       if (e.button === 0 && document.pointerLockElement === canvas) {
+        if (useMapStore.getState().mineMiniGame.active) return;
         if (!group.current) return;
         
         const playerPos = group.current.position;
@@ -133,28 +137,10 @@ export default function Player() {
             return;
           }
 
-          const increment = isTree ? (5 / 3) : 1;
-          
-          if (mineTargetIdRef.current !== closestAssetId) {
-            mineTargetIdRef.current = closestAssetId;
-            mineProgressRef.current = increment;
-          } else {
-            mineProgressRef.current += increment;
-          }
-          
-          window.dispatchEvent(new CustomEvent('mine-jiggle', { detail: { id: closestAssetId, type: targetAsset?.type } }));
-          
-          // 채집 성공 시 제자리에서 살짝 폴짝 뜀
-          if (wasGrounded.current) {
-            currentVelocity.current.y = 2.0; // 일반 점프(3.0)보다 약한 폴짝
-            group.current.position.y += 0.01;
-          }
-          
-          // 부동소수점 오차 방지를 위해 4.9 이상이면 완료로 처리
-          if (mineProgressRef.current >= 4.9) {
-            window.dispatchEvent(new CustomEvent('mine-complete', { detail: { id: closestAssetId, type: targetAsset?.type } }));
-            mineProgressRef.current = 0;
-            mineTargetIdRef.current = null;
+          // 시작! (수학 채집 미니게임)
+          useMapStore.getState().setMineMiniGame(true, closestAssetId, targetAsset?.type);
+          if (document.pointerLockElement === canvas) {
+            document.exitPointerLock();
           }
         }
       }

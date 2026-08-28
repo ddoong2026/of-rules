@@ -97,9 +97,21 @@ function getTerrainHeightAt(x, z, heights) {
 
 function NPC({ asset, isPlaying, roaming }) {
   const [showBubble, setShowBubble] = useState(false);
+  const [currentBubbleText, setCurrentBubbleText] = useState('');
   const { scene, animations } = useGLTF(`/models/${asset.type}.glb`);
   const clone = useMemo(() => SkeletonUtils.clone(scene), [scene]);
   const { actions } = useAnimations(animations, clone);
+  const npcGroupRef = useRef();
+  const isPlayerNear = useRef(false);
+
+  // Check player distance
+  useFrame(({ camera }) => {
+    if (!isPlaying || !npcGroupRef.current) return;
+    const worldPos = new THREE.Vector3();
+    npcGroupRef.current.getWorldPosition(worldPos);
+    const distance = camera.position.distanceTo(worldPos);
+    isPlayerNear.current = distance < 10; // 플레이어가 가까이 있을 때만 (반경 10 이내)
+  });
 
   // Animation handling
   useEffect(() => {
@@ -124,16 +136,24 @@ function NPC({ asset, isPlaying, roaming }) {
   }, [actions, roaming, isPlaying]);
 
   useEffect(() => {
-    if (!isPlaying || !asset.dialogue) return;
+    const dialogueSource = asset.bubbleDialogue || asset.dialogue;
+    if (!isPlaying || !dialogueSource) return;
     
+    const lines = dialogueSource.split('\n').map(l => l.trim()).filter(l => l);
+    if (lines.length === 0) return;
+
     // 간헐적으로 말풍선 띄우기 (3~8초 간격으로 2초간 표시)
     const interval = setInterval(() => {
-      setShowBubble(true);
-      setTimeout(() => setShowBubble(false), 2000);
+      if (isPlayerNear.current) {
+        const randomLine = lines[Math.floor(Math.random() * lines.length)];
+        setCurrentBubbleText(randomLine);
+        setShowBubble(true);
+        setTimeout(() => setShowBubble(false), 2000);
+      }
     }, Math.random() * 5000 + 3000);
     
     return () => clearInterval(interval);
-  }, [isPlaying, asset.dialogue]);
+  }, [isPlaying, asset.bubbleDialogue, asset.dialogue]);
 
   const defaultNames = {
     caveman1: '원시인 1',
@@ -144,10 +164,10 @@ function NPC({ asset, isPlaying, roaming }) {
   const displayName = asset.npcName || defaultNames[asset.type] || 'NPC';
 
   return (
-    <group position={[0, 0, 0]}>
+    <group position={[0, 0, 0]} ref={npcGroupRef}>
       <primitive object={clone} scale={0.2} />
       
-      {isPlaying && showBubble && asset.dialogue && (
+      {isPlaying && showBubble && currentBubbleText && (
         <Html position={[0, 0.45, 0]} center sprite zIndexRange={[100, 0]}>
           <div style={{
             background: 'white',
@@ -161,7 +181,7 @@ function NPC({ asset, isPlaying, roaming }) {
             boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
             color: '#111827'
           }}>
-            💬 {asset.dialogue.substring(0, 15)}{asset.dialogue.length > 15 ? '...' : ''}
+            💬 {currentBubbleText.substring(0, 20)}{currentBubbleText.length > 20 ? '...' : ''}
           </div>
         </Html>
       )}
@@ -320,19 +340,38 @@ function DecalItem({ decal, onErase }) {
 }
 
 export default function AssetManager() {
-  const { mode, assets, decals, removeAsset, removeDecal, isPlaying } = useMapStore();
+  const { mode, assets, decals, removeAsset, updateAsset, removeDecal, isPlaying } = useMapStore();
   const { addItem } = useInventoryStore();
 
   const handleInteract = (id, type, isEraseMode) => {
     if (isEraseMode) {
       removeAsset(id);
     } else {
-      removeAsset(id);
+      if (type === 'tree' || type === 'rock') {
+        updateAsset(id, { minedAt: Date.now() });
+      } else {
+        removeAsset(id);
+      }
       if (type !== 'tree') {
         addItem(type, 1);
       }
     }
   };
+
+  // Respawn interval
+  useEffect(() => {
+    if (!isPlaying) return;
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const state = useMapStore.getState();
+      state.assets.forEach(asset => {
+        if (asset.minedAt && now - asset.minedAt >= 10 * 60 * 1000) { // 10 minutes
+          state.updateAsset(asset.id, { minedAt: null });
+        }
+      });
+    }, 10000); // Check every 10 seconds
+    return () => clearInterval(interval);
+  }, [isPlaying]);
 
   useEffect(() => {
     const handleGlobalJiggle = (e) => {
@@ -372,17 +411,20 @@ export default function AssetManager() {
 
   return (
     <>
-      {assets.map(asset => (
-        <MineableAsset 
-          key={asset.id} 
-          asset={asset}
-          mode={mode} 
-          isPlaying={isPlaying} 
-          onInteract={handleInteract}
-        >
-          {(roaming) => renderAssetInner(asset, roaming)}
-        </MineableAsset>
-      ))}
+      {assets.map(asset => {
+        if (asset.minedAt && isPlaying) return null; // 캤을 경우 10분 동안 렌더링 안 함
+        return (
+          <MineableAsset 
+            key={asset.id} 
+            asset={asset}
+            mode={mode} 
+            isPlaying={isPlaying} 
+            onInteract={handleInteract}
+          >
+            {(roaming) => renderAssetInner(asset, roaming)}
+          </MineableAsset>
+        );
+      })}
 
       {decals.map(decal => (
         <DecalItem key={decal.id} decal={decal} onErase={handleEraseDecal} />

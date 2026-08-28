@@ -30,6 +30,9 @@ const useMapStore = create((set, get) => ({
   // Fluid Data (Dynamic Water)
   waterSources: [], // { x, z, amount }
 
+  // Mini Game State
+  mineMiniGame: { active: false, assetId: null, assetType: null },
+
   // Actions
   setMode: (mode) => set({ mode }),
   setMapName: (name) => set({ mapName: name }),
@@ -42,6 +45,7 @@ const useMapStore = create((set, get) => ({
   setCameraMode: (isCameraMode) => set({ isCameraMode }),
   setIsPlaying: (isPlaying) => set({ isPlaying }),
   setSunTime: (time) => set({ sunTime: time }),
+  setMineMiniGame: (active, assetId = null, assetType = null) => set({ mineMiniGame: { active, assetId, assetType } }),
   
   saveHistory: () => set((state) => {
     const newHistory = [...state.history, { 

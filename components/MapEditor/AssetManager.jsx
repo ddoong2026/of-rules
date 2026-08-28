@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useEffect, useMemo, useState } from 'react';
-import useMapStore from '@/store/useMapStore';
+import useMapStore, { GRID_SIZE } from '@/store/useMapStore';
 import useInventoryStore from '@/store/useInventoryStore';
 import { useTexture, Html, useGLTF, useAnimations } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
@@ -72,33 +72,50 @@ function Lake() {
   );
 }
 
+function getTerrainHeightAt(x, z, heights) {
+  if (!heights) return 0;
+  const halfSize = 25;
+  const segSize = 50 / GRID_SIZE;
+  const clampedX = Math.max(-halfSize, Math.min(halfSize, x));
+  const clampedZ = Math.max(-halfSize, Math.min(halfSize, z));
+  const gridX = (clampedX + halfSize) / segSize;
+  const gridZ = (clampedZ + halfSize) / segSize;
+  const x0 = Math.floor(gridX);
+  const x1 = Math.min(GRID_SIZE, x0 + 1);
+  const z0 = Math.floor(gridZ);
+  const z1 = Math.min(GRID_SIZE, z0 + 1);
+  const tx = gridX - x0;
+  const tz = gridZ - z0;
+  const h00 = heights[z0 * (GRID_SIZE + 1) + x0] || 0;
+  const h10 = heights[z0 * (GRID_SIZE + 1) + x1] || 0;
+  const h01 = heights[z1 * (GRID_SIZE + 1) + x0] || 0;
+  const h11 = heights[z1 * (GRID_SIZE + 1) + x1] || 0;
+  const h0 = h00 * (1 - tx) + h10 * tx;
+  const h1 = h01 * (1 - tx) + h11 * tx;
+  return h0 * (1 - tz) + h1 * tz;
+}
+
 function NPC({ asset, isPlaying, roaming }) {
   const [showBubble, setShowBubble] = useState(false);
-  const group = useRef();
   const { scene, animations } = useGLTF(`/models/${asset.type}.glb`);
   const clone = useMemo(() => SkeletonUtils.clone(scene), [scene]);
-  const { actions } = useAnimations(animations, group);
+  const { actions } = useAnimations(animations, clone);
 
   // Animation handling
   useEffect(() => {
     if (!actions || Object.keys(actions).length === 0) return;
     
     const actionNames = Object.keys(actions);
-    const walkName = actionNames.find(n => n.toLowerCase().includes('walk'));
+    const walkName = actionNames.find(n => n.toLowerCase().includes('walk')) || actionNames.find(n => n.toLowerCase().includes('run'));
     const walkAction = walkName ? actions[walkName] : null;
-    
-    // Choose an idle/gesture animation if available, or first non-walk animation
-    const idleName = actionNames.find(n => !n.toLowerCase().includes('walk') && !n.toLowerCase().includes('run')) || actionNames[0];
-    const idleAction = idleName ? actions[idleName] : null;
 
     if (roaming && walkAction) {
-      if (idleAction && idleAction.isRunning()) idleAction.fadeOut(0.2);
+      walkAction.timeScale = 0.8; // 자연스러운 보폭 재생 속도
       walkAction.reset().fadeIn(0.2).play();
-    } else if (idleAction) {
-      if (walkAction && walkAction.isRunning()) walkAction.fadeOut(0.2);
-      idleAction.reset().fadeIn(0.2).play();
-    } else if (walkAction) {
-      walkAction.fadeOut(0.2);
+    } else {
+      if (walkAction && walkAction.isRunning()) {
+        walkAction.fadeOut(0.2);
+      }
     }
 
     return () => {
@@ -128,18 +145,16 @@ function NPC({ asset, isPlaying, roaming }) {
 
   return (
     <group position={[0, 0, 0]}>
-      <group ref={group}>
-        <primitive object={clone} scale={1.2} />
-      </group>
+      <primitive object={clone} scale={0.2} />
       
       {isPlaying && showBubble && asset.dialogue && (
-        <Html position={[0, 2.3, 0]} center sprite zIndexRange={[100, 0]}>
+        <Html position={[0, 0.45, 0]} center sprite zIndexRange={[100, 0]}>
           <div style={{
             background: 'white',
-            padding: '5px 10px',
+            padding: '4px 8px',
             borderRadius: '12px',
             border: '2px solid black',
-            fontSize: '0.85rem',
+            fontSize: '0.75rem',
             fontWeight: 'bold',
             whiteSpace: 'nowrap',
             pointerEvents: 'none',
@@ -151,10 +166,10 @@ function NPC({ asset, isPlaying, roaming }) {
         </Html>
       )}
       {!isPlaying && (
-        <Html position={[0, 2.3, 0]} center sprite zIndexRange={[100, 0]}>
+        <Html position={[0, 0.45, 0]} center sprite zIndexRange={[100, 0]}>
           <div style={{
-            background: 'rgba(0,0,0,0.75)', color: 'white', padding: '3px 8px', 
-            borderRadius: '6px', fontSize: '0.75rem', fontWeight: 'bold',
+            background: 'rgba(0,0,0,0.75)', color: 'white', padding: '2px 6px', 
+            borderRadius: '4px', fontSize: '0.7rem', fontWeight: 'bold',
             whiteSpace: 'nowrap', pointerEvents: 'none', border: '1px solid rgba(255,255,255,0.4)',
             boxShadow: '0 2px 4px rgba(0,0,0,0.4)'
           }}>
@@ -171,7 +186,7 @@ function MineableAsset({ asset, onInteract, mode, isPlaying, children }) {
   const groupRef = useRef();
   const jiggleTimeRef = useRef(0);
   
-  const { selectedAssetId } = useMapStore();
+  const { selectedAssetId, heights } = useMapStore();
   const isSelected = mode === 'select' && selectedAssetId === id;
   
   const roamRadius = (type.startsWith('caveman') && asset.roamRadius) ? asset.roamRadius : 0;
@@ -183,7 +198,7 @@ function MineableAsset({ asset, onInteract, mode, isPlaying, children }) {
     if (!isPlaying || roamRadius <= 0) return;
     
     const interval = setInterval(() => {
-      if (Math.random() > 0.4) {
+      if (Math.random() > 0.35) {
         const angle = Math.random() * Math.PI * 2;
         const r = Math.random() * roamRadius;
         targetLocalPos.current.set(Math.cos(angle) * r, 0, Math.sin(angle) * r);
@@ -191,7 +206,7 @@ function MineableAsset({ asset, onInteract, mode, isPlaying, children }) {
       } else {
         setRoaming(false);
       }
-    }, Math.random() * 3000 + 3000);
+    }, Math.random() * 4000 + 3000);
     
     return () => clearInterval(interval);
   }, [isPlaying, roamRadius]);
@@ -208,11 +223,11 @@ function MineableAsset({ asset, onInteract, mode, isPlaying, children }) {
       
       if (isPlaying && roamRadius > 0) {
         if (roaming) {
-          const speed = 0.8;
+          const speed = 0.22; // 자연스럽고 느긋한 이동 속도 (기존 0.8에서 대폭 감소)
           const dir = targetLocalPos.current.clone().sub(currentLocalPos.current);
           const dist = dir.length();
           
-          if (dist > 0.05) {
+          if (dist > 0.04) {
             dir.normalize();
             currentLocalPos.current.add(dir.multiplyScalar(speed * delta));
             const angle = Math.atan2(dir.x, dir.z);
@@ -221,19 +236,17 @@ function MineableAsset({ asset, onInteract, mode, isPlaying, children }) {
             let currentRot = groupRef.current.rotation.y;
             while (currentRot - angle > Math.PI) currentRot -= Math.PI * 2;
             while (currentRot - angle < -Math.PI) currentRot += Math.PI * 2;
-            groupRef.current.rotation.y = currentRot;
-            
-            groupRef.current.rotation.y = THREE.MathUtils.lerp(groupRef.current.rotation.y, angle, 5 * delta);
+            groupRef.current.rotation.y = THREE.MathUtils.lerp(groupRef.current.rotation.y, angle, 4 * delta);
           } else {
             setRoaming(false);
           }
         }
         
-        groupRef.current.position.set(
-          position[0] + currentLocalPos.current.x,
-          position[1],
-          position[2] + currentLocalPos.current.z
-        );
+        const worldX = position[0] + currentLocalPos.current.x;
+        const worldZ = position[2] + currentLocalPos.current.z;
+        const groundY = heights ? getTerrainHeightAt(worldX, worldZ, heights) : position[1];
+        
+        groupRef.current.position.set(worldX, groundY, worldZ);
       } else if (!isPlaying && roamRadius > 0) {
         currentLocalPos.current.set(0, 0, 0);
         groupRef.current.position.set(position[0], position[1], position[2]);

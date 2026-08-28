@@ -33,7 +33,12 @@ export default function NPCDialogueUI() {
   const closeDialogue = () => {
     setActiveAsset(null);
     const canvas = document.querySelector('canvas');
-    if (canvas) canvas.requestPointerLock();
+    if (canvas && typeof canvas.requestPointerLock === 'function') {
+      try {
+        const p = canvas.requestPointerLock();
+        if (p && typeof p.catch === 'function') p.catch(() => {});
+      } catch (err) {}
+    }
   };
 
   if (!isPlaying || !activeAsset) return null;

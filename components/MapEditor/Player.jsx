@@ -65,8 +65,11 @@ export default function Player() {
 
     const canvas = document.querySelector('canvas');
     const onCanvasClick = () => {
-      if (document.pointerLockElement !== canvas) {
-        canvas.requestPointerLock();
+      if (canvas && document.pointerLockElement !== canvas) {
+        try {
+          const p = canvas.requestPointerLock();
+          if (p && typeof p.catch === 'function') p.catch(() => {});
+        } catch (err) {}
       }
     };
     
@@ -311,17 +314,17 @@ export default function Player() {
     }
 
     // Asset Collision Check
-    const PLAYER_RADIUS = 0.2;
+    const PLAYER_RADIUS = 0.06;
     const ASSET_RADII = {
-      tree: 0.3,
-      rock: 0.5,
-      house: 0.8,
-      cave: 1.0,
+      tree: 0.15,
+      rock: 0.25,
+      house: 0.55,
+      cave: 0.6,
       lake: 0.0,
-      caveman1: 0.3,
-      caveman2: 0.3,
-      caveman3: 0.3,
-      caveman4: 0.3
+      caveman1: 0.05,
+      caveman2: 0.05,
+      caveman3: 0.05,
+      caveman4: 0.05
     };
 
     if (canMoveXZ) {
@@ -335,7 +338,7 @@ export default function Player() {
       for (const node of assetNodes) {
         const asset = assets.find(a => a.id === node.userData.assetId);
         if (!asset) continue;
-        const radius = ASSET_RADII[asset.type] || 0.5;
+        const radius = ASSET_RADII[asset.type] || 0.2;
         if (radius === 0) continue;
         
         const worldPos = new THREE.Vector3();
@@ -346,10 +349,12 @@ export default function Player() {
         const distSq = dx*dx + dz*dz;
         
         const minDist = PLAYER_RADIUS + radius;
-        // Y축 검사 (에셋 위로 점프해서 넘어갈 수 있는지). 대부분 에셋 높이가 높으므로 단순 원기둥 충돌 처리
-        // 만약 캐릭터 높이가 에셋보다 충분히 높다면 통과(점프), 아니면 충돌
+        // Y축 검사 (에셋 위로 점프해서 넘어갈 수 있는지).
         const yDist = group.current.position.y - worldPos.y;
-        if (distSq < minDist * minDist && yDist < 1.5) {
+        const isNPC = asset.type.startsWith('caveman');
+        const heightThreshold = isNPC ? 0.3 : 1.2;
+        
+        if (distSq < minDist * minDist && yDist < heightThreshold) {
           canMoveXZ = false;
           currentVelocity.current.x = 0;
           currentVelocity.current.z = 0;

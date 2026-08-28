@@ -127,7 +127,7 @@ function NPC({ asset, isPlaying, roaming }) {
   const clone = useMemo(() => SkeletonUtils.clone(scene), [scene]);
   const { actions } = useAnimations(animations, clone);
   const npcGroupRef = useRef();
-  const isPlayerNear = useRef(false);
+  const [isNear, setIsNear] = useState(false);
   const walkActionRef = useRef(null);
 
   // Check player distance
@@ -136,12 +136,22 @@ function NPC({ asset, isPlaying, roaming }) {
     const worldPos = new THREE.Vector3();
     npcGroupRef.current.getWorldPosition(worldPos);
     const distance = camera.position.distanceTo(worldPos);
-    isPlayerNear.current = distance < 10; // 플레이어가 가까이 있을 때만 말풍선 (반경 10)
+    
+    // NPC 활동 영역(roamRadius) 기반으로 근접 여부 판단 (최소 5)
+    const activityRadius = Math.max(asset.roamRadius || 5, 5);
+    const currentlyNear = distance <= activityRadius;
+    
+    if (currentlyNear !== isNear) {
+      setIsNear(currentlyNear);
+    }
     
     // 거리가 멀어지면 애니메이션 일시정지 (최적화)
     const isVisible = distance < 45;
+    const globalState = useMapStore.getState();
+    const isPausedByUI = globalState.mineMiniGame.active || globalState.activeDialogue;
+
     if (walkActionRef.current && walkActionRef.current.isRunning()) {
-      walkActionRef.current.paused = !isVisible;
+      walkActionRef.current.paused = !isVisible || isPausedByUI;
     }
   });
 
@@ -177,7 +187,7 @@ function NPC({ asset, isPlaying, roaming }) {
 
     // 간헐적으로 말풍선 띄우기 (3~8초 간격으로 2초간 표시)
     const interval = setInterval(() => {
-      if (isPlayerNear.current) {
+      if (isNear) {
         const randomLine = lines[Math.floor(Math.random() * lines.length)];
         setCurrentBubbleText(randomLine);
         setShowBubble(true);
@@ -186,7 +196,7 @@ function NPC({ asset, isPlaying, roaming }) {
     }, Math.random() * 5000 + 3000);
     
     return () => clearInterval(interval);
-  }, [isPlaying, asset.bubbleDialogue, asset.dialogue]);
+  }, [isPlaying, asset.bubbleDialogue, asset.dialogue, isNear]);
 
   const defaultNames = {
     caveman1: '원시인 1',
@@ -200,7 +210,7 @@ function NPC({ asset, isPlaying, roaming }) {
     <group position={[0, 0, 0]} ref={npcGroupRef}>
       <primitive object={clone} scale={0.2} />
       
-      {isPlaying && showBubble && currentBubbleText && (
+      {isPlaying && showBubble && isNear && currentBubbleText && (
         <Html position={[0, 0.45, 0]} center sprite zIndexRange={[100, 0]}>
           <div style={{
             background: 'white',
@@ -275,6 +285,9 @@ function MineableAsset({ asset, onInteract, mode, isPlaying, children }) {
       groupRef.current.scale.set(0.5 + jiggle, 0.5 - jiggle, 0.5 + jiggle);
       
       if (isPlaying && roamRadius > 0) {
+        const globalState = useMapStore.getState();
+        if (globalState.mineMiniGame.active || globalState.activeDialogue) return;
+        
         const distanceToPlayer = state.camera.position.distanceTo(groupRef.current.position);
         const isVisible = distanceToPlayer < 45; // 시야 범위 내일 때만 이동 연산
 

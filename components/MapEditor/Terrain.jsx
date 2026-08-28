@@ -199,10 +199,23 @@ export default function Terrain() {
     } else if (mode === 'water') {
       addWaterSource(targetPoint.x, targetPoint.z);
     } else if (mode === 'asset') {
+      const isNPC = selectedAsset.startsWith('caveman');
+      const defaultNPCNames = {
+        caveman1: '원시인 1',
+        caveman2: '원시인 2',
+        caveman3: '원시인 3',
+        caveman4: '원시인 4'
+      };
       addAsset({
         id: crypto.randomUUID(),
         type: selectedAsset,
-        position: [targetPoint.x, targetPoint.y, targetPoint.z]
+        position: [targetPoint.x, targetPoint.y, targetPoint.z],
+        ...(isNPC ? {
+          npcName: defaultNPCNames[selectedAsset] || '주민',
+          dialogue: '안녕하세요! 규칙의 나라에 오신 것을 환영합니다.',
+          quest: '',
+          roamRadius: 3
+        } : {})
       });
     } else if (mode === 'decal' && selectedDecalImage) {
       addDecal({

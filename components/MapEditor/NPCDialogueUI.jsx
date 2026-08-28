@@ -38,6 +38,21 @@ export default function NPCDialogueUI() {
 
   if (!isPlaying || !activeAsset) return null;
 
+  const npcEmoji = {
+    caveman1: '🧔‍♂️',
+    caveman2: '🧑‍🌾',
+    caveman3: '🧙‍♂️',
+    caveman4: '🤠',
+  }[activeAsset.type] || '👤';
+
+  const defaultNames = {
+    caveman1: '원시인 1',
+    caveman2: '원시인 2',
+    caveman3: '원시인 3',
+    caveman4: '원시인 4',
+  };
+  const npcName = activeAsset.npcName || defaultNames[activeAsset.type] || '주민';
+
   return (
     <div 
       style={{
@@ -46,111 +61,143 @@ export default function NPCDialogueUI() {
         left: 0,
         width: '100%',
         height: '100%',
-        background: 'rgba(0, 0, 0, 0.7)',
+        background: 'rgba(0, 0, 0, 0.65)',
+        backdropFilter: 'blur(3px)',
         zIndex: 10000,
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'flex-end',
         alignItems: 'center',
-        paddingBottom: '40px'
+        paddingBottom: '48px',
+        animation: 'fadeIn 0.2s ease-out'
       }}
       onClick={closeDialogue}
     >
       <div 
-        style={{ width: '80%', maxWidth: '900px', display: 'flex', flexDirection: 'column' }}
+        style={{ width: '85%', maxWidth: '850px', display: 'flex', flexDirection: 'column' }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Character Images Area */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0 20px', marginBottom: '-10px' }}>
-          {/* Player Image Placeholder */}
+        {/* Character Portrait Badges */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0 24px', marginBottom: '-14px', zIndex: 2 }}>
+          {/* Player Portrait */}
           <div style={{
-            width: '150px', height: '200px',
-            background: 'rgba(255,255,255,0.1)',
-            border: '2px dashed rgba(255,255,255,0.3)',
-            borderRadius: '8px 8px 0 0',
-            display: 'flex', justifyContent: 'center', alignItems: 'center',
-            color: 'rgba(255,255,255,0.5)', fontSize: '0.9rem'
+            background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.9), rgba(30, 58, 138, 0.95))',
+            border: '2px solid #60a5fa',
+            borderRadius: '12px',
+            padding: '8px 16px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+            color: 'white',
+            fontWeight: 'bold',
+            fontSize: '0.95rem'
           }}>
-            [내 캐릭터 이미지]
+            <span style={{ fontSize: '1.4rem' }}>🏃‍♂️</span>
+            <span>나 (모험가)</span>
           </div>
           
-          {/* NPC Image Placeholder */}
+          {/* NPC Portrait */}
           <div style={{
-            width: '150px', height: '200px',
-            background: 'rgba(255,255,255,0.1)',
-            border: '2px dashed rgba(255,255,255,0.3)',
-            borderRadius: '8px 8px 0 0',
-            display: 'flex', justifyContent: 'center', alignItems: 'center',
-            color: 'rgba(255,255,255,0.5)', fontSize: '0.9rem',
-            flexDirection: 'column'
+            background: 'linear-gradient(135deg, rgba(234, 179, 8, 0.9), rgba(161, 98, 7, 0.95))',
+            border: '2px solid #fde047',
+            borderRadius: '12px',
+            padding: '8px 16px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+            color: 'white',
+            fontWeight: 'bold',
+            fontSize: '0.95rem'
           }}>
-            <span>[NPC 이미지]</span>
-            <span style={{ fontSize: '0.8rem', marginTop: '4px', color: 'white' }}>{activeAsset.npcName || 'NPC'}</span>
+            <span style={{ fontSize: '1.4rem' }}>{npcEmoji}</span>
+            <span>{npcName}</span>
           </div>
         </div>
 
         {/* Dialogue Box */}
         <div style={{
-          background: 'linear-gradient(to bottom, #1e293b, #0f172a)',
-          border: '4px solid #94a3b8',
-          borderRadius: '12px',
-          padding: '24px',
-          boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
-          minHeight: '150px',
+          background: 'linear-gradient(145deg, #1e293b 0%, #0f172a 100%)',
+          border: '3px solid #64748b',
+          borderRadius: '16px',
+          padding: '32px 28px 24px 28px',
+          boxShadow: '0 20px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1)',
+          minHeight: '140px',
           display: 'flex',
           flexDirection: 'column',
-          position: 'relative'
+          position: 'relative',
+          gap: '16px'
         }}>
-          {/* NPC Name Tag */}
-          <div style={{
-            position: 'absolute',
-            top: '-20px',
-            left: '30px',
-            background: '#334155',
-            border: '2px solid #94a3b8',
-            color: 'white',
-            padding: '4px 16px',
-            borderRadius: '20px',
-            fontWeight: 'bold',
-            fontSize: '1.1rem',
-            boxShadow: '0 4px 6px rgba(0,0,0,0.3)'
-          }}>
-            {activeAsset.npcName || '알 수 없는 주민'}
-          </div>
-
-          <div style={{ color: 'white', fontSize: '1.2rem', lineHeight: '1.6', marginTop: '10px' }}>
+          {/* Dialogue Text */}
+          <div style={{ color: '#f8fafc', fontSize: '1.15rem', lineHeight: '1.7', fontWeight: '500' }}>
             {activeAsset.dialogue ? (
-              <p style={{ margin: 0 }}>{activeAsset.dialogue}</p>
+              <p style={{ margin: 0 }}>&ldquo;{activeAsset.dialogue}&rdquo;</p>
             ) : (
-              <p style={{ margin: 0, fontStyle: 'italic', color: '#94a3b8' }}>...</p>
+              <p style={{ margin: 0, fontStyle: 'italic', color: '#94a3b8' }}>&ldquo;안녕하세요!&rdquo;</p>
             )}
           </div>
           
+          {/* Quest Area if present */}
           {activeAsset.quest && (
-            <div style={{ marginTop: '20px', background: 'rgba(234, 179, 8, 0.1)', border: '1px solid #eab308', padding: '12px', borderRadius: '8px' }}>
-              <strong style={{ color: '#fde047', display: 'block', marginBottom: '4px' }}>[퀘스트]</strong>
-              <span style={{ color: '#fef08a', fontSize: '0.95rem' }}>{activeAsset.quest}</span>
+            <div style={{
+              background: 'linear-gradient(90deg, rgba(234, 179, 8, 0.15), rgba(234, 179, 8, 0.05))',
+              border: '1px solid #facc15',
+              borderLeft: '4px solid #facc15',
+              padding: '12px 16px',
+              borderRadius: '8px'
+            }}>
+              <strong style={{ color: '#fef08a', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px', fontSize: '0.9rem' }}>
+                📜 <span>퀘스트</span>
+              </strong>
+              <span style={{ color: '#ffffff', fontSize: '0.95rem' }}>{activeAsset.quest}</span>
             </div>
           )}
 
+          {/* Footer Controls */}
           <div style={{
-            position: 'absolute',
-            bottom: '16px',
-            right: '24px',
-            color: '#94a3b8',
-            fontSize: '0.8rem',
-            animation: 'pulse 1.5s infinite'
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginTop: '8px',
+            borderTop: '1px solid rgba(255,255,255,0.1)',
+            paddingTop: '12px'
           }}>
-            (E 또는 Esc를 눌러 닫기, 빈 곳 클릭)
+            <button
+              onClick={closeDialogue}
+              style={{
+                padding: '6px 16px',
+                background: '#3b82f6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                fontSize: '0.9rem',
+                boxShadow: '0 2px 4px rgba(59, 130, 246, 0.4)'
+              }}
+            >
+              대화 마치기 (닫기)
+            </button>
+            <div style={{
+              color: '#94a3b8',
+              fontSize: '0.8rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}>
+              <kbd style={{ background: '#334155', padding: '2px 6px', borderRadius: '4px', border: '1px solid #64748b' }}>E</kbd>
+              <span>또는</span>
+              <kbd style={{ background: '#334155', padding: '2px 6px', borderRadius: '4px', border: '1px solid #64748b' }}>ESC</kbd>
+            </div>
           </div>
         </div>
       </div>
       
       <style dangerouslySetInnerHTML={{__html: `
-        @keyframes pulse {
-          0% { opacity: 0.5; }
-          50% { opacity: 1; }
-          100% { opacity: 0.5; }
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
         }
       `}} />
     </div>

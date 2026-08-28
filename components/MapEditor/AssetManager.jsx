@@ -1,12 +1,10 @@
 'use client';
 
-
-
 import { useRef, useEffect, useMemo, useState } from 'react';
 import useMapStore from '@/store/useMapStore';
 import useInventoryStore from '@/store/useInventoryStore';
-import { useTexture, Html, useGLTF, Clone, Center } from '@react-three/drei';
-import { useFrame, useGraph } from '@react-three/fiber';
+import { useTexture, Html, useGLTF, useAnimations } from '@react-three/drei';
+import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { SkeletonUtils } from 'three-stdlib';
 
@@ -74,12 +72,39 @@ function Lake() {
   );
 }
 
-function NPC({ asset, isPlaying }) {
+function NPC({ asset, isPlaying, roaming }) {
   const [showBubble, setShowBubble] = useState(false);
   const group = useRef();
-  const { scene } = useGLTF(`/models/${asset.type}.glb`);
+  const { scene, animations } = useGLTF(`/models/${asset.type}.glb`);
   const clone = useMemo(() => SkeletonUtils.clone(scene), [scene]);
-  const { nodes, materials } = useGraph(clone);
+  const { actions } = useAnimations(animations, group);
+
+  // Animation handling
+  useEffect(() => {
+    if (!actions || Object.keys(actions).length === 0) return;
+    
+    const actionNames = Object.keys(actions);
+    const walkName = actionNames.find(n => n.toLowerCase().includes('walk'));
+    const walkAction = walkName ? actions[walkName] : null;
+    
+    // Choose an idle/gesture animation if available, or first non-walk animation
+    const idleName = actionNames.find(n => !n.toLowerCase().includes('walk') && !n.toLowerCase().includes('run')) || actionNames[0];
+    const idleAction = idleName ? actions[idleName] : null;
+
+    if (roaming && walkAction) {
+      if (idleAction && idleAction.isRunning()) idleAction.fadeOut(0.2);
+      walkAction.reset().fadeIn(0.2).play();
+    } else if (idleAction) {
+      if (walkAction && walkAction.isRunning()) walkAction.fadeOut(0.2);
+      idleAction.reset().fadeIn(0.2).play();
+    } else if (walkAction) {
+      walkAction.fadeOut(0.2);
+    }
+
+    return () => {
+      Object.values(actions).forEach(a => a?.stop());
+    };
+  }, [actions, roaming, isPlaying]);
 
   useEffect(() => {
     if (!isPlaying || !asset.dialogue) return;
@@ -93,46 +118,47 @@ function NPC({ asset, isPlaying }) {
     return () => clearInterval(interval);
   }, [isPlaying, asset.dialogue]);
 
+  const defaultNames = {
+    caveman1: '원시인 1',
+    caveman2: '원시인 2',
+    caveman3: '원시인 3',
+    caveman4: '원시인 4',
+  };
+  const displayName = asset.npcName || defaultNames[asset.type] || 'NPC';
+
   return (
     <group position={[0, 0, 0]}>
-      <group ref={group} scale={0.04} dispose={null}>
-        <group name="Scene">
-          <group name="Armature" scale={0.01}>
-            <primitive object={nodes.Hips} />
-            <skinnedMesh 
-              name="char1" 
-              geometry={nodes.char1.geometry} 
-              material={materials.Material_1} 
-              skeleton={nodes.char1.skeleton} 
-            />
-          </group>
-        </group>
+      <group ref={group}>
+        <primitive object={clone} scale={1.2} />
       </group>
       
       {isPlaying && showBubble && asset.dialogue && (
-        <Html position={[0, 1.5, 0]} center sprite zIndexRange={[100, 0]}>
+        <Html position={[0, 2.3, 0]} center sprite zIndexRange={[100, 0]}>
           <div style={{
             background: 'white',
-            padding: '4px 8px',
+            padding: '5px 10px',
             borderRadius: '12px',
             border: '2px solid black',
-            fontSize: '0.8rem',
+            fontSize: '0.85rem',
             fontWeight: 'bold',
             whiteSpace: 'nowrap',
             pointerEvents: 'none',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+            boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+            color: '#111827'
           }}>
-            💬 {asset.dialogue.substring(0, 10)}{asset.dialogue.length > 10 ? '...' : ''}
+            💬 {asset.dialogue.substring(0, 15)}{asset.dialogue.length > 15 ? '...' : ''}
           </div>
         </Html>
       )}
-      {!isPlaying && asset.npcName && (
-        <Html position={[0, 1.5, 0]} center sprite>
+      {!isPlaying && (
+        <Html position={[0, 2.3, 0]} center sprite zIndexRange={[100, 0]}>
           <div style={{
-            background: 'rgba(0,0,0,0.6)', color: 'white', padding: '2px 6px', 
-            borderRadius: '4px', fontSize: '0.7rem', pointerEvents: 'none'
+            background: 'rgba(0,0,0,0.75)', color: 'white', padding: '3px 8px', 
+            borderRadius: '6px', fontSize: '0.75rem', fontWeight: 'bold',
+            whiteSpace: 'nowrap', pointerEvents: 'none', border: '1px solid rgba(255,255,255,0.4)',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.4)'
           }}>
-            {asset.npcName}
+            👤 {displayName}
           </div>
         </Html>
       )}
@@ -259,7 +285,7 @@ function MineableAsset({ asset, onInteract, mode, isPlaying, children }) {
       scale={0.5}
       userData={{ isAsset: true, assetId: id }} 
     >
-      {children}
+      {typeof children === 'function' ? children(roaming) : children}
       {isSelected && roamRadius > 0 && (
         <mesh position={[0, 0.1, 0]} rotation={[-Math.PI / 2, 0, 0]}>
           <ringGeometry args={[roamRadius * 2 - 0.1, roamRadius * 2 + 0.1, 32]} />
@@ -317,9 +343,9 @@ export default function AssetManager() {
     }
   };
 
-  const renderAssetInner = (asset) => {
+  const renderAssetInner = (asset, roaming) => {
     if (asset.type.startsWith('caveman')) {
-      return <NPC asset={asset} isPlaying={isPlaying} />;
+      return <NPC asset={asset} isPlaying={isPlaying} roaming={roaming} />;
     }
     switch(asset.type) {
       case 'tree': return <Tree />;
@@ -341,7 +367,7 @@ export default function AssetManager() {
           isPlaying={isPlaying} 
           onInteract={handleInteract}
         >
-          {renderAssetInner(asset)}
+          {(roaming) => renderAssetInner(asset, roaming)}
         </MineableAsset>
       ))}
 

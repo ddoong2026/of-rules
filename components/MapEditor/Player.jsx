@@ -197,7 +197,13 @@ export default function Player() {
   };
 
   const hasSpawned = useRef(false);
-  const cameraOverride = useRef({ active: false, targetPos: new THREE.Vector3(), startTime: 0 });
+  const cameraOverride = useRef({
+    active: false,
+    state: 'none', // 'traveling_to', 'waiting', 'traveling_back'
+    startTime: 0,
+    returnStartTime: 0,
+    targetPos: new THREE.Vector3()
+  });
   
   useEffect(() => {
     if (group.current && !hasSpawned.current) {
@@ -241,6 +247,17 @@ export default function Player() {
   const wasGrounded = useRef(true);
   const lastBoundaryMessageTime = useRef(0);
   const cameraOffset = new THREE.Vector3(0, 3, -5); // 3rd person offset (behind the character)
+
+  useEffect(() => {
+    const handleClose = () => {
+      if (cameraOverride.current.active && cameraOverride.current.state === 'waiting') {
+        cameraOverride.current.state = 'traveling_back';
+        cameraOverride.current.returnStartTime = performance.now();
+      }
+    };
+    window.addEventListener('boundary-message-close', handleClose);
+    return () => window.removeEventListener('boundary-message-close', handleClose);
+  }, []);
 
   useFrame((state, delta) => {
     if (!group.current) return;
@@ -399,8 +416,9 @@ export default function Player() {
                     const targetAsset = useMapStore.getState().assets.find(a => a.id === targetAssetId);
                     if (targetAsset) {
                       cameraOverride.current.active = true;
-                      cameraOverride.current.targetPos.set(targetAsset.position[0], targetAsset.position[1], targetAsset.position[2]);
+                      cameraOverride.current.state = 'traveling_to';
                       cameraOverride.current.startTime = now;
+                      cameraOverride.current.targetPos.set(targetAsset.position[0], targetAsset.position[1], targetAsset.position[2]);
                     }
                   }
                   
@@ -495,34 +513,47 @@ export default function Player() {
 
     if (cameraOverride.current.active) {
       const now = performance.now();
-      const elapsed = now - cameraOverride.current.startTime;
-      if (elapsed > 3500) { // 3.5 seconds total duration
-        cameraOverride.current.active = false;
-        
-        // Turn character to face the target asset when camera returns
-        const tAsset = cameraOverride.current.targetPos;
-        const dx = tAsset.x - group.current.position.x;
-        const dz = tAsset.z - group.current.position.z;
-        yaw.current = Math.atan2(dx, dz);
-      } else {
-        const tAsset = cameraOverride.current.targetPos;
-        const EYE_LEVEL = 0.2; // Player capsule height is ~0.27
-        
-        // Calculate destination in front of asset
-        const dirToPlayer = group.current.position.clone().sub(tAsset);
-        dirToPlayer.y = 0;
-        if (dirToPlayer.lengthSq() < 0.1) dirToPlayer.set(0, 0, 1);
-        dirToPlayer.normalize();
-        
-        const endCamPos = tAsset.clone().add(dirToPlayer.multiplyScalar(2.0));
-        const endTerrainY = getTerrainHeight(endCamPos.x, endCamPos.z);
-        endCamPos.y = endTerrainY + EYE_LEVEL;
-        
-        // Smooth step alpha
-        let alpha = 1;
-        if (elapsed < 800) alpha = elapsed / 800; // 0.8s to travel there
-        else if (elapsed > 2700) alpha = (3500 - elapsed) / 800; // 0.8s to travel back
-        alpha = alpha * alpha * (3 - 2 * alpha);
+      const tAsset = cameraOverride.current.targetPos;
+      const EYE_LEVEL = 0.2; // Player capsule height is ~0.27
+      
+      // Calculate destination in front of asset
+      const dirToPlayer = group.current.position.clone().sub(tAsset);
+      dirToPlayer.y = 0;
+      if (dirToPlayer.lengthSq() < 0.1) dirToPlayer.set(0, 0, 1);
+      dirToPlayer.normalize();
+      
+      const endCamPos = tAsset.clone().add(dirToPlayer.multiplyScalar(2.0));
+      const endTerrainY = getTerrainHeight(endCamPos.x, endCamPos.z);
+      endCamPos.y = endTerrainY + EYE_LEVEL;
+      
+      let alpha = 1;
+
+      if (cameraOverride.current.state === 'traveling_to') {
+        const elapsed = now - cameraOverride.current.startTime;
+        alpha = elapsed / 800; // 0.8s to travel there
+        if (alpha >= 1) {
+          alpha = 1;
+          cameraOverride.current.state = 'waiting';
+        }
+      } else if (cameraOverride.current.state === 'waiting') {
+        alpha = 1;
+      } else if (cameraOverride.current.state === 'traveling_back') {
+        const elapsed = now - cameraOverride.current.returnStartTime;
+        alpha = 1 - (elapsed / 800); // 0.8s to travel back
+        if (alpha <= 0) {
+          alpha = 0;
+          cameraOverride.current.active = false;
+          cameraOverride.current.state = 'none';
+          
+          // Turn character to face the target asset when camera returns
+          const dx = tAsset.x - group.current.position.x;
+          const dz = tAsset.z - group.current.position.z;
+          yaw.current = Math.atan2(dx, dz);
+        }
+      }
+
+      if (cameraOverride.current.active) {
+        alpha = alpha * alpha * (3 - 2 * alpha); // Smooth step
 
         // Interpolate XZ
         finalIdealCameraPos.x = THREE.MathUtils.lerp(idealCameraPos.x, endCamPos.x, alpha);

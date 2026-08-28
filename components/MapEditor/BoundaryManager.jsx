@@ -12,17 +12,29 @@ export default function BoundaryManager() {
 
   useEffect(() => {
     let timeoutId;
+    
+    const hideBoundary = () => {
+      setCollidedBoundaryId(null);
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+
     const handleCollide = (e) => {
       setCollidedBoundaryId(e.detail.boundaryId);
       if (timeoutId) clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => {
-        setCollidedBoundaryId(null);
-      }, 3500);
+      
+      if (!e.detail.targetAssetId) {
+        timeoutId = setTimeout(() => {
+          setCollidedBoundaryId(null);
+        }, 3500);
+      }
     };
 
     window.addEventListener('boundary-collide', handleCollide);
+    window.addEventListener('boundary-message-close', hideBoundary);
+    
     return () => {
       window.removeEventListener('boundary-collide', handleCollide);
+      window.removeEventListener('boundary-message-close', hideBoundary);
       if (timeoutId) clearTimeout(timeoutId);
     };
   }, []);

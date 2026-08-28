@@ -2,23 +2,30 @@ import React, { useState, useEffect } from 'react';
 
 export default function BoundaryMessageUI() {
   const [message, setMessage] = useState('');
-  const [additionalMessage, setAdditionalMessage] = useState('');
+  const [hasTarget, setHasTarget] = useState(false);
 
   useEffect(() => {
     let timeoutId;
     
+    const closeMessage = () => {
+      setMessage('');
+      setAdditionalMessage('');
+      setHasTarget(false);
+    };
+
     const handleCollide = (e) => {
       setMessage(e.detail.message);
       setAdditionalMessage(e.detail.additionalMessage || '');
+      const targetExists = !!e.detail.targetAssetId;
+      setHasTarget(targetExists);
       
-      // Clear previous timeout if it exists
       if (timeoutId) clearTimeout(timeoutId);
       
-      // Hide message after 3.5 seconds
-      timeoutId = setTimeout(() => {
-        setMessage('');
-        setAdditionalMessage('');
-      }, 3500);
+      if (!targetExists) {
+        timeoutId = setTimeout(() => {
+          closeMessage();
+        }, 3500);
+      }
     };
 
     window.addEventListener('boundary-collide', handleCollide);
@@ -27,6 +34,12 @@ export default function BoundaryMessageUI() {
       if (timeoutId) clearTimeout(timeoutId);
     };
   }, []);
+  const handleConfirm = () => {
+    window.dispatchEvent(new CustomEvent('boundary-message-close'));
+    setMessage('');
+    setAdditionalMessage('');
+    setHasTarget(false);
+  };
 
   if (!message) return null;
 
@@ -44,9 +57,9 @@ export default function BoundaryMessageUI() {
         fontSize: '1.2rem',
         fontWeight: 'bold',
         boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
-        pointerEvents: 'none',
+        pointerEvents: hasTarget ? 'auto' : 'none',
         zIndex: 1000,
-        animation: 'fadeInOut 3.5s ease-in-out',
+        animation: hasTarget ? 'fadeIn 0.5s ease-in-out' : 'fadeInOut 3.5s ease-in-out',
         textAlign: 'center',
         display: 'flex',
         flexDirection: 'column',
@@ -61,6 +74,10 @@ export default function BoundaryMessageUI() {
             80% { opacity: 1; transform: translate(-50%, -50%); }
             100% { opacity: 0; transform: translate(-50%, -40%); }
           }
+          @keyframes fadeIn {
+            0% { opacity: 0; transform: translate(-50%, -60%); }
+            100% { opacity: 1; transform: translate(-50%, -50%); }
+          }
         `}
       </style>
       <div>{message}</div>
@@ -68,6 +85,23 @@ export default function BoundaryMessageUI() {
         <div style={{ fontSize: '1rem', color: '#fef08a', fontWeight: 'normal' }}>
           {additionalMessage}
         </div>
+      )}
+      {hasTarget && (
+        <button 
+          onClick={handleConfirm}
+          style={{
+            marginTop: '12px',
+            padding: '8px 16px',
+            backgroundColor: 'white',
+            color: '#ef4444',
+            border: 'none',
+            borderRadius: '4px',
+            fontWeight: 'bold',
+            cursor: 'pointer'
+          }}
+        >
+          확인
+        </button>
       )}
     </div>
   );

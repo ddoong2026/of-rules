@@ -6,6 +6,8 @@ CREATE TABLE public.maps (
   colors jsonb NOT NULL,
   assets jsonb NOT NULL DEFAULT '[]'::jsonb,
   decals jsonb NOT NULL DEFAULT '[]'::jsonb,
+  boundaries jsonb NOT NULL DEFAULT '[]'::jsonb,
+  "spawnPoint" jsonb NOT NULL DEFAULT '[0,0,0]'::jsonb,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now()
 );

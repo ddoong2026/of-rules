@@ -25,21 +25,7 @@ export default function BoundaryManager() {
         const points = b.points || (b.start && b.end ? [b.start, b.end] : []);
         if (points.length < 2) return null;
 
-        // Check condition if playing
-        let isActive = true; // Active means it BLOCKS the player
-        if (isPlaying && b.condition) {
-          let currentAmount = 0;
-          for (let i = 0; i < items.length; i++) {
-            if (items[i] && items[i].type === b.condition.itemType) {
-              currentAmount += items[i].count;
-            }
-          }
-          if (currentAmount >= (b.condition.amount || 1)) {
-            isActive = false; // Condition met, gate is open!
-          }
-        }
-
-        if (!isActive && isPlaying) return null; // Hide if passed condition in play mode
+        if (isPlaying) return null; // Always hide in play mode (collision is handled invisibly in Player.jsx)
 
         const isSelected = selectedBoundaryId === b.id;
         
@@ -62,13 +48,13 @@ export default function BoundaryManager() {
                     <meshBasicMaterial 
                       color="#ef4444" 
                       transparent 
-                      opacity={isPlaying ? 0.3 : (isSelected ? 0.8 : 0.4)} 
+                      opacity={isSelected ? 0.8 : 0.4} 
                       side={THREE.DoubleSide} 
                       depthWrite={false}
                     />
                   </mesh>
                   {/* Draw border if selected */}
-                  {isSelected && !isPlaying && (
+                  {isSelected && (
                     <mesh>
                       <boxGeometry args={[0.3, 5.1, length + 0.2]} />
                       <meshBasicMaterial color="#f59e0b" wireframe />

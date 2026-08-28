@@ -98,19 +98,14 @@ export default function Player() {
         let closestAssetId = null;
         let minDistance = 2.5; // 최대 채집 거리
         
-        const assetNodes = [];
-        glScene.traverse(child => {
-          if (child.userData && child.userData.isAsset) {
-            assetNodes.push(child);
-          }
-        });
-
-        for (const node of assetNodes) {
-          const worldPos = new THREE.Vector3();
-          node.getWorldPosition(worldPos);
+        for (const asset of assets) {
+          if (asset.minedAt) continue;
           
-          const dx = worldPos.x - playerPos.x;
-          const dz = worldPos.z - playerPos.z;
+          const assetX = asset.position[0];
+          const assetZ = asset.position[2];
+          
+          const dx = assetX - playerPos.x;
+          const dz = assetZ - playerPos.z;
           const distance = Math.sqrt(dx*dx + dz*dz);
           
           if (distance < minDistance) {
@@ -119,7 +114,7 @@ export default function Player() {
             
             if (dot > 0.3 || distance < 1.0) {
               minDistance = distance;
-              closestAssetId = node.userData.assetId;
+              closestAssetId = asset.id;
             }
           }
         }
@@ -314,29 +309,23 @@ export default function Player() {
     };
 
     if (canMoveXZ) {
-      const assetNodes = [];
-      glScene.traverse(child => {
-        if (child.userData && child.userData.isAsset) {
-          assetNodes.push(child);
-        }
-      });
+      for (const asset of assets) {
+        if (asset.minedAt) continue;
 
-      for (const node of assetNodes) {
-        const asset = assets.find(a => a.id === node.userData.assetId);
-        if (!asset) continue;
         const radius = ASSET_RADII[asset.type] || 0.2;
         if (radius === 0) continue;
         
-        const worldPos = new THREE.Vector3();
-        node.getWorldPosition(worldPos);
+        const assetX = asset.position[0];
+        const assetY = asset.position[1];
+        const assetZ = asset.position[2];
 
-        const dx = nextX - worldPos.x;
-        const dz = nextZ - worldPos.z;
+        const dx = nextX - assetX;
+        const dz = nextZ - assetZ;
         const distSq = dx*dx + dz*dz;
         
         const minDist = PLAYER_RADIUS + radius;
         // Y축 검사 (에셋 위로 점프해서 넘어갈 수 있는지).
-        const yDist = group.current.position.y - worldPos.y;
+        const yDist = group.current.position.y - assetY;
         const isNPC = asset.type.startsWith('caveman');
         const heightThreshold = isNPC ? 0.3 : 1.2;
         

@@ -100,6 +100,8 @@ export default function MiningMiniGameUI() {
       arrowRef.current.style.transform = `translateX(${startX}px)`;
       arrowRef.current.style.color = '#3B82F6';
     }
+    
+    lastUpdateRef.current = performance.now(); // Initialize timer accurately
   }, []);
 
   useEffect(() => {
@@ -134,7 +136,9 @@ export default function MiningMiniGameUI() {
         }
         
         currentValueRef.current = next;
-        lastUpdateRef.current = time;
+        // Accumulate time properly to prevent jitter and beat frequencies
+        const delta = time - lastUpdateRef.current;
+        lastUpdateRef.current = time - (delta % SPEED);
       }
       frameId = requestAnimationFrame(loop);
     };

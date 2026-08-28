@@ -103,6 +103,7 @@ function NPC({ asset, isPlaying, roaming }) {
   const { actions } = useAnimations(animations, clone);
   const npcGroupRef = useRef();
   const isPlayerNear = useRef(false);
+  const walkActionRef = useRef(null);
 
   // Check player distance
   useFrame(({ camera }) => {
@@ -110,7 +111,13 @@ function NPC({ asset, isPlaying, roaming }) {
     const worldPos = new THREE.Vector3();
     npcGroupRef.current.getWorldPosition(worldPos);
     const distance = camera.position.distanceTo(worldPos);
-    isPlayerNear.current = distance < 10; // 플레이어가 가까이 있을 때만 (반경 10 이내)
+    isPlayerNear.current = distance < 10; // 플레이어가 가까이 있을 때만 말풍선 (반경 10)
+    
+    // 거리가 멀어지면 애니메이션 일시정지 (최적화)
+    const isVisible = distance < 45;
+    if (walkActionRef.current && walkActionRef.current.isRunning()) {
+      walkActionRef.current.paused = !isVisible;
+    }
   });
 
   // Animation handling
@@ -120,6 +127,7 @@ function NPC({ asset, isPlaying, roaming }) {
     const actionNames = Object.keys(actions);
     const walkName = actionNames.find(n => n.toLowerCase().includes('walk')) || actionNames.find(n => n.toLowerCase().includes('run'));
     const walkAction = walkName ? actions[walkName] : null;
+    walkActionRef.current = walkAction;
 
     if (roaming && walkAction) {
       walkAction.timeScale = 0.8; // 자연스러운 보폭 재생 속도
@@ -242,7 +250,10 @@ function MineableAsset({ asset, onInteract, mode, isPlaying, children }) {
       groupRef.current.scale.set(0.5 + jiggle, 0.5 - jiggle, 0.5 + jiggle);
       
       if (isPlaying && roamRadius > 0) {
-        if (roaming) {
+        const distanceToPlayer = state.camera.position.distanceTo(groupRef.current.position);
+        const isVisible = distanceToPlayer < 45; // 시야 범위 내일 때만 이동 연산
+
+        if (roaming && isVisible) {
           const speed = 0.22; // 자연스럽고 느긋한 이동 속도 (기존 0.8에서 대폭 감소)
           const dir = targetLocalPos.current.clone().sub(currentLocalPos.current);
           const dist = dir.length();

@@ -58,11 +58,30 @@ function generateCondition() {
     trueCond.isNumberLine = Math.random() > 0.5;
   } else {
     const options = [trueCond];
-    while(options.length < 4) {
-      const f = generateSingleCondition(isRange);
-      if (!options.some(o => o.text === f.text)) {
-        options.push(f);
+    if (!trueCond.isRange) {
+      const types = ['초과', '미만', '이상', '이하'];
+      const otherTypes = types.filter(t => t !== trueCond.type).sort(() => Math.random() - 0.5);
+      for (let i = 0; i < 3; i++) {
+        options.push({
+          ...trueCond,
+          type: otherTypes[i],
+          text: `${trueCond.value} ${otherTypes[i]}`
+        });
       }
+    } else {
+      const allType1 = ['초과', '이상'];
+      const allType2 = ['미만', '이하'];
+      allType1.forEach(t1 => {
+        allType2.forEach(t2 => {
+          if (t1 === trueCond.type1 && t2 === trueCond.type2) return;
+          options.push({
+            ...trueCond,
+            type1: t1,
+            type2: t2,
+            text: `${trueCond.value1} ${t1} ${trueCond.value2} ${t2}`
+          });
+        });
+      });
     }
     trueCond.options = options.sort(() => Math.random() - 0.5);
   }

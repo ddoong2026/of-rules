@@ -183,9 +183,9 @@ export default function MiningMiniGameUI() {
     if (isSuccess) {
       setFeedback('SUCCESS');
       setTimeout(() => {
-        if (successCount + 1 >= 3) {
-          setMineMiniGame(false, null, null);
+        if (successCount + 1 >= 2) {
           window.dispatchEvent(new CustomEvent('mine-complete', { detail: { id: assetId, type: assetType } }));
+          setMineMiniGame(false, null, null);
         } else {
           setSuccessCount(s => s + 1);
           initRound();
@@ -235,7 +235,7 @@ export default function MiningMiniGameUI() {
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
           <h2>{condition.gameType === 'multi-select' ? '조건에 맞는 숫자 고르기' : '올바른 짝 찾기'}</h2>
           <div style={{ display: 'flex', gap: '8px' }}>
-            {[0, 1, 2].map(i => <div key={i} style={{ width: 24, height: 24, borderRadius: '50%', background: i < successCount ? '#10B981' : '#ccc' }} />)}
+            {[0, 1].map(i => <div key={i} style={{ width: 24, height: 24, borderRadius: '50%', background: i < successCount ? '#10B981' : '#ccc' }} />)}
           </div>
         </div>
 

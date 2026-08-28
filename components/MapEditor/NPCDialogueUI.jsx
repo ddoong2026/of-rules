@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import useMapStore from '@/store/useMapStore';
 
 export default function NPCDialogueUI() {
-  const { isPlaying } = useMapStore();
+  const { isPlaying, setActiveDialogue } = useMapStore();
   const [activeAsset, setActiveAsset] = useState(null);
   const [currentStep, setCurrentStep] = useState(0);
 
@@ -13,6 +13,7 @@ export default function NPCDialogueUI() {
       if (isPlaying) {
         setActiveAsset(e.detail.asset);
         setCurrentStep(0);
+        setActiveDialogue(true);
       }
     };
     window.addEventListener('npc-interact', handleInteract);
@@ -28,6 +29,7 @@ export default function NPCDialogueUI() {
   const closeDialogue = () => {
     setActiveAsset(null);
     setCurrentStep(0);
+    setActiveDialogue(false);
     const canvas = document.querySelector('canvas');
     if (canvas && typeof canvas.requestPointerLock === 'function') {
       try {

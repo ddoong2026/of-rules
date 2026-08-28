@@ -285,14 +285,37 @@ function MineableAsset({ asset, onInteract, mode, isPlaying, children }) {
           
           if (dist > 0.04) {
             dir.normalize();
-            currentLocalPos.current.add(dir.multiplyScalar(speed * delta));
-            const angle = Math.atan2(dir.x, dir.z);
+            const stepX = dir.x * speed * delta;
+            const stepZ = dir.z * speed * delta;
+            const nextLocalX = currentLocalPos.current.x + stepX;
+            const nextLocalZ = currentLocalPos.current.z + stepZ;
             
-            // Normalize current rotation to match target angle closely
-            let currentRot = groupRef.current.rotation.y;
-            while (currentRot - angle > Math.PI) currentRot -= Math.PI * 2;
-            while (currentRot - angle < -Math.PI) currentRot += Math.PI * 2;
-            groupRef.current.rotation.y = THREE.MathUtils.lerp(groupRef.current.rotation.y, angle, 4 * delta);
+            let canMove = true;
+            if (heights) {
+              const nextWorldX = position[0] + nextLocalX;
+              const nextWorldZ = position[2] + nextLocalZ;
+              const nextY = getTerrainHeightAt(nextWorldX, nextWorldZ, heights);
+              const currentY = getTerrainHeightAt(position[0] + currentLocalPos.current.x, position[2] + currentLocalPos.current.z, heights);
+              
+              // 물속(0.2 이하) 진입 불가 및 급격한 경사(0.5 이상 차이) 진입 불가
+              if (nextY < 0.2 || Math.abs(nextY - currentY) > 0.5) {
+                canMove = false;
+              }
+            }
+            
+            if (canMove) {
+              currentLocalPos.current.x = nextLocalX;
+              currentLocalPos.current.z = nextLocalZ;
+              const angle = Math.atan2(dir.x, dir.z);
+              
+              // Normalize current rotation to match target angle closely
+              let currentRot = groupRef.current.rotation.y;
+              while (currentRot - angle > Math.PI) currentRot -= Math.PI * 2;
+              while (currentRot - angle < -Math.PI) currentRot += Math.PI * 2;
+              groupRef.current.rotation.y = THREE.MathUtils.lerp(groupRef.current.rotation.y, angle, 4 * delta);
+            } else {
+              setRoaming(false); // 경로가 막히면 이동 취소
+            }
           } else {
             setRoaming(false);
           }

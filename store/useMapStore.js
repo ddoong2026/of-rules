@@ -32,6 +32,7 @@ const useMapStore = create((set, get) => ({
 
   // Mini Game State
   mineMiniGame: { active: false, assetId: null, assetType: null },
+  activeDialogue: false,
 
   // Actions
   setMode: (mode) => set({ mode }),
@@ -46,6 +47,7 @@ const useMapStore = create((set, get) => ({
   setIsPlaying: (isPlaying) => set({ isPlaying }),
   setSunTime: (time) => set({ sunTime: time }),
   setMineMiniGame: (active, assetId = null, assetType = null) => set({ mineMiniGame: { active, assetId, assetType } }),
+  setActiveDialogue: (active) => set({ activeDialogue: active }),
   
   saveHistory: () => set((state) => {
     const newHistory = [...state.history, { 

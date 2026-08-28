@@ -337,7 +337,9 @@ export default function Terrain() {
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerOut={handlePointerOut}
-        onContextMenu={(e) => e.preventDefault()}
+        onContextMenu={(e) => {
+          if (e.nativeEvent) e.nativeEvent.preventDefault();
+        }}
       >
         <planeGeometry ref={geomRef} args={[50, 50, GRID_SIZE, GRID_SIZE]} />
         <meshStandardMaterial 

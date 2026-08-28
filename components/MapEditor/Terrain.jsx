@@ -226,18 +226,8 @@ export default function Terrain() {
         scale: [brushSize * 2, brushSize * 2, brushSize * 2] // Arbitrary scaling based on brush
       });
     } else if (mode === 'boundary') {
-      const { boundaryDrawing, setBoundaryDrawing, addBoundary } = useMapStore.getState();
-      if (!boundaryDrawing) {
-        setBoundaryDrawing({ start: [targetPoint.x, targetPoint.z], current: [targetPoint.x, targetPoint.z] });
-      } else {
-        addBoundary({
-          id: crypto.randomUUID(),
-          start: boundaryDrawing.start,
-          end: [targetPoint.x, targetPoint.z],
-          condition: { itemType: 'rock', amount: 3 }
-        });
-        setBoundaryDrawing(null);
-      }
+      const { setBoundaryDrawing } = useMapStore.getState();
+      setBoundaryDrawing({ start: [targetPoint.x, targetPoint.z], current: [targetPoint.x, targetPoint.z] });
     }
   };
 
@@ -279,11 +269,32 @@ export default function Terrain() {
     }
   };
 
-  const handlePointerUp = () => {
+  const handlePointerUp = (e) => {
     setIsPointerDown(false);
+    
+    if (mode === 'boundary') {
+      const { boundaryDrawing, setBoundaryDrawing, addBoundary } = useMapStore.getState();
+      if (boundaryDrawing) {
+        // Calculate distance to avoid adding zero-length boundaries
+        const dx = boundaryDrawing.current[0] - boundaryDrawing.start[0];
+        const dz = boundaryDrawing.current[1] - boundaryDrawing.start[1];
+        if (Math.sqrt(dx*dx + dz*dz) > 0.5) {
+          addBoundary({
+            id: crypto.randomUUID(),
+            start: boundaryDrawing.start,
+            end: boundaryDrawing.current,
+            condition: { itemType: 'rock', amount: 3 }
+          });
+        }
+        setBoundaryDrawing(null);
+      }
+    }
   };
 
-  const handlePointerOut = () => {
+  const handlePointerOut = (e) => {
+    if (mode === 'boundary' && useMapStore.getState().boundaryDrawing) {
+      handlePointerUp(e);
+    }
     setIsPointerDown(false);
     setPointerPos(null);
   };

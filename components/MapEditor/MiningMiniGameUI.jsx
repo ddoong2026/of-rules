@@ -81,7 +81,7 @@ export default function MiningMiniGameUI() {
   // Performance Optimization: Use refs instead of state for high-frequency animation
   const currentValueRef = useRef(1);
   const directionRef = useRef(1);
-  const blockRefs = useRef([]);
+  const arrowRef = useRef(null);
 
   const requestRef = useRef(null);
   const lastUpdateRef = useRef(0);
@@ -94,24 +94,11 @@ export default function MiningMiniGameUI() {
     setIsStopped(false);
     setFeedback(null);
     
-    // Reset all DOM nodes to default state except the first one
-    blockRefs.current.forEach((el, index) => {
-      if (!el) return;
-      const num = index + 1;
-      if (num === 1) {
-        el.style.background = '#3B82F6';
-        el.style.border = 'none';
-        el.style.color = '#FFFFFF';
-        el.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)';
-        el.style.transform = 'scale(1.1)';
-      } else {
-        el.style.background = '#FFFFFF';
-        el.style.border = '1px solid #D1D5DB';
-        el.style.color = '#6B7280';
-        el.style.boxShadow = 'none';
-        el.style.transform = 'scale(1)';
-      }
-    });
+    // Reset arrow style
+    if (arrowRef.current) {
+      arrowRef.current.style.transform = `translateX(32px) translateX(-50%)`;
+      arrowRef.current.style.color = '#3B82F6';
+    }
   }, []);
 
   useEffect(() => {
@@ -121,7 +108,7 @@ export default function MiningMiniGameUI() {
     }
   }, [active, initRound]);
 
-  // Gauge animation loop (Direct DOM manipulation to prevent React re-renders)
+  // Gauge animation loop (Single element transform for maximum performance)
   const animate = useCallback((time) => {
     if (isStopped || !active) return;
     
@@ -136,23 +123,10 @@ export default function MiningMiniGameUI() {
         next = 1;
       }
       
-      // Fast DOM update
-      const oldEl = blockRefs.current[prev - 1];
-      const newEl = blockRefs.current[next - 1];
-      
-      if (oldEl) {
-        oldEl.style.background = '#FFFFFF';
-        oldEl.style.border = '1px solid #D1D5DB';
-        oldEl.style.color = '#6B7280';
-        oldEl.style.boxShadow = 'none';
-        oldEl.style.transform = 'scale(1)';
-      }
-      if (newEl) {
-        newEl.style.background = '#3B82F6';
-        newEl.style.border = 'none';
-        newEl.style.color = '#FFFFFF';
-        newEl.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)';
-        newEl.style.transform = 'scale(1.1)';
+      // Move arrow only (1 DOM mutation)
+      if (arrowRef.current) {
+        const nextX = 32 + (next - 1) * 44;
+        arrowRef.current.style.transform = `translateX(${nextX}px) translateX(-50%)`;
       }
       
       currentValueRef.current = next;
@@ -215,9 +189,8 @@ export default function MiningMiniGameUI() {
   // Handle color updates when feedback or isStopped changes
   useEffect(() => {
     if (!active || !isStopped) return;
-    const currentEl = blockRefs.current[currentValueRef.current - 1];
-    if (currentEl) {
-      currentEl.style.background = feedback === 'SUCCESS' ? '#10B981' : (feedback === 'FAIL' ? '#EF4444' : '#3B82F6');
+    if (arrowRef.current) {
+      arrowRef.current.style.color = feedback === 'SUCCESS' ? '#10B981' : (feedback === 'FAIL' ? '#EF4444' : '#3B82F6');
     }
   }, [isStopped, feedback, active]);
 
@@ -287,34 +260,48 @@ export default function MiningMiniGameUI() {
         <div style={{
           display: 'flex',
           gap: '4px',
-          padding: '12px',
+          padding: '12px 12px 36px 12px', // Bottom padding for arrow
           background: '#E5E7EB',
           borderRadius: '12px',
-          position: 'relative'
+          position: 'relative',
+          marginBottom: '10px'
         }}>
           {Array.from({ length: 10 }, (_, i) => i + 1).map(num => (
             <div 
               key={num} 
-              ref={(el) => blockRefs.current[num - 1] = el}
               style={{
               width: '40px',
-              height: '60px',
+              height: '50px',
               borderRadius: '8px',
-              background: num === 1 ? '#3B82F6' : '#FFFFFF',
-              border: num === 1 ? 'none' : '1px solid #D1D5DB',
+              background: '#FFFFFF',
+              border: '1px solid #D1D5DB',
               display: 'flex',
               justifyContent: 'center',
               alignItems: 'center',
               fontSize: '1.25rem',
               fontWeight: 'bold',
-              color: num === 1 ? '#FFFFFF' : '#6B7280',
-              boxShadow: num === 1 ? '0 4px 12px rgba(0,0,0,0.2)' : 'none',
-              transform: num === 1 ? 'scale(1.1)' : 'scale(1)',
-              transition: 'all 0.05s ease'
+              color: '#374151',
             }}>
               {num}
             </div>
           ))}
+          {/* Moving Arrow */}
+          <div 
+            ref={arrowRef}
+            style={{
+              position: 'absolute',
+              bottom: '4px',
+              left: 0,
+              fontSize: '24px',
+              color: '#3B82F6',
+              transform: 'translateX(32px) translateX(-50%)',
+              transition: 'transform 0.05s linear',
+              textShadow: '0 2px 4px rgba(0,0,0,0.3)',
+              fontWeight: 'bold'
+            }}
+          >
+            ⇧
+          </div>
         </div>
 
         {/* Instructions / Feedback */}

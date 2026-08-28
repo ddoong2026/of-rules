@@ -357,22 +357,26 @@ export default function Player() {
         }
         
         if (isActive) {
-          const b1 = { x: b.start[0], z: b.start[1] };
-          const b2 = { x: b.end[0], z: b.end[1] };
+          const points = b.points || (b.start && b.end ? [b.start, b.end] : []);
           
-          // Line segment intersection math
-          const denom = (p2.z - p1.z) * (b2.x - b1.x) - (p2.x - p1.x) * (b2.z - b1.z);
-          if (denom !== 0) {
-            const ua = ((p2.x - p1.x) * (b1.z - p1.z) - (p2.z - p1.z) * (b1.x - p1.x)) / denom;
-            const ub = ((b2.x - b1.x) * (b1.z - p1.z) - (b2.z - b1.z) * (b1.x - p1.x)) / denom;
+          for (let i = 0; i < points.length - 1; i++) {
+            const b1 = { x: points[i][0], z: points[i][1] };
+            const b2 = { x: points[i+1][0], z: points[i+1][1] };
             
-            // Check if player's intended path intersects the boundary segment
-            // We use a slight margin (-0.1 to 1.1) to account for player radius intuitively
-            if (ua >= -0.1 && ua <= 1.1 && ub >= 0 && ub <= 1) {
-              canMoveXZ = false;
-              currentVelocity.current.x = 0;
-              currentVelocity.current.z = 0;
-              break;
+            // Line segment intersection math
+            const denom = (p2.z - p1.z) * (b2.x - b1.x) - (p2.x - p1.x) * (b2.z - b1.z);
+            if (denom !== 0) {
+              const ua = ((p2.x - p1.x) * (b1.z - p1.z) - (p2.z - p1.z) * (b1.x - p1.x)) / denom;
+              const ub = ((b2.x - b1.x) * (b1.z - p1.z) - (b2.z - b1.z) * (b1.x - p1.x)) / denom;
+              
+              // Check if player's intended path intersects the boundary segment
+              // We use a slight margin (-0.1 to 1.1) to account for player radius intuitively
+              if (ua >= -0.1 && ua <= 1.1 && ub >= 0 && ub <= 1) {
+                canMoveXZ = false;
+                currentVelocity.current.x = 0;
+                currentVelocity.current.z = 0;
+                break;
+              }
             }
           }
         }

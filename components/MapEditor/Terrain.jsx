@@ -227,7 +227,7 @@ export default function Terrain() {
       });
     } else if (mode === 'boundary') {
       const { setBoundaryDrawing } = useMapStore.getState();
-      setBoundaryDrawing({ start: [targetPoint.x, targetPoint.z], current: [targetPoint.x, targetPoint.z] });
+      setBoundaryDrawing({ points: [[targetPoint.x, targetPoint.z]] });
     }
   };
 
@@ -264,7 +264,12 @@ export default function Terrain() {
     } else if (mode === 'boundary') {
       const { boundaryDrawing, setBoundaryDrawing } = useMapStore.getState();
       if (boundaryDrawing) {
-        setBoundaryDrawing({ ...boundaryDrawing, current: [targetPoint.x, targetPoint.z] });
+        const lastPoint = boundaryDrawing.points[boundaryDrawing.points.length - 1];
+        const dx = targetPoint.x - lastPoint[0];
+        const dz = targetPoint.z - lastPoint[1];
+        if (Math.sqrt(dx*dx + dz*dz) > 0.5) { // Add point every 0.5 units
+          setBoundaryDrawing({ points: [...boundaryDrawing.points, [targetPoint.x, targetPoint.z]] });
+        }
       }
     }
   };
@@ -275,14 +280,10 @@ export default function Terrain() {
     if (mode === 'boundary') {
       const { boundaryDrawing, setBoundaryDrawing, addBoundary } = useMapStore.getState();
       if (boundaryDrawing) {
-        // Calculate distance to avoid adding zero-length boundaries
-        const dx = boundaryDrawing.current[0] - boundaryDrawing.start[0];
-        const dz = boundaryDrawing.current[1] - boundaryDrawing.start[1];
-        if (Math.sqrt(dx*dx + dz*dz) > 0.5) {
+        if (boundaryDrawing.points.length > 1) {
           addBoundary({
             id: crypto.randomUUID(),
-            start: boundaryDrawing.start,
-            end: boundaryDrawing.current,
+            points: boundaryDrawing.points,
             condition: { itemType: 'rock', amount: 3 }
           });
         }

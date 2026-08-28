@@ -235,7 +235,7 @@ export default function EditorUI({ onSave, isSaving }) {
         <div style={{ background: '#fee2e2', padding: '1rem', borderRadius: '6px' }}>
           <h4 style={{ margin: '0 0 0.5rem 0', color: '#b91c1c' }}>지우개 모드</h4>
           <p style={{ fontSize: '0.8rem', color: '#7f1d1d', margin: 0 }}>
-            배치된 에셋(나무, 바위 등)이나 바닥 타일을 클릭하면 삭제됩니다.
+            배치된 에셋(나무, 바위 등)이나 바닥 타일, 경계선을 클릭하면 삭제됩니다.
           </p>
         </div>
       )}

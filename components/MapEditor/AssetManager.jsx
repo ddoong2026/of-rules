@@ -63,12 +63,37 @@ function Cave() {
   );
 }
 
-function Lake() {
+function Lake({ isPlaying }) {
+  const fishGroupRef = useRef();
+  
+  useFrame((state, delta) => {
+    if (isPlaying && fishGroupRef.current) {
+      fishGroupRef.current.rotation.z += delta * 0.8;
+    }
+  });
+
   return (
-    <mesh position={[0, 0.1, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-      <circleGeometry args={[2, 32]} />
-      <meshStandardMaterial color="#3b82f6" transparent opacity={0.8} roughness={0.1} metalness={0.5} />
-    </mesh>
+    <group position={[0, 0.1, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh>
+        <circleGeometry args={[2, 32]} />
+        <meshStandardMaterial color="#3b82f6" transparent opacity={0.8} roughness={0.1} metalness={0.5} />
+      </mesh>
+      {/* 초저사양 최적화용 물고기 (단순 원뿔 3개) */}
+      <group ref={fishGroupRef} position={[0, 0, 0.05]}>
+        <mesh position={[1.2, 0, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <coneGeometry args={[0.06, 0.2, 4]} />
+          <meshBasicMaterial color="#ff7b00" />
+        </mesh>
+        <mesh position={[-0.8, 0.8, 0]} rotation={[Math.PI / 2, 0, Math.PI / 2 + 0.5]}>
+          <coneGeometry args={[0.05, 0.15, 4]} />
+          <meshBasicMaterial color="#ff5555" />
+        </mesh>
+        <mesh position={[0.2, -1.3, 0]} rotation={[Math.PI / 2, 0, -Math.PI / 4]}>
+          <coneGeometry args={[0.04, 0.12, 4]} />
+          <meshBasicMaterial color="#ff9900" />
+        </mesh>
+      </group>
+    </group>
   );
 }
 
@@ -415,7 +440,7 @@ export default function AssetManager() {
       case 'rock': return <Rock />;
       case 'house': return <House />;
       case 'cave': return <Cave />;
-      case 'lake': return <Lake />;
+      case 'lake': return <Lake isPlaying={isPlaying} />;
       default: return null;
     }
   };

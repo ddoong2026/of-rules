@@ -29,6 +29,7 @@ const useMapStore = create((set, get) => ({
   decals: [], // { id, url, position: [x,y,z], scale: [x,y,z] }
   boundaries: [], // { id, start: [x,z], end: [x,z], condition: { type: 'item_count', itemType: 'rock', amount: 5 } }
   boundaryDrawing: null, // { start: [x,z], current: [x,z] }
+  spawnPoint: null, // { x, z }
   
   // Fluid Data (Dynamic Water)
   waterSources: [], // { x, z, amount }
@@ -52,6 +53,7 @@ const useMapStore = create((set, get) => ({
   setSunTime: (time) => set({ sunTime: time }),
   setMineMiniGame: (active, assetId = null, assetType = null) => set({ mineMiniGame: { active, assetId, assetType } }),
   setActiveDialogue: (active) => set({ activeDialogue: active }),
+  setSpawnPoint: (pt) => set({ spawnPoint: pt }),
   
   saveHistory: () => set((state) => {
     const newHistory = [...state.history, { 
@@ -95,6 +97,7 @@ const useMapStore = create((set, get) => ({
       assets: mapData.assets || [],
       decals: mapData.decals || [],
       boundaries: mapData.boundaries || [],
+      spawnPoint: mapData.spawnPoint || null,
       history: [], // Reset history on load
     });
   },
@@ -112,6 +115,7 @@ const useMapStore = create((set, get) => ({
       assets: [],
       decals: [],
       boundaries: [],
+      spawnPoint: null,
       history: [], // Reset history on new map
     });
   },

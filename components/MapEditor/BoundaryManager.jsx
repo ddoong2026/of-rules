@@ -1,12 +1,31 @@
 'use client';
 
 import * as THREE from 'three';
+import { useState, useEffect } from 'react';
 import useMapStore from '@/store/useMapStore';
 import useInventoryStore from '@/store/useInventoryStore';
 
 export default function BoundaryManager() {
   const { boundaries, selectedBoundaryId, setSelectedBoundaryId, mode, boundaryDrawing, isPlaying, removeBoundary } = useMapStore();
   const { items } = useInventoryStore();
+  const [collidedBoundaryId, setCollidedBoundaryId] = useState(null);
+
+  useEffect(() => {
+    let timeoutId;
+    const handleCollide = (e) => {
+      setCollidedBoundaryId(e.detail.boundaryId);
+      if (timeoutId) clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        setCollidedBoundaryId(null);
+      }, 2500);
+    };
+
+    window.addEventListener('boundary-collide', handleCollide);
+    return () => {
+      window.removeEventListener('boundary-collide', handleCollide);
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, []);
 
   const handleBoundaryClick = (e, id) => {
     if (mode === 'select' && !isPlaying) {
@@ -25,7 +44,7 @@ export default function BoundaryManager() {
         const points = b.points || (b.start && b.end ? [b.start, b.end] : []);
         if (points.length < 2) return null;
 
-        if (isPlaying) return null; // Always hide in play mode (collision is handled invisibly in Player.jsx)
+        if (isPlaying && b.id !== collidedBoundaryId) return null; // Hide in play mode unless recently collided
 
         const isSelected = selectedBoundaryId === b.id;
         
@@ -48,7 +67,7 @@ export default function BoundaryManager() {
                     <meshBasicMaterial 
                       color="#ef4444" 
                       transparent 
-                      opacity={isSelected ? 0.8 : 0.4} 
+                      opacity={isSelected || (isPlaying && b.id === collidedBoundaryId) ? 0.8 : 0.4} 
                       side={THREE.DoubleSide} 
                       depthWrite={false}
                     />

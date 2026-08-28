@@ -199,25 +199,32 @@ export default function Player() {
   const hasSpawned = useRef(false);
   useEffect(() => {
     if (group.current && !hasSpawned.current) {
+      const spawnPoint = useMapStore.getState().spawnPoint;
       let spawnX = 0;
       let spawnZ = 0;
       let found = false;
 
-      // Spiral search outwards from center to find a dry spot
-      for (let r = 0; r < 24; r += 2) {
-        for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 4) {
-          const x = Math.cos(angle) * r;
-          const z = Math.sin(angle) * r;
-          const h = getTerrainHeight(x, z);
-          
-          if (h > -0.1) { // Not in water
-            spawnX = x;
-            spawnZ = z;
-            found = true;
-            break;
+      if (spawnPoint) {
+        spawnX = spawnPoint.x;
+        spawnZ = spawnPoint.z;
+        found = true;
+      } else {
+        // Spiral search outwards from center to find a dry spot
+        for (let r = 0; r < 24; r += 2) {
+          for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 4) {
+            const x = Math.cos(angle) * r;
+            const z = Math.sin(angle) * r;
+            const h = getTerrainHeight(x, z);
+            
+            if (h > -0.1) { // Not in water
+              spawnX = x;
+              spawnZ = z;
+              found = true;
+              break;
+            }
           }
+          if (found) break;
         }
-        if (found) break;
       }
 
       const terrainH = getTerrainHeight(spawnX, spawnZ);
@@ -381,7 +388,7 @@ export default function Player() {
                 if (now - lastBoundaryMessageTime.current > 2000) {
                   lastBoundaryMessageTime.current = now;
                   const message = b.condition.message || "조건을 달성해야 통과할 수 있습니다.";
-                  window.dispatchEvent(new CustomEvent('boundary-collide', { detail: { message } }));
+                  window.dispatchEvent(new CustomEvent('boundary-collide', { detail: { message, boundaryId: b.id } }));
                 }
                 break;
               }

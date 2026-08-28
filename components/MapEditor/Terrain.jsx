@@ -11,7 +11,7 @@ export default function Terrain() {
   const { 
     mode, brushSize, brushIntensity, selectedColor, selectedAsset, selectedDecalImage,
     heights, colors, updateHeights, updateColors, addAsset, addDecal, addWaterSource,
-    isCameraMode, saveHistory, isPlaying 
+    isCameraMode, saveHistory, isPlaying, spawnPoint
   } = useMapStore();
   
   const { camera, gl, raycaster: r3fRaycaster } = useThree();
@@ -228,6 +228,9 @@ export default function Terrain() {
     } else if (mode === 'boundary') {
       const { setBoundaryDrawing } = useMapStore.getState();
       setBoundaryDrawing({ points: [[targetPoint.x, targetPoint.z]] });
+    } else if (mode === 'spawn') {
+      const { setSpawnPoint } = useMapStore.getState();
+      setSpawnPoint({ x: targetPoint.x, z: targetPoint.z });
     } else if (mode === 'select') {
       const { selectedAssetId, updateAsset } = useMapStore.getState();
       if (selectedAssetId) {
@@ -356,6 +359,24 @@ export default function Terrain() {
         <ringGeometry args={[brushSize - 0.2, brushSize, 32]} />
         <meshBasicMaterial color={mode === 'paint' ? selectedColor : (mode === 'flatten' ? '#f59e0b' : (mode === 'dig' ? '#ef4444' : '#ffffff'))} transparent opacity={0.5} side={THREE.DoubleSide} />
       </mesh>
+      
+      {/* Spawn Point Marker */}
+      {!isPlaying && spawnPoint && (
+        <group position={[spawnPoint.x, 0.1, spawnPoint.z]}>
+          <mesh rotation={[-Math.PI / 2, 0, 0]}>
+            <ringGeometry args={[0, 1.5, 32]} />
+            <meshBasicMaterial color="#ef4444" transparent opacity={0.6} side={THREE.DoubleSide} />
+          </mesh>
+          <mesh position={[0, 1.5, 0]}>
+            <cylinderGeometry args={[0.1, 0.1, 3]} />
+            <meshBasicMaterial color="#ef4444" />
+          </mesh>
+          <mesh position={[0.5, 2.5, 0]}>
+            <boxGeometry args={[1, 0.6, 0.1]} />
+            <meshBasicMaterial color="#ef4444" />
+          </mesh>
+        </group>
+      )}
     </group>
   );
 }

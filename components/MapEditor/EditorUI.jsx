@@ -118,6 +118,7 @@ export default function EditorUI({ onSave, isSaving }) {
           <ModeButton current={mode} id="asset" label="🌲 에셋 배치" onClick={() => setMode('asset')} />
           <ModeButton current={mode} id="decal" label="🛣️ 도로/타일" onClick={() => setMode('decal')} />
           <ModeButton current={mode} id="boundary" label="🚧 경계선" onClick={() => setMode('boundary')} />
+          <ModeButton current={mode} id="spawn" label="🚩 스폰 위치" onClick={() => setMode('spawn')} />
           <ModeButton current={mode} id="erase" label="🗑️ 지우개" onClick={() => setMode('erase')} />
           <ModeButton current={mode} id="select" label="🖱️ 선택/편집" onClick={() => setMode('select')} />
         </div>

@@ -356,7 +356,32 @@ function PropertyEditor() {
         
         <button 
           onClick={() => removeBoundary(boundary.id)}
-          style={{ padding: '0.5rem', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px',       {isNPC && (
+          style={{ padding: '0.5rem', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', marginTop: '0.5rem' }}
+        >
+          🗑️ 이 경계선 삭제하기
+        </button>
+      </div>
+    );
+  }
+
+  const asset = assets.find(a => a.id === selectedAssetId);
+  if (!asset) return <div style={{ fontSize: '0.8rem', color: '#ef4444' }}>에셋을 찾을 수 없습니다.</div>;
+
+  const isNPC = asset.type.startsWith('caveman');
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', marginTop: '1rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h5 style={{ margin: 0 }}>타입: {asset.type}</h5>
+        <button 
+          onClick={() => setSelectedAssetId(null)}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}
+        >
+          ✖
+        </button>
+      </div>
+
+      {isNPC && (
         <>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
             <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>NPC 이름</label>

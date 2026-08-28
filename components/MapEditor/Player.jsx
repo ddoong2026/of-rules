@@ -258,10 +258,12 @@ export default function Player() {
     const forward = new THREE.Vector3(0, 0, 1).applyEuler(new THREE.Euler(0, yaw.current, 0));
     const right = new THREE.Vector3(1, 0, 0).applyEuler(new THREE.Euler(0, yaw.current, 0));
 
-    if (keys.w) moveDir.add(forward);
-    if (keys.s) moveDir.sub(forward);
-    if (keys.a) moveDir.add(right); // left (이제 오른쪽으로 이동)
-    if (keys.d) moveDir.sub(right); // right (이제 왼쪽으로 이동)
+    if (!cameraOverride.current.active) {
+      if (keys.w) moveDir.add(forward);
+      if (keys.s) moveDir.sub(forward);
+      if (keys.a) moveDir.add(right); // left (이제 오른쪽으로 이동)
+      if (keys.d) moveDir.sub(right); // right (이제 왼쪽으로 이동)
+    }
 
     if (moveDir.lengthSq() > 0) {
       moveDir.normalize();
@@ -449,7 +451,7 @@ export default function Player() {
         currentVelocity.current.y = 0;
       }
       
-      if (keys.space && !isJumping.current) {
+      if (!cameraOverride.current.active && keys.space && !isJumping.current) {
         currentVelocity.current.y = 2.5; // JUMP_FORCE
         group.current.position.y += 0.01; // 아주 미세한 값만 올려 바닥 판정을 피함 (0.25 순간이동 제거)
         
@@ -496,6 +498,7 @@ export default function Player() {
       const elapsed = now - cameraOverride.current.startTime;
       if (elapsed > 3500) { // 3.5 seconds total duration
         cameraOverride.current.active = false;
+        yaw.current = (yaw.current + Math.PI) % (Math.PI * 2); // Turn character around
       } else {
         const tAsset = cameraOverride.current.targetPos;
         const overrideLookAt = tAsset.clone().add(new THREE.Vector3(0, 0.5, 0));
@@ -518,6 +521,12 @@ export default function Player() {
 
         finalIdealCameraPos.lerp(overrideCamPos, alpha);
         finalTargetLookAt.lerp(overrideLookAt, alpha);
+        
+        // Ensure camera follows terrain height to not clip through mountains
+        const lerpedCamGroundHeight = getTerrainHeight(finalIdealCameraPos.x, finalIdealCameraPos.z);
+        if (finalIdealCameraPos.y < lerpedCamGroundHeight + 1.5) {
+          finalIdealCameraPos.y = lerpedCamGroundHeight + 1.5;
+        }
       }
     }
     

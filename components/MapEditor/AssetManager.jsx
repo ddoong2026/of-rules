@@ -363,6 +363,16 @@ function MineableAsset({ asset, onInteract, mode, isPlaying, children }) {
     } else if (mode === 'select') {
       e.stopPropagation();
       setSelectedAssetId(id);
+    } else if (mode === 'selectTarget') {
+      e.stopPropagation();
+      const { selectedBoundaryId, updateBoundary, boundaries, setMode } = useMapStore.getState();
+      if (selectedBoundaryId) {
+        const boundary = boundaries.find(b => b.id === selectedBoundaryId);
+        if (boundary) {
+          updateBoundary(selectedBoundaryId, { condition: { ...boundary.condition, targetAssetId: id } });
+        }
+      }
+      setMode('select'); // Return to select mode after clicking
     }
   };
 
@@ -387,7 +397,7 @@ function MineableAsset({ asset, onInteract, mode, isPlaying, children }) {
     };
   }, [id, type, isPlaying, onInteract]);
 
-  const canInteract = mode === 'erase' || mode === 'select';
+  const canInteract = mode === 'erase' || mode === 'select' || mode === 'selectTarget';
 
   return (
     <group 

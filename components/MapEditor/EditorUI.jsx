@@ -120,7 +120,7 @@ export default function EditorUI({ onSave, isSaving }) {
           <ModeButton current={mode} id="boundary" label="🚧 경계선" onClick={() => setMode('boundary')} />
           <ModeButton current={mode} id="spawn" label="🚩 스폰 위치" onClick={() => setMode('spawn')} />
           <ModeButton current={mode} id="erase" label="🗑️ 지우개" onClick={() => setMode('erase')} />
-          <ModeButton current={mode} id="select" label="🖱️ 선택/편집" onClick={() => setMode('select')} />
+          <ModeButton current={mode === 'selectTarget' ? 'select' : mode} id="select" label="🖱️ 선택/편집" onClick={() => setMode('select')} />
         </div>
       </div>
 
@@ -242,9 +242,11 @@ export default function EditorUI({ onSave, isSaving }) {
       )}
 
       {/* Select / Edit Mode */}
-      {mode === 'select' && (
+      {(mode === 'select' || mode === 'selectTarget') && (
         <div style={{ background: '#e0e7ff', padding: '1rem', borderRadius: '6px' }}>
-          <h4 style={{ margin: '0 0 0.5rem 0', color: '#3730a3' }}>선택/편집 모드</h4>
+          <h4 style={{ margin: '0 0 0.5rem 0', color: '#3730a3' }}>
+            {mode === 'selectTarget' ? '🎯 카메라 이동 대상 에셋 선택 중...' : '선택/편집 모드'}
+          </h4>
           {(!selectedAssetId && !selectedBoundaryId) ? (
             <p style={{ fontSize: '0.8rem', color: '#4338ca', margin: 0 }}>
               맵에 배치된 에셋, NPC, 또는 경계선을 클릭하여 속성을 편집하세요.
@@ -357,19 +359,28 @@ function PropertyEditor() {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
           <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>카메라 이동 대상 에셋 (선택)</label>
-          <select 
-            className="glass-input"
-            value={boundary.condition?.targetAssetId || ''}
-            onChange={(e) => updateBoundary(boundary.id, { condition: { ...boundary.condition, targetAssetId: e.target.value } })}
-            style={{ padding: '0.4rem' }}
-          >
-            <option value="">-- 이동 안 함 --</option>
-            {assets.map(a => (
-              <option key={a.id} value={a.id}>
-                {a.type.startsWith('caveman') ? `👤 ${a.npcName || '원시인'}` : `🌲 ${a.type}`}
-              </option>
-            ))}
-          </select>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <button
+              onClick={() => setMode(mode === 'selectTarget' ? 'select' : 'selectTarget')}
+              style={{ padding: '0.4rem', flex: 1, background: mode === 'selectTarget' ? '#ef4444' : '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+            >
+              {mode === 'selectTarget' ? '취소하기' : '🎯 맵에서 클릭하여 지정'}
+            </button>
+            {boundary.condition?.targetAssetId && (
+              <button
+                onClick={() => updateBoundary(boundary.id, { condition: { ...boundary.condition, targetAssetId: null } })}
+                style={{ padding: '0.4rem', background: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '4px', cursor: 'pointer' }}
+                title="대상 지우기"
+              >
+                ❌
+              </button>
+            )}
+          </div>
+          {boundary.condition?.targetAssetId && (
+            <div style={{ fontSize: '0.85rem', color: '#059669', marginTop: '0.2rem', fontWeight: 'bold' }}>
+               ✓ 선택됨: {assets.find(a => a.id === boundary.condition.targetAssetId)?.npcName || '에셋'}
+            </div>
+          )}
         </div>
 
         {boundary.condition?.targetAssetId && (

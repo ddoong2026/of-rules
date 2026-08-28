@@ -401,11 +401,6 @@ export default function Player() {
                       cameraOverride.current.active = true;
                       cameraOverride.current.targetPos.set(targetAsset.position[0], targetAsset.position[1], targetAsset.position[2]);
                       cameraOverride.current.startTime = now;
-                      
-                      // Turn player to face the asset immediately
-                      const dx = targetAsset.position[0] - group.current.position.x;
-                      const dz = targetAsset.position[2] - group.current.position.z;
-                      yaw.current = Math.atan2(dx, dz);
                     }
                   }
                   
@@ -503,44 +498,53 @@ export default function Player() {
       const elapsed = now - cameraOverride.current.startTime;
       if (elapsed > 3500) { // 3.5 seconds total duration
         cameraOverride.current.active = false;
+        
+        // Turn character to face the target asset when camera returns
+        const tAsset = cameraOverride.current.targetPos;
+        const dx = tAsset.x - group.current.position.x;
+        const dz = tAsset.z - group.current.position.z;
+        yaw.current = Math.atan2(dx, dz);
       } else {
         const tAsset = cameraOverride.current.targetPos;
-        const overrideLookAt = tAsset.clone().add(new THREE.Vector3(0, 0.5, 0));
+        const EYE_LEVEL = 0.8;
         
-        // Position camera to see the asset, offset towards the player slightly
+        // Calculate destination in front of asset
         const dirToPlayer = group.current.position.clone().sub(tAsset);
         dirToPlayer.y = 0;
-        if (dirToPlayer.lengthSq() < 0.1) {
-          dirToPlayer.set(0, 0, 1);
-        }
+        if (dirToPlayer.lengthSq() < 0.1) dirToPlayer.set(0, 0, 1);
         dirToPlayer.normalize();
         
-        const overrideCamPos = tAsset.clone().add(dirToPlayer.multiplyScalar(3.0)).add(new THREE.Vector3(0, 1.5, 0));
-
+        const endCamPos = tAsset.clone().add(dirToPlayer.multiplyScalar(2.0));
+        const endTerrainY = getTerrainHeight(endCamPos.x, endCamPos.z);
+        endCamPos.y = endTerrainY + EYE_LEVEL;
+        
         // Smooth step alpha
         let alpha = 1;
-        if (elapsed < 800) alpha = elapsed / 800; // 0.8s to zoom in
-        else if (elapsed > 2700) alpha = (3500 - elapsed) / 800; // 0.8s to zoom out
+        if (elapsed < 800) alpha = elapsed / 800; // 0.8s to travel there
+        else if (elapsed > 2700) alpha = (3500 - elapsed) / 800; // 0.8s to travel back
         alpha = alpha * alpha * (3 - 2 * alpha);
 
-        finalIdealCameraPos.lerp(overrideCamPos, alpha);
-        finalTargetLookAt.lerp(overrideLookAt, alpha);
+        // Interpolate XZ
+        finalIdealCameraPos.x = THREE.MathUtils.lerp(idealCameraPos.x, endCamPos.x, alpha);
+        finalIdealCameraPos.z = THREE.MathUtils.lerp(idealCameraPos.z, endCamPos.z, alpha);
         
-        // Ensure camera follows terrain height to not clip through mountains
-        const lerpedCamGroundHeight = getTerrainHeight(finalIdealCameraPos.x, finalIdealCameraPos.z);
-        if (finalIdealCameraPos.y < lerpedCamGroundHeight + 1.5) {
-          finalIdealCameraPos.y = lerpedCamGroundHeight + 1.5;
-        }
+        // Interpolate Y from 3rd person to destination eye level
+        const interpolatedY = THREE.MathUtils.lerp(idealCameraPos.y, endCamPos.y, alpha);
+        
+        // Ensure camera follows terrain if terrain + EYE_LEVEL is higher
+        const pathTerrainY = getTerrainHeight(finalIdealCameraPos.x, finalIdealCameraPos.z);
+        finalIdealCameraPos.y = Math.max(interpolatedY, pathTerrainY + EYE_LEVEL);
+        
+        // Look At (interpolate towards looking perfectly horizontally at the asset)
+        const lookAtAsset = tAsset.clone();
+        lookAtAsset.y = finalIdealCameraPos.y; 
+        
+        finalTargetLookAt.lerp(lookAtAsset, alpha);
       }
     }
     
     // Snap camera position to the smoothed target position
     camera.position.copy(finalIdealCameraPos);
-    
-    if (cameraOverride.current.active) {
-      finalTargetLookAt.y = finalIdealCameraPos.y;
-    }
-    
     camera.lookAt(finalTargetLookAt);
 
     // Handle Animation state based on movement and grounding

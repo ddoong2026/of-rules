@@ -204,14 +204,14 @@ function NPC({ asset, isPlaying, roaming }) {
         <Html position={[0, 0.45, 0]} center sprite zIndexRange={[100, 0]}>
           <div style={{
             background: 'white',
-            padding: '4px 8px',
-            borderRadius: '12px',
-            border: '2px solid black',
-            fontSize: '0.75rem',
+            padding: '8px 16px',
+            borderRadius: '24px',
+            border: '4px solid black',
+            fontSize: '1.5rem',
             fontWeight: 'bold',
             whiteSpace: 'nowrap',
             pointerEvents: 'none',
-            boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
             color: '#111827'
           }}>
             💬 {currentBubbleText.substring(0, 20)}{currentBubbleText.length > 20 ? '...' : ''}

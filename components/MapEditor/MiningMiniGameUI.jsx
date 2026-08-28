@@ -112,6 +112,7 @@ export default function MiningMiniGameUI() {
   const [errorMessage, setErrorMessage] = useState('');
   const [canRetry, setCanRetry] = useState(false);
   const [userAnswerStr, setUserAnswerStr] = useState('');
+  const [attempts, setAttempts] = useState(0);
 
   const [selectedNumbers, setSelectedNumbers] = useState(new Set());
   const [selectedOptionIndex, setSelectedOptionIndex] = useState(null);
@@ -127,6 +128,7 @@ export default function MiningMiniGameUI() {
     setErrorMessage('');
     setCanRetry(false);
     setUserAnswerStr('');
+    setAttempts(0);
   }, []);
 
   useEffect(() => {
@@ -242,17 +244,24 @@ export default function MiningMiniGameUI() {
       setFeedback('SUCCESS');
       setErrorMessage('');
       setTimeout(() => {
-        if (successCount + 1 >= 2) {
-          window.dispatchEvent(new CustomEvent('mine-complete', { detail: { id: assetId, type: assetType } }));
-          setMineMiniGame(false, null, null);
+        if (attempts === 0) {
+          if (successCount + 1 >= 2) {
+            window.dispatchEvent(new CustomEvent('mine-complete', { detail: { id: assetId, type: assetType } }));
+            setMineMiniGame(false, null, null);
+          } else {
+            setSuccessCount(s => s + 1);
+            initRound();
+          }
         } else {
-          setSuccessCount(s => s + 1);
+          // 2회차 이상 성공 시 정답 횟수 오르지 않고 다음 문제로
           initRound();
         }
       }, 1000);
     } else {
       setFeedback('FAIL');
       setErrorMessage(err);
+      setAttempts(prev => prev + 1);
+      setCanRetry(false);
       setTimeout(() => {
         setCanRetry(true);
       }, 4000); // 4초 대기
@@ -282,7 +291,11 @@ export default function MiningMiniGameUI() {
       
       if (feedback === 'FAIL' && canRetry && (e.code === 'Space' || e.key === 'Enter')) {
         e.preventDefault();
-        initRound();
+        if (attempts >= 2) {
+          initRound();
+        } else {
+          setFeedback(null);
+        }
         return;
       }
       
@@ -307,10 +320,10 @@ export default function MiningMiniGameUI() {
       zIndex: 1000,
       userSelect: 'none'
     }}>
-      {feedback && (
+      {feedback === 'SUCCESS' && (
         <div style={{
           position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-          background: feedback === 'SUCCESS' ? 'rgba(16, 185, 129, 0.9)' : 'rgba(239, 68, 68, 0.9)',
+          background: 'rgba(16, 185, 129, 0.9)',
           borderRadius: '24px',
           display: 'flex', justifyContent: 'center', alignItems: 'center',
           fontSize: '4rem', fontWeight: 'bold', color: 'white',
@@ -319,19 +332,7 @@ export default function MiningMiniGameUI() {
           padding: '2rem',
           zIndex: 10
         }}>
-          <div>{feedback === 'SUCCESS' ? '성공!' : '오답입니다!'}</div>
-          {feedback === 'FAIL' && errorMessage && (
-            <div style={{ fontSize: '1.5rem', marginTop: '1rem', background: 'rgba(0,0,0,0.5)', padding: '16px 32px', borderRadius: '12px', whiteSpace: 'pre-wrap', display: 'flex', flexDirection: 'column', gap: '12px', textAlign: 'left', minWidth: '400px' }}>
-              <div style={{ color: '#FCD34D' }}>📝 조건: {condition.gameType === 'multi-select' ? (condition.isNumberLine ? '수직선 영역' : condition.text) : condition.text}</div>
-              <div style={{ color: '#F87171' }}>🚫 내 제출: {userAnswerStr}</div>
-              <div style={{ color: '#34D399', borderTop: '1px solid rgba(255,255,255,0.2)', paddingTop: '12px', marginTop: '4px' }}>💡 {errorMessage}</div>
-            </div>
-          )}
-          {feedback === 'FAIL' && canRetry && (
-            <button onClick={initRound} style={{ marginTop: '2rem', padding: '12px 32px', fontSize: '1.5rem', background: '#3B82F6', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
-              다음 문제 도전 (스페이스바)
-            </button>
-          )}
+          <div>성공!</div>
         </div>
       )}
       <div style={{
@@ -342,9 +343,88 @@ export default function MiningMiniGameUI() {
         maxWidth: '700px',
         display: 'flex',
         flexDirection: 'column',
-        gap: '1.5rem'
+        gap: '1.5rem',
+        position: 'relative'
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        {feedback === 'FAIL' ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <h3 style={{ color: '#EF4444', marginBottom: 0, fontSize: '2rem' }}>오답입니다!</h3>
+            <p style={{ fontSize: '1.2rem', margin: 0, padding: '12px', background: '#FEF2F2', borderRadius: '8px', color: '#991B1B' }}>
+              💡 {errorMessage}
+            </p>
+
+            {/* 내 제출 시각화 */}
+            <div style={{ padding: '1rem', border: '2px solid #FCA5A5', borderRadius: '12px', background: '#fef2f2' }}>
+              <div style={{ fontWeight: 'bold', marginBottom: '8px', color: '#EF4444' }}>🚫 내 제출</div>
+              {condition.gameType === 'multi-select' && (
+                <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                  {Array.from({ length: 10 }, (_, i) => i + 1).map(num => {
+                    const isSelected = selectedNumbers.has(num);
+                    return (
+                      <div key={num} style={{
+                        width: 40, height: 50, background: isSelected ? '#EF4444' : '#fff', border: '2px solid #FCA5A5',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, color: isSelected ? '#fff' : '#EF4444', fontWeight: 'bold'
+                      }}>{num}</div>
+                    );
+                  })}
+                </div>
+              )}
+              {condition.gameType === 'text-to-line' && selectedOptionIndex !== null && (
+                <NumberLine condition={condition.options[selectedOptionIndex]} />
+              )}
+              {condition.gameType === 'line-to-text' && selectedOptionIndex !== null && (
+                <div style={{ textAlign: 'center', fontSize: '1.5rem', fontWeight: 'bold', color: '#EF4444' }}>
+                  {condition.options[selectedOptionIndex].text}
+                </div>
+              )}
+            </div>
+
+            {/* 올바른 정답 시각화 (2회차 이상 실패 시) */}
+            {attempts >= 2 && (
+              <div style={{ padding: '1rem', border: '2px solid #34D399', borderRadius: '12px', background: '#ECFDF5' }}>
+                <div style={{ fontWeight: 'bold', marginBottom: '8px', color: '#059669' }}>✅ 올바른 정답</div>
+                {condition.gameType === 'multi-select' && (
+                  <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                    {Array.from({ length: 10 }, (_, i) => i + 1).map(num => {
+                      const isSelected = checkCondition(num, condition);
+                      return (
+                        <div key={num} style={{
+                          width: 40, height: 50, background: isSelected ? '#10B981' : '#fff', border: '2px solid #6EE7B7',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, color: isSelected ? '#fff' : '#059669', fontWeight: 'bold'
+                        }}>{num}</div>
+                      );
+                    })}
+                  </div>
+                )}
+                {condition.gameType === 'text-to-line' && (
+                  <NumberLine condition={condition} />
+                )}
+                {condition.gameType === 'line-to-text' && (
+                  <div style={{ textAlign: 'center', fontSize: '1.5rem', fontWeight: 'bold', color: '#059669' }}>
+                    {condition.text}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {canRetry && (
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginTop: '1rem' }}>
+                {attempts < 2 && (
+                  <button onClick={() => setFeedback(null)} style={{ padding: '12px 24px', fontSize: '1.2rem', background: '#F59E0B', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', boxShadow: '0 4px 6px rgba(0,0,0,0.2)' }}>
+                    다시 풀어보기 (기회 1번)
+                  </button>
+                )}
+                {attempts >= 2 && (
+                  <button onClick={initRound} style={{ padding: '12px 24px', fontSize: '1.2rem', background: '#3B82F6', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', boxShadow: '0 4px 6px rgba(0,0,0,0.2)' }}>
+                    새로운 문제로 넘어가기
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        ) : (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h2>{condition.gameType === 'multi-select' ? '조건에 맞는 숫자 고르기' : '올바른 짝 찾기'}</h2>
           <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
             <div style={{ display: 'flex', gap: '8px' }}>
@@ -396,12 +476,15 @@ export default function MiningMiniGameUI() {
               </div>
             ))}
           </div>
+          </div>
         )}
 
         <button onClick={handleSubmit} style={{ padding: '15px', fontSize: '1.2rem', background: '#10B981', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer' }}>제출</button>
-      </div>
-    </div>
-  );
+      </>
+    )}
+  </div>
+</div>
+);
 }
 
 function NumberLine({ condition }) {

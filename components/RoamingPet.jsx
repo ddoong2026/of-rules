@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, useState, useMemo } from 'react';
+import { useRef, useEffect, useState, useMemo, Suspense } from 'react';
 import { usePathname } from 'next/navigation';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { useGLTF, useAnimations } from '@react-three/drei';
@@ -175,7 +175,9 @@ export default function RoamingPet() {
       <Canvas camera={{ position: [0, 0, 15], fov: 30 }}>
         <ambientLight intensity={1.2} />
         <directionalLight position={[10, 10, 10]} intensity={1.5} />
-        <PetModel />
+        <Suspense fallback={null}>
+          <PetModel />
+        </Suspense>
       </Canvas>
     </div>
   );

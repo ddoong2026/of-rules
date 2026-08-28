@@ -1,7 +1,8 @@
 import './globals.css';
 import { AuthProvider } from '@/components/AuthProvider';
 import Navbar from '@/components/Navbar';
-import RoamingPet from '@/components/RoamingPet';
+import dynamic from 'next/dynamic';
+const RoamingPet = dynamic(() => import('@/components/RoamingPet'), { ssr: false });
 
 export const metadata = {
   title: '규칙의나라 (Class Republic)',

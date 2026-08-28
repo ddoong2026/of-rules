@@ -5,8 +5,9 @@ import { useAuth } from '@/components/AuthProvider';
 import { supabase } from '@/lib/supabase';
 import ActivityLogsTab from '@/components/Teacher/ActivityLogsTab';
 import EconomyAdminTab from '@/components/Teacher/EconomyAdminTab';
-import MapEditorWorkspace from '@/components/MapEditor/MapEditorWorkspace';
-import VoxelEditorWorkspace from '@/components/VoxelEditor/VoxelEditorWorkspace';
+import dynamic from 'next/dynamic';
+const MapEditorWorkspace = dynamic(() => import('@/components/MapEditor/MapEditorWorkspace'), { ssr: false });
+const VoxelEditorWorkspace = dynamic(() => import('@/components/VoxelEditor/VoxelEditorWorkspace'), { ssr: false });
 import styles from './teacher.module.css';
 
 const ROLES = [

@@ -3,7 +3,8 @@
 import { useEffect, useState, use } from 'react';
 import { supabase } from '@/lib/supabase';
 import useMapStore from '@/store/useMapStore';
-import EditorCanvas from '@/components/MapEditor/EditorCanvas';
+import dynamic from 'next/dynamic';
+const EditorCanvas = dynamic(() => import('@/components/MapEditor/EditorCanvas'), { ssr: false });
 import { useRouter } from 'next/navigation';
 
 export default function PlayMapPage({ params }) {

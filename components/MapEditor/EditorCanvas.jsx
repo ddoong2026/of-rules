@@ -2,6 +2,7 @@
 
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Sky } from '@react-three/drei';
+import { Suspense } from 'react';
 import Terrain from './Terrain';
 import AssetManager from './AssetManager';
 import FluidSystem from './FluidSystem';
@@ -42,12 +43,14 @@ export default function EditorCanvas() {
           intensity={Math.max(0, sunY) * 0.05 + 0.1} 
         />
         
-        <Terrain />
-        <AssetManager />
-        <FluidSystem />
-        <BoundaryManager />
-        
-        {isPlaying && <Player />}
+        <Suspense fallback={null}>
+          <Terrain />
+          <AssetManager />
+          <FluidSystem />
+          <BoundaryManager />
+          
+          {isPlaying && <Player />}
+        </Suspense>
         
         <OrbitControls 
           makeDefault 

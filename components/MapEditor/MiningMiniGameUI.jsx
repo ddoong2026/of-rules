@@ -21,7 +21,7 @@ function generateSingleCondition(isRange) {
       value1 = Math.floor(Math.random() * 7) + 1;
       value2 = Math.floor(Math.random() * 7) + 4;
       if (value1 >= value2) continue;
-      
+
       let hasValid = false;
       for (let i = 1; i <= 10; i++) {
         const c1 = type1 === '초과' ? i > value1 : i >= value1;
@@ -53,7 +53,7 @@ function generateCondition() {
 
   const trueCond = generateSingleCondition(isRange);
   trueCond.gameType = gameType;
-  
+
   if (gameType === 'multi-select') {
     trueCond.isNumberLine = Math.random() > 0.5;
   } else {
@@ -116,7 +116,7 @@ export default function MiningMiniGameUI() {
 
   const [selectedNumbers, setSelectedNumbers] = useState(new Set());
   const [selectedOptionIndex, setSelectedOptionIndex] = useState(null);
-  
+
   const [isDragging, setIsDragging] = useState(false);
   const [dragMode, setDragMode] = useState(null);
 
@@ -169,10 +169,10 @@ export default function MiningMiniGameUI() {
 
   const handleSubmit = useCallback(() => {
     if (feedback !== null || !condition) return;
-    
+
     let userAnswer = '';
     if (condition.gameType === 'multi-select') {
-      userAnswer = Array.from(selectedNumbers).sort((a,b)=>a-b).join(', ');
+      userAnswer = Array.from(selectedNumbers).sort((a, b) => a - b).join(', ');
       if (userAnswer === '') userAnswer = '선택 안 함';
     } else {
       if (selectedOptionIndex !== null) {
@@ -183,27 +183,45 @@ export default function MiningMiniGameUI() {
 
     let isSuccess = false;
     let err = '';
-    
+
     if (condition.gameType === 'multi-select') {
       let correct = true;
       let missed = [];
       let wrongSelected = [];
-      
+
       for (let i = 1; i <= 10; i++) {
         const shouldBeSelected = checkCondition(i, condition);
         const isSelected = selectedNumbers.has(i);
         if (shouldBeSelected && !isSelected) missed.push(i);
         if (!shouldBeSelected && isSelected) wrongSelected.push(i);
       }
-      
+
       if (missed.length > 0 || wrongSelected.length > 0) {
         correct = false;
-        if (missed.length > 0 && wrongSelected.length > 0) {
-          err = `${missed.join(', ')}은(는) 포함해야 하고, ${wrongSelected.join(', ')}은(는) 빼야 해요.`;
-        } else if (missed.length > 0) {
-          err = `${missed.join(', ')}도 포함해야 해요.`;
+
+        if (attempts === 0) {
+          let concepts = [];
+          if (condition.isRange) {
+            if (condition.type1 === '초과') concepts.push(`'초과'는 기준 수보다 크다는 뜻으로, 기준 수를 포함하지 않아요.`);
+            else if (condition.type1 === '이상') concepts.push(`'이상'은 기준 수보다 크거나 같다는 뜻으로, 기준 수도 포함해요.`);
+
+            if (condition.type2 === '미만') concepts.push(`'미만'은 기준 수보다 작다는 뜻으로, 기준 수를 포함하지 않아요.`);
+            else if (condition.type2 === '이하') concepts.push(`'이하'는 기준 수보다 작거나 같다는 뜻으로, 기준 수도 포함해요.`);
+          } else {
+            if (condition.type === '초과') concepts.push(`'초과'는 기준 수보다 크다는 뜻으로, 기준 수를 포함하지 않아요.`);
+            else if (condition.type === '미만') concepts.push(`'미만'은 기준 수보다 작다는 뜻으로, 기준 수를 포함하지 않아요.`);
+            else if (condition.type === '이상') concepts.push(`'이상'은 기준 수보다 크거나 같다는 뜻으로, 기준 수도 포함해요.`);
+            else if (condition.type === '이하') concepts.push(`'이하'는 기준 수보다 작거나 같다는 뜻으로, 기준 수도 포함해요.`);
+          }
+          err = `아직 정답이 아니에요! 개념을 다시 한 번 생각해 볼까요?\n\n💡 ${concepts.join('\n💡 ')}`;
         } else {
-          err = `${wrongSelected.join(', ')}은(는) 포함하면 안 돼요.`;
+          if (missed.length > 0 && wrongSelected.length > 0) {
+            err = `${missed.join(', ')}은(는) 포함해야 하고, ${wrongSelected.join(', ')}은(는) 빼야 해요.`;
+          } else if (missed.length > 0) {
+            err = `${missed.join(', ')}도 포함해야 해요.`;
+          } else {
+            err = `${wrongSelected.join(', ')}은(는) 포함하면 안 돼요.`;
+          }
         }
       }
       isSuccess = correct;
@@ -221,9 +239,9 @@ export default function MiningMiniGameUI() {
             const cType = condition.type;
             const uType = selected.type;
             let reason = '';
-            
+
             if ((cType === '초과' && uType === '미만') || (cType === '미만' && uType === '초과') ||
-                (cType === '이상' && uType === '이하') || (cType === '이하' && uType === '이상')) {
+              (cType === '이상' && uType === '이하') || (cType === '이하' && uType === '이상')) {
               reason = '방향을 반대로 생각했어요! ';
               if (cType === '초과' || cType === '이상') reason += '오른쪽(더 큰 수)을 의미합니다.';
               else reason += '왼쪽(더 작은 수)을 의미합니다.';
@@ -239,7 +257,7 @@ export default function MiningMiniGameUI() {
             else if (cType === '미만') detail = `'미만'이란 ${v}보다 작다는 뜻입니다. ${v}은(는) 포함되지 않아요.`;
             else if (cType === '이상') detail = `'이상'이란 ${v}보다 크거나 같다는 뜻입니다. ${v}도 포함해야 해요.`;
             else if (cType === '이하') detail = `'이하'란 ${v}보다 작거나 같다는 뜻입니다. ${v}도 포함해야 해요.`;
-            
+
             err = `틀렸어요! 정답은 '${condition.text}' 입니다.\n${reason}\n💡 ${detail}`;
           } else {
             const c1 = condition.type1;
@@ -247,7 +265,7 @@ export default function MiningMiniGameUI() {
             const u1 = selected.type1;
             const u2 = selected.type2;
             let reason = '';
-            
+
             if (c1 !== u1 && c2 !== u2) {
               reason = '양쪽 경계의 포함 여부를 모두 다르게 생각했어요.';
             } else if (c1 !== u1) {
@@ -263,17 +281,17 @@ export default function MiningMiniGameUI() {
             const exp1 = c1 === '초과' ? `${v1}보다 크고 (${v1} 미포함)` : `${v1}보다 크거나 같고 (${v1} 포함)`;
             const exp2 = c2 === '미만' ? `${v2}보다 작은 (${v2} 미포함)` : `${v2}보다 작거나 같은 (${v2} 포함)`;
             detail = `정답은 ${exp1}, ${exp2} 수를 의미합니다.`;
-            
+
             err = `틀렸어요! 정답은 '${condition.text}' 입니다.\n${reason}\n💡 ${detail}`;
           }
         }
       }
     }
-    
+
     if (selectedOptionIndex === null && condition.gameType !== 'multi-select') {
-       return;
+      return;
     }
-    
+
     window.dispatchEvent(new CustomEvent('mine-jiggle', { detail: { id: assetId, type: assetType } }));
 
     if (isSuccess) {
@@ -306,14 +324,14 @@ export default function MiningMiniGameUI() {
 
   const handleCancel = useCallback(() => {
     if (feedback === 'FAIL' && !canRetry) return; // 4초간 창 닫기 불가
-    
+
     setMineMiniGame(false, null, null);
     const canvas = document.querySelector('canvas');
     if (canvas && typeof canvas.requestPointerLock === 'function') {
       try {
         const p = canvas.requestPointerLock();
-        if (p && typeof p.catch === 'function') p.catch(() => {});
-      } catch (err) {}
+        if (p && typeof p.catch === 'function') p.catch(() => { });
+      } catch (err) { }
     }
   }, [setMineMiniGame]);
 
@@ -324,7 +342,7 @@ export default function MiningMiniGameUI() {
         handleCancel();
         return;
       }
-      
+
       if (feedback === 'FAIL' && canRetry && (e.code === 'Space' || e.key === 'Enter')) {
         e.preventDefault();
         if (attempts >= 2) {
@@ -334,7 +352,7 @@ export default function MiningMiniGameUI() {
         }
         return;
       }
-      
+
       if (feedback !== null) return;
       if (e.code === 'Space') {
         e.preventDefault();
@@ -386,7 +404,7 @@ export default function MiningMiniGameUI() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <h3 style={{ color: '#EF4444', marginBottom: 0, fontSize: '2rem' }}>오답입니다!</h3>
             <p style={{ fontSize: '1.2rem', margin: 0, padding: '12px', background: '#FEF2F2', borderRadius: '8px', color: '#991B1B' }}>
-              {errorMessage.split('\n').map((line, idx) => <span key={idx}>{line}<br/></span>)}
+              {errorMessage.split('\n').map((line, idx) => <span key={idx}>{line}<br /></span>)}
             </p>
 
             {/* 문제 시각화 */}
@@ -471,65 +489,65 @@ export default function MiningMiniGameUI() {
         ) : (
           <>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2>{condition.gameType === 'multi-select' ? '조건에 맞는 숫자 고르기' : '올바른 짝 찾기'}</h2>
-          <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              {[0, 1].map(i => <div key={i} style={{ width: 24, height: 24, borderRadius: '50%', background: i < successCount ? '#10B981' : '#ccc' }} />)}
+              <h2>{condition.gameType === 'multi-select' ? '조건에 맞는 숫자 고르기' : '올바른 짝 찾기'}</h2>
+              <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {[0, 1].map(i => <div key={i} style={{ width: 24, height: 24, borderRadius: '50%', background: i < successCount ? '#10B981' : '#ccc' }} />)}
+                </div>
+                <button onClick={handleCancel} style={{
+                  background: 'transparent', border: 'none', fontSize: '1.5rem', cursor: 'pointer', padding: '0 8px', color: '#666'
+                }}>✕</button>
+              </div>
             </div>
-            <button onClick={handleCancel} style={{
-              background: 'transparent', border: 'none', fontSize: '1.5rem', cursor: 'pointer', padding: '0 8px', color: '#666'
-            }}>✕</button>
-          </div>
-        </div>
 
-        <div style={{ padding: '1rem', background: '#f3f4f6', borderRadius: '12px' }}>
-          {condition.gameType === 'line-to-text' || (condition.gameType === 'multi-select' && condition.isNumberLine) ? (
-            <NumberLine condition={condition} />
-          ) : (
-            <div style={{ textAlign: 'center', fontSize: '1.5rem', fontWeight: 'bold' }}>{condition.text}</div>
-          )}
-        </div>
+            <div style={{ padding: '1rem', background: '#f3f4f6', borderRadius: '12px' }}>
+              {condition.gameType === 'line-to-text' || (condition.gameType === 'multi-select' && condition.isNumberLine) ? (
+                <NumberLine condition={condition} />
+              ) : (
+                <div style={{ textAlign: 'center', fontSize: '1.5rem', fontWeight: 'bold' }}>{condition.text}</div>
+              )}
+            </div>
 
-        {condition.gameType === 'multi-select' && (
-          <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-            {Array.from({ length: 10 }, (_, i) => i + 1).map(num => {
-              const isSelected = selectedNumbers.has(num);
-              return (
-                <div key={num} onMouseDown={() => handleMouseDown(num)} onMouseEnter={() => handleMouseEnter(num)} style={{
-                  width: 40, height: 50, background: isSelected ? '#3B82F6' : '#fff', border: '2px solid #ccc',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', borderRadius: 8, color: isSelected ? '#fff' : '#000'
-                }}>{num}</div>
-              );
-            })}
-          </div>
-        )}
-
-        {condition.gameType === 'text-to-line' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {condition.options.map((opt, idx) => (
-              <div key={idx} onClick={() => feedback === null && setSelectedOptionIndex(idx)} style={{ padding: 10, border: `2px solid ${selectedOptionIndex === idx ? '#3B82F6' : '#ccc'}`, borderRadius: 8, cursor: 'pointer' }}>
-                <NumberLine condition={opt} />
+            {condition.gameType === 'multi-select' && (
+              <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                {Array.from({ length: 10 }, (_, i) => i + 1).map(num => {
+                  const isSelected = selectedNumbers.has(num);
+                  return (
+                    <div key={num} onMouseDown={() => handleMouseDown(num)} onMouseEnter={() => handleMouseEnter(num)} style={{
+                      width: 40, height: 50, background: isSelected ? '#3B82F6' : '#fff', border: '2px solid #ccc',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', borderRadius: 8, color: isSelected ? '#fff' : '#000'
+                    }}>{num}</div>
+                  );
+                })}
               </div>
-            ))}
-          </div>
-        )}
+            )}
 
-        {condition.gameType === 'line-to-text' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-            {condition.options.map((opt, idx) => (
-              <div key={idx} onClick={() => feedback === null && setSelectedOptionIndex(idx)} style={{ padding: 20, border: `2px solid ${selectedOptionIndex === idx ? '#3B82F6' : '#ccc'}`, borderRadius: 8, cursor: 'pointer', textAlign: 'center' }}>
-                {opt.text}
+            {condition.gameType === 'text-to-line' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {condition.options.map((opt, idx) => (
+                  <div key={idx} onClick={() => feedback === null && setSelectedOptionIndex(idx)} style={{ padding: 10, border: `2px solid ${selectedOptionIndex === idx ? '#3B82F6' : '#ccc'}`, borderRadius: 8, cursor: 'pointer' }}>
+                    <NumberLine condition={opt} />
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        )}
+            )}
 
-        <button onClick={handleSubmit} style={{ padding: '15px', fontSize: '1.2rem', background: '#10B981', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer' }}>제출</button>
-      </>
-    )}
-  </div>
-</div>
-);
+            {condition.gameType === 'line-to-text' && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                {condition.options.map((opt, idx) => (
+                  <div key={idx} onClick={() => feedback === null && setSelectedOptionIndex(idx)} style={{ padding: 20, border: `2px solid ${selectedOptionIndex === idx ? '#3B82F6' : '#ccc'}`, borderRadius: 8, cursor: 'pointer', textAlign: 'center' }}>
+                    {opt.text}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <button onClick={handleSubmit} style={{ padding: '15px', fontSize: '1.2rem', background: '#10B981', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer' }}>제출</button>
+          </>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function NumberLine({ condition }) {
@@ -539,7 +557,7 @@ function NumberLine({ condition }) {
       <div style={{ position: 'relative', width: '100%', height: '40px' }}>
         {/* Main Line */}
         <div style={{ position: 'absolute', top: '20px', left: 0, right: 0, height: '4px', background: '#9CA3AF', borderRadius: '2px' }} />
-        
+
         {/* Range Highlight */}
         {condition.isRange ? (
           <div style={{
@@ -609,9 +627,9 @@ function NumberLine({ condition }) {
                   marginTop: '8px'
                 }} />
               )}
-              <span style={{ 
-                marginTop: '12px', 
-                fontSize: '1.1rem', 
+              <span style={{
+                marginTop: '12px',
+                fontSize: '1.1rem',
                 fontWeight: isBoundary ? 'bold' : 'normal',
                 color: isBoundary ? '#1F2937' : '#6B7280'
               }}>{num}</span>

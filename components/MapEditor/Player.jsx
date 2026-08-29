@@ -196,13 +196,18 @@ export default function Player() {
     return h0 * (1 - tz) + h1 * tz;
   };
 
-  const hasSpawned = useRef(false);
   const cameraOverride = useRef({
     active: false,
-    state: 'none', // 'traveling_to', 'waiting', 'traveling_back'
+    state: 'none', // 'switch_to_1st_person', 'walking_to', 'waiting', 'walking_back', 'switch_to_3rd_person'
     startTime: 0,
+    phaseStartTime: 0,
     returnStartTime: 0,
-    targetPos: new THREE.Vector3()
+    targetPos: new THREE.Vector3(),
+    startPos: new THREE.Vector3(),
+    startYaw: 0,
+    targetYaw: 0,
+    messageData: null,
+    overrideAction: null
   });
   
   useEffect(() => {
@@ -256,7 +261,7 @@ export default function Player() {
   useEffect(() => {
     const handleClose = () => {
       if (cameraOverride.current.active && cameraOverride.current.state === 'waiting') {
-        cameraOverride.current.state = 'traveling_back';
+        cameraOverride.current.state = 'walking_back';
         cameraOverride.current.returnStartTime = performance.now();
       }
     };
@@ -306,8 +311,8 @@ export default function Player() {
     const currentTerrainHeight = getTerrainHeight(group.current.position.x, group.current.position.z);
     
     // Apply movement with slope restriction on XZ
-    const nextX = group.current.position.x + currentVelocity.current.x * delta;
-    const nextZ = group.current.position.z + currentVelocity.current.z * delta;
+    let nextX = group.current.position.x + currentVelocity.current.x * delta;
+    let nextZ = group.current.position.z + currentVelocity.current.z * delta;
     
     const dist = Math.sqrt((nextX - group.current.position.x)**2 + (nextZ - group.current.position.z)**2);
     let canMoveXZ = true;
@@ -345,7 +350,7 @@ export default function Player() {
       caveman4: 0.05
     };
 
-    if (canMoveXZ) {
+    if (canMoveXZ && !cameraOverride.current.active) {
       for (const asset of assets) {
         if (asset.minedAt) continue;
 
@@ -376,7 +381,7 @@ export default function Player() {
     }
     
     // Boundary Collision Check
-    if (canMoveXZ) {
+    if (canMoveXZ && !cameraOverride.current.active) {
       const p1 = { x: group.current.position.x, z: group.current.position.z };
       const p2 = { x: nextX, z: nextZ };
       const { boundaries } = useMapStore.getState();
@@ -421,9 +426,18 @@ export default function Player() {
                     const targetAsset = useMapStore.getState().assets.find(a => a.id === targetAssetId);
                     if (targetAsset) {
                       cameraOverride.current.active = true;
-                      cameraOverride.current.state = 'rotating_to';
+                      cameraOverride.current.state = 'switch_to_1st_person';
                       cameraOverride.current.startTime = now;
                       cameraOverride.current.targetPos.set(targetAsset.position[0], targetAsset.position[1], targetAsset.position[2]);
+                      cameraOverride.current.startPos.copy(group.current.position);
+                      cameraOverride.current.startYaw = yaw.current;
+                      cameraOverride.current.targetYaw = Math.atan2(targetAsset.position[0] - group.current.position.x, targetAsset.position[2] - group.current.position.z);
+                      
+                      let dyaw = cameraOverride.current.targetYaw - cameraOverride.current.startYaw;
+                      while (dyaw > Math.PI) dyaw -= 2 * Math.PI;
+                      while (dyaw < -Math.PI) dyaw += 2 * Math.PI;
+                      cameraOverride.current.targetYaw = cameraOverride.current.startYaw + dyaw;
+                      
                       cameraOverride.current.messageData = { message, additionalMessage, boundaryId: b.id };
                     } else {
                       window.dispatchEvent(new CustomEvent('boundary-collide', { detail: { message, additionalMessage, boundaryId: b.id } }));
@@ -440,17 +454,9 @@ export default function Player() {
       }
     }
 
-    if (canMoveXZ) {
+    if (canMoveXZ && !cameraOverride.current.active) {
       group.current.position.x = nextX;
       group.current.position.z = nextZ;
-    }
-
-    // Clamp to map boundary circle (radius 25)
-    const distFromCenter = Math.sqrt(group.current.position.x ** 2 + group.current.position.z ** 2);
-    if (distFromCenter > 24) {
-      const angle = Math.atan2(group.current.position.x, group.current.position.z);
-      group.current.position.x = Math.sin(angle) * 24;
-      group.current.position.z = Math.cos(angle) * 24;
     }
 
     // Air Physics
@@ -504,11 +510,103 @@ export default function Player() {
 
     const offset = new THREE.Vector3(0, 0.1, -1.0); // 캐릭터의 뒷모습 전체가 보이도록 줌 아웃
     const euler = new THREE.Euler(pitch.current, yaw.current, 0, 'YXZ');
-    offset.applyEuler(euler);
+    
+    let alphaOffset = 0;
+    cameraOverride.current.overrideAction = null;
+
+    if (cameraOverride.current.active) {
+      const now = performance.now();
+      const tAsset = cameraOverride.current.targetPos;
+      
+      if (cameraOverride.current.state === 'switch_to_1st_person') {
+        const elapsed = now - cameraOverride.current.startTime;
+        alphaOffset = elapsed / 800; // 0.8s
+        if (alphaOffset >= 1) {
+          alphaOffset = 1;
+          cameraOverride.current.state = 'walking_to';
+          cameraOverride.current.phaseStartTime = now;
+        }
+        yaw.current = THREE.MathUtils.lerp(cameraOverride.current.startYaw, cameraOverride.current.targetYaw, alphaOffset);
+      } else if (cameraOverride.current.state === 'walking_to') {
+        alphaOffset = 1;
+        const elapsed = now - cameraOverride.current.phaseStartTime;
+        const alphaMove = elapsed / 1500; // 1.5s walk
+        
+        cameraOverride.current.overrideAction = walkActionName;
+        
+        // Calculate destination in front of asset
+        const dirToAsset = new THREE.Vector3(tAsset.x - cameraOverride.current.startPos.x, 0, tAsset.z - cameraOverride.current.startPos.z).normalize();
+        const destPos = tAsset.clone().sub(dirToAsset.multiplyScalar(2.0)); // 2 units in front
+        
+        if (alphaMove >= 1) {
+          group.current.position.x = destPos.x;
+          group.current.position.z = destPos.z;
+          cameraOverride.current.state = 'waiting';
+          
+          const md = cameraOverride.current.messageData;
+          window.dispatchEvent(new CustomEvent('boundary-collide', { detail: { 
+            message: md.message, 
+            additionalMessage: md.additionalMessage, 
+            boundaryId: md.boundaryId,
+            targetAssetId: 'exists'
+          }}));
+        } else {
+          group.current.position.x = THREE.MathUtils.lerp(cameraOverride.current.startPos.x, destPos.x, alphaMove);
+          group.current.position.z = THREE.MathUtils.lerp(cameraOverride.current.startPos.z, destPos.z, alphaMove);
+        }
+      } else if (cameraOverride.current.state === 'waiting') {
+        alphaOffset = 1;
+      } else if (cameraOverride.current.state === 'walking_back') {
+        alphaOffset = 1;
+        const elapsed = now - cameraOverride.current.returnStartTime;
+        const alphaMove = elapsed / 1500; // 1.5s walk back
+        
+        cameraOverride.current.overrideAction = walkActionName; // Walk backwards, keep animation walk
+        
+        const dirToAsset = new THREE.Vector3(tAsset.x - cameraOverride.current.startPos.x, 0, tAsset.z - cameraOverride.current.startPos.z).normalize();
+        const destPos = tAsset.clone().sub(dirToAsset.multiplyScalar(2.0));
+        
+        if (alphaMove >= 1) {
+          group.current.position.x = cameraOverride.current.startPos.x;
+          group.current.position.z = cameraOverride.current.startPos.z;
+          cameraOverride.current.state = 'switch_to_3rd_person';
+          cameraOverride.current.phaseStartTime = now;
+        } else {
+          group.current.position.x = THREE.MathUtils.lerp(destPos.x, cameraOverride.current.startPos.x, alphaMove);
+          group.current.position.z = THREE.MathUtils.lerp(destPos.z, cameraOverride.current.startPos.z, alphaMove);
+        }
+      } else if (cameraOverride.current.state === 'switch_to_3rd_person') {
+        const elapsed = now - cameraOverride.current.phaseStartTime;
+        alphaOffset = 1 - (elapsed / 800);
+        if (alphaOffset <= 0) {
+          alphaOffset = 0;
+          cameraOverride.current.active = false;
+          cameraOverride.current.state = 'none';
+        }
+      }
+
+      // Smooth step for alphaOffset
+      alphaOffset = alphaOffset * alphaOffset * (3 - 2 * alphaOffset);
+    }
+    
+    // Clamp to map boundary circle (radius 25)
+    const distFromCenter = Math.sqrt(group.current.position.x ** 2 + group.current.position.z ** 2);
+    if (distFromCenter > 24) {
+      const angle = Math.atan2(group.current.position.x, group.current.position.z);
+      group.current.position.x = Math.sin(angle) * 24;
+      group.current.position.z = Math.cos(angle) * 24;
+    }
+
+    const offset3rd = new THREE.Vector3(0, 0.1, -1.0);
+    const offset1st = new THREE.Vector3(0, 0.35, 0.15); // near head
+    
+    const currentOffset = new THREE.Vector3();
+    currentOffset.lerpVectors(offset3rd, offset1st, alphaOffset);
+    currentOffset.applyEuler(euler);
     
     // 타겟을 부드럽게 쫓아가는 캐릭터 위치로 설정
     const targetLookAt = smoothedPlayerPos.current.clone().add(new THREE.Vector3(0, 0.4, 0)); 
-    const idealCameraPos = targetLookAt.clone().add(offset);
+    const idealCameraPos = targetLookAt.clone().add(currentOffset);
     
     // Prevent camera from clipping through the terrain
     const camGroundHeight = getTerrainHeight(idealCameraPos.x, idealCameraPos.z);
@@ -519,106 +617,17 @@ export default function Player() {
     let finalIdealCameraPos = idealCameraPos.clone();
     let finalTargetLookAt = targetLookAt.clone();
 
-    if (cameraOverride.current.active) {
-      const now = performance.now();
-      const tAsset = cameraOverride.current.targetPos;
-      const EYE_LEVEL = 0.2; // Player capsule height is ~0.27
+    if (alphaOffset > 0) {
+      // 1인칭일 때는 캐릭터를 바라보지 않고 앞을 바라봄
+      const forward = new THREE.Vector3(0, 0, 1).applyEuler(euler);
+      const lookFront = idealCameraPos.clone().add(forward);
+      finalTargetLookAt.lerpVectors(targetLookAt, lookFront, alphaOffset);
       
-      // Calculate destination in front of asset
-      const dirToPlayer = group.current.position.clone().sub(tAsset);
-      dirToPlayer.y = 0;
-      if (dirToPlayer.lengthSq() < 0.1) dirToPlayer.set(0, 0, 1);
-      dirToPlayer.normalize();
-      
-      const endCamPos = tAsset.clone().add(dirToPlayer.multiplyScalar(2.0));
-      const endTerrainY = getTerrainHeight(endCamPos.x, endCamPos.z);
-      endCamPos.y = endTerrainY + EYE_LEVEL;
-      
-      let alphaPos = 0;
-      let alphaRot = 0;
-
-      if (cameraOverride.current.state === 'rotating_to') {
-        const elapsed = now - cameraOverride.current.startTime;
-        alphaRot = elapsed / 1000;
-        alphaPos = 0;
-        if (alphaRot >= 1) {
-          alphaRot = 1;
-          cameraOverride.current.state = 'traveling_to';
-          cameraOverride.current.phaseStartTime = now;
-        }
-      } else if (cameraOverride.current.state === 'traveling_to') {
-        const elapsed = now - cameraOverride.current.phaseStartTime;
-        alphaRot = 1;
-        alphaPos = elapsed / 1500;
-        if (alphaPos >= 1) {
-          alphaPos = 1;
-          cameraOverride.current.state = 'waiting';
-          
-          const md = cameraOverride.current.messageData;
-          window.dispatchEvent(new CustomEvent('boundary-collide', { detail: { 
-            message: md.message, 
-            additionalMessage: md.additionalMessage, 
-            boundaryId: md.boundaryId,
-            targetAssetId: 'exists'
-          }}));
-        }
-      } else if (cameraOverride.current.state === 'waiting') {
-        alphaRot = 1;
-        alphaPos = 1;
-      } else if (cameraOverride.current.state === 'traveling_back') {
-        const elapsed = now - cameraOverride.current.returnStartTime;
-        const p = elapsed / 1200; // 1.2s to travel back
-        alphaRot = 1 - p;
-        alphaPos = 1 - p;
-        if (p >= 1) {
-          alphaRot = 0;
-          alphaPos = 0;
-          cameraOverride.current.active = false;
-          cameraOverride.current.state = 'none';
-          
-          // Turn character to face the target asset
-          const dx = tAsset.x - group.current.position.x;
-          const dz = tAsset.z - group.current.position.z;
-          yaw.current = Math.atan2(dx, dz);
-        }
-      }
-
-      if (cameraOverride.current.active) {
-        alphaPos = alphaPos * alphaPos * (3 - 2 * alphaPos);
-        alphaRot = alphaRot * alphaRot * (3 - 2 * alphaRot);
-
-        // Interpolate XZ
-        finalIdealCameraPos.x = THREE.MathUtils.lerp(idealCameraPos.x, endCamPos.x, alphaPos);
-        finalIdealCameraPos.z = THREE.MathUtils.lerp(idealCameraPos.z, endCamPos.z, alphaPos);
-        
-        // Interpolate Y from 3rd person to destination eye level
-        const interpolatedY = THREE.MathUtils.lerp(idealCameraPos.y, endCamPos.y, alphaPos);
-        
-        // Ensure camera follows terrain if terrain + EYE_LEVEL is higher
-        const pathTerrainY = getTerrainHeight(finalIdealCameraPos.x, finalIdealCameraPos.z);
-        finalIdealCameraPos.y = Math.max(interpolatedY, pathTerrainY + EYE_LEVEL);
-        
-        // Setup start camera orientation
-        const dummyCam = new THREE.Object3D();
-        dummyCam.position.copy(finalIdealCameraPos);
-        dummyCam.lookAt(targetLookAt);
-        const startQuat = dummyCam.quaternion.clone();
-
-        // Setup end camera orientation
-        const lookAtAsset = tAsset.clone();
-        lookAtAsset.y = finalIdealCameraPos.y; // perfectly horizontal
-        dummyCam.lookAt(lookAtAsset);
-        const endQuat = dummyCam.quaternion.clone();
-
-        // Spherical linear interpolation of rotation
-        startQuat.slerp(endQuat, alphaRot);
-
-        // Calculate a new lookAt target exactly 1 unit in front of the camera
-        const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(startQuat);
-        finalTargetLookAt.copy(finalIdealCameraPos).add(forward);
-      }
+      // 만약 1인칭 진행 중이라면 강제로 위치를 smoothed가 아닌 실시간으로 잡아야 떨림 최소화 가능
+      finalIdealCameraPos = group.current.position.clone().add(new THREE.Vector3(0, 0.4, 0)).add(currentOffset);
+      finalTargetLookAt = finalIdealCameraPos.clone().add(forward);
     }
-    
+
     // Snap camera position to the smoothed target position
     camera.position.copy(finalIdealCameraPos);
     camera.lookAt(finalTargetLookAt);
@@ -629,10 +638,15 @@ export default function Player() {
       const isRunning = isMoving && keys.shift;
 
       let targetAction = null;
-      if (isRunning && runActionName) {
-        targetAction = runActionName;
-      } else if (isMoving && walkActionName) {
-        targetAction = walkActionName;
+      
+      if (cameraOverride.current.active && cameraOverride.current.overrideAction) {
+        targetAction = cameraOverride.current.overrideAction;
+      } else {
+        if (isRunning && runActionName) {
+          targetAction = runActionName;
+        } else if (isMoving && walkActionName) {
+          targetAction = walkActionName;
+        }
       }
 
       if (currentAction.current !== targetAction) {
@@ -640,9 +654,21 @@ export default function Player() {
           actions[currentAction.current].fadeOut(0.2);
         }
         if (targetAction && actions[targetAction]) {
+          // 뒤로 걸을 때 재생 속도를 -1로 설정하여 애니메이션 역재생 처리
+          if (cameraOverride.current.state === 'walking_back') {
+            actions[targetAction].setEffectiveTimeScale(-1);
+          } else {
+            actions[targetAction].setEffectiveTimeScale(1);
+          }
           actions[targetAction].reset().fadeIn(0.2).play();
         }
         currentAction.current = targetAction;
+      } else if (targetAction && actions[targetAction]) {
+         if (cameraOverride.current.state === 'walking_back') {
+            actions[targetAction].setEffectiveTimeScale(-1);
+         } else {
+            actions[targetAction].setEffectiveTimeScale(1);
+         }
       }
     }
   });

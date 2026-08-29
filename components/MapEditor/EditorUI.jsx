@@ -22,6 +22,9 @@ const ASSETS = [
   { id: 'caveman2', name: '원시인 2 (NPC)' },
   { id: 'caveman3', name: '원시인 3 (NPC)' },
   { id: 'caveman4', name: '원시인 4 (NPC)' },
+  { id: 'timemachin', name: '타임머신' },
+  { id: 'arch', name: '아치 바위' },
+  { id: 'tunnel', name: '터널 (동굴)' },
 ];
 
 export default function EditorUI({ onSave, isSaving }) {

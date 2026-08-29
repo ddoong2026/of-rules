@@ -63,6 +63,50 @@ function Cave() {
   );
 }
 
+function ArchAsset() {
+  return (
+    <group position={[0, 0, 0]}>
+      <mesh position={[-1.5, 1.5, 0]}>
+        <boxGeometry args={[0.8, 3, 1]} />
+        <meshStandardMaterial color="#696969" roughness={0.8} />
+      </mesh>
+      <mesh position={[1.5, 1.5, 0]}>
+        <boxGeometry args={[0.8, 3, 1]} />
+        <meshStandardMaterial color="#696969" roughness={0.8} />
+      </mesh>
+      <mesh position={[0, 3.4, 0]}>
+        <boxGeometry args={[3.8, 0.8, 1]} />
+        <meshStandardMaterial color="#696969" roughness={0.8} />
+      </mesh>
+    </group>
+  );
+}
+
+function TunnelAsset() {
+  return (
+    <group position={[0, 0, 0]}>
+      <mesh position={[-2, 2, 0]}>
+        <boxGeometry args={[1, 4, 6]} />
+        <meshStandardMaterial color="#555555" roughness={0.9} />
+      </mesh>
+      <mesh position={[2, 2, 0]}>
+        <boxGeometry args={[1, 4, 6]} />
+        <meshStandardMaterial color="#555555" roughness={0.9} />
+      </mesh>
+      <mesh position={[0, 4.5, 0]}>
+        <boxGeometry args={[5, 1, 6]} />
+        <meshStandardMaterial color="#555555" roughness={0.9} />
+      </mesh>
+    </group>
+  );
+}
+
+function TimeMachineAsset() {
+  const { scene } = useGLTF('/models/timemachin.glb');
+  const clone = useMemo(() => scene.clone(), [scene]);
+  return <primitive object={clone} scale={1} />;
+}
+
 function Lake({ isPlaying }) {
   const fishGroupRef = useRef();
   
@@ -523,7 +567,10 @@ export default function AssetManager() {
       case 'rock': return <Rock />;
       case 'house': return <House />;
       case 'cave': return <Cave />;
+      case 'arch': return <ArchAsset />;
+      case 'tunnel': return <TunnelAsset />;
       case 'lake': return <Lake isPlaying={isPlaying} />;
+      case 'timemachin': return <TimeMachineAsset />;
       default: return null;
     }
   };
@@ -556,3 +603,4 @@ useGLTF.preload('/models/caveman1.glb');
 useGLTF.preload('/models/caveman2.glb');
 useGLTF.preload('/models/caveman3.glb');
 useGLTF.preload('/models/caveman4.glb');
+useGLTF.preload('/models/timemachin.glb');

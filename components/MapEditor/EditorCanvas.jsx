@@ -56,8 +56,8 @@ export default function EditorCanvas() {
           makeDefault 
           enabled={!isPlaying && isCameraMode}
           maxPolarAngle={Math.PI / 2 - 0.05} // don't go below ground
-          minDistance={5}
-          maxDistance={100}
+          minDistance={1}
+          maxDistance={200}
         />
       </Canvas>
 

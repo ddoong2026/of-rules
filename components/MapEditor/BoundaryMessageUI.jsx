@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 
 export default function BoundaryMessageUI() {
   const [message, setMessage] = useState('');
+  const [additionalMessage, setAdditionalMessage] = useState('');
   const [hasTarget, setHasTarget] = useState(false);
 
   useEffect(() => {

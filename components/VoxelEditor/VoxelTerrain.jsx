@@ -1,18 +1,15 @@
 'use client';
 
-import { useRef, useMemo, useState } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useMemo, useState } from 'react';
 import * as THREE from 'three';
+import { MarchingCubes, MarchingCube } from '@react-three/drei';
 import useVoxelStore from '@/store/useVoxelStore';
-
-const tempObject = new THREE.Object3D();
-const tempColor = new THREE.Color();
 
 export default function VoxelTerrain() {
   const { blocks, mode, selectedColor, isCameraMode, saveHistory, addBlock, removeBlock, paintBlock } = useVoxelStore();
-  const meshRef = useRef();
+  const [hoverPos, setHoverPos] = useState(null);
 
-  // Convert blocks Map to an array for easier mapping/updating InstancedMesh
+  // Convert blocks Map to an array
   const blocksArray = useMemo(() => {
     const arr = [];
     blocks.forEach((data, key) => {
@@ -22,60 +19,48 @@ export default function VoxelTerrain() {
     return arr;
   }, [blocks]);
 
-  // Update instanced mesh matrices and colors
-  useFrame(() => {
-    if (!meshRef.current) return;
-    
-    blocksArray.forEach((block, i) => {
-      tempObject.position.set(block.x, block.y, block.z);
-      tempObject.updateMatrix();
-      meshRef.current.setMatrixAt(i, tempObject.matrix);
-      
-      tempColor.set(block.color);
-      meshRef.current.setColorAt(i, tempColor);
-    });
-    
-    meshRef.current.instanceMatrix.needsUpdate = true;
-    if (meshRef.current.instanceColor) meshRef.current.instanceColor.needsUpdate = true;
-  });
-
-  // Hover state for ghost block
-  const [hoverPos, setHoverPos] = useState(null);
-
-  const handlePointerMove = (e) => {
+  const handlePlanePointerMove = (e) => {
     if (isCameraMode) {
       setHoverPos(null);
       return;
     }
-    
     e.stopPropagation();
     
-    // Calculate the position for the ghost block
-    if (e.object.uuid === meshRef.current?.uuid) {
-      // Hovering over an existing block
-      const instanceId = e.instanceId;
-      if (instanceId !== undefined && blocksArray[instanceId]) {
-        const block = blocksArray[instanceId];
-        
-        if (mode === 'build') {
-          // Normal indicates which face was intersected
-          const normal = e.face.normal;
-          setHoverPos([block.x + normal.x, block.y + normal.y, block.z + normal.z]);
-        } else if (mode === 'dig' || mode === 'paint') {
-          // Highlight the block itself
-          setHoverPos([block.x, block.y, block.z]);
-        }
-      }
+    const p = e.point;
+    const x = Math.round(p.x);
+    const z = Math.round(p.z);
+    
+    if (mode === 'build') {
+      setHoverPos([x, 0, z]);
     } else {
-      // Hovering over the invisible base plane
-      const p = e.point;
-      const x = Math.round(p.x);
-      const z = Math.round(p.z);
-      if (mode === 'build') {
-        setHoverPos([x, 0, z]);
-      } else {
-        setHoverPos(null);
-      }
+      setHoverPos(null);
+    }
+  };
+
+  const handleCubesPointerMove = (e) => {
+    if (isCameraMode) {
+      setHoverPos(null);
+      return;
+    }
+    e.stopPropagation();
+
+    const p = e.point;
+    // For MarchingCubes surface, e.face may not have normal properly oriented outward, 
+    // but typically it does. We use it to step inside or outside.
+    const n = e.face?.normal || new THREE.Vector3(0, 1, 0);
+    // Convert normal to world space if needed, but mesh is unrotated so it's fine.
+
+    if (mode === 'build') {
+      const bx = Math.round(p.x + n.x * 0.5);
+      const by = Math.round(p.y + n.y * 0.5);
+      const bz = Math.round(p.z + n.z * 0.5);
+      setHoverPos([bx, Math.max(0, by), bz]);
+    } else {
+      // dig or paint -> inside the volume
+      const bx = Math.round(p.x - n.x * 0.5);
+      const by = Math.round(p.y - n.y * 0.5);
+      const bz = Math.round(p.z - n.z * 0.5);
+      setHoverPos([bx, Math.max(0, by), bz]);
     }
   };
 
@@ -88,7 +73,6 @@ export default function VoxelTerrain() {
     e.stopPropagation();
     
     const isRightClick = e.button === 2;
-    // Determine effective mode based on right click inversion
     let effectiveMode = mode;
     if (isRightClick) {
       if (mode === 'build') effectiveMode = 'dig';
@@ -102,7 +86,7 @@ export default function VoxelTerrain() {
       addBlock(x, y, z, selectedColor);
     } else if (effectiveMode === 'dig') {
       removeBlock(x, y, z);
-      setHoverPos(null); // Reset hover after dig to avoid ghosting deleted block
+      setHoverPos(null);
     } else if (effectiveMode === 'paint') {
       paintBlock(x, y, z, selectedColor);
     }
@@ -110,11 +94,11 @@ export default function VoxelTerrain() {
 
   return (
     <group>
-      {/* Invisible Base Plane for starting building */}
+      {/* Invisible Base Plane */}
       <mesh 
         rotation={[-Math.PI / 2, 0, 0]} 
         position={[0, -0.5, 0]} 
-        onPointerMove={handlePointerMove}
+        onPointerMove={handlePlanePointerMove}
         onPointerOut={handlePointerOut}
         onPointerDown={handlePointerDown}
         visible={false}
@@ -123,26 +107,40 @@ export default function VoxelTerrain() {
         <meshBasicMaterial />
       </mesh>
 
-      {/* Instanced Mesh for rendering all blocks */}
+      {/* Marching Cubes rendering */}
       {blocksArray.length > 0 && (
-        <instancedMesh
-          ref={meshRef}
-          args={[null, null, blocksArray.length]}
-          onPointerMove={handlePointerMove}
-          onPointerOut={handlePointerOut}
-          onPointerDown={handlePointerDown}
-          castShadow
-          receiveShadow
-        >
-          <boxGeometry args={[1, 1, 1]} />
-          <meshStandardMaterial roughness={0.8} />
-        </instancedMesh>
+        <group onPointerMove={handleCubesPointerMove} onPointerOut={handlePointerOut} onPointerDown={handlePointerDown}>
+          <MarchingCubes
+            resolution={60}
+            maxPolyCount={100000}
+            enableUvs={false}
+            enableColors={true}
+            scale={[25, 25, 25]}
+            position={[25, 25, 25]}
+          >
+            <meshStandardMaterial vertexColors roughness={0.8} />
+            {blocksArray.map((block) => {
+              const localX = (block.x / 25) - 1;
+              const localY = (block.y / 25) - 1;
+              const localZ = (block.z / 25) - 1;
+              return (
+                <MarchingCube
+                  key={block.key}
+                  position={[localX, localY, localZ]}
+                  strength={0.5}
+                  subtract={12}
+                  color={block.color}
+                />
+              );
+            })}
+          </MarchingCubes>
+        </group>
       )}
 
       {/* Ghost Block / Cursor */}
       {hoverPos && !isCameraMode && (
         <mesh position={hoverPos} pointerEvents="none">
-          <boxGeometry args={[1.02, 1.02, 1.02]} /> {/* Slightly larger to avoid Z-fighting */}
+          <boxGeometry args={[1.02, 1.02, 1.02]} />
           <meshBasicMaterial 
             color={mode === 'dig' ? '#ef4444' : (mode === 'paint' ? selectedColor : '#ffffff')} 
             transparent 

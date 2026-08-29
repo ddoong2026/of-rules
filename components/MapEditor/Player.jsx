@@ -213,8 +213,13 @@ export default function Player() {
       let found = false;
 
       if (spawnPoint) {
-        spawnX = spawnPoint.x;
-        spawnZ = spawnPoint.z;
+        if (Array.isArray(spawnPoint)) {
+          spawnX = spawnPoint[0] || 0;
+          spawnZ = spawnPoint[2] || 0;
+        } else {
+          spawnX = spawnPoint.x || 0;
+          spawnZ = spawnPoint.z || 0;
+        }
         found = true;
       } else {
         // Spiral search outwards from center to find a dry spot

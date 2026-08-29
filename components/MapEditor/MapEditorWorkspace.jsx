@@ -100,7 +100,7 @@ export default function MapEditorWorkspace() {
       assets: assets,
       decals: decals,
       boundaries: boundaries || [],
-      spawnPoint: spawnPoint || [0, 0, 0],
+      spawnPoint: spawnPoint || null,
       updated_at: new Date().toISOString()
     };
 

@@ -206,33 +206,13 @@ function NPC({ asset, isPlaying, roaming, mode, onSelect }) {
   };
   const displayName = asset.npcName || defaultNames[asset.type] || 'NPC';
 
-  const bubbleRef = useRef(null);
-  const nameRef = useRef(null);
-
-  useFrame(({ camera }) => {
-    if (!npcGroupRef.current) return;
-    
-    // Calculate distance to camera for scaling
-    const dist = camera.position.distanceTo(npcGroupRef.current.position);
-    // Adjust scale based on distance (closer = bigger, farther = smaller)
-    // Camera is usually around distance 5-6 from the player.
-    const scale = Math.max(0.2, Math.min(1.2, 5 / dist));
-
-    if (bubbleRef.current) {
-      bubbleRef.current.style.transform = `scale(${scale})`;
-    }
-    if (nameRef.current) {
-      nameRef.current.style.transform = `scale(${scale})`;
-    }
-  });
-
   return (
     <group position={[0, 0, 0]} ref={npcGroupRef}>
       <primitive object={clone} scale={0.2} />
       
       {isPlaying && showBubble && isNear && currentBubbleText && (
-        <Html position={[0, 0.45, 0]} center sprite zIndexRange={[100, 0]}>
-          <div ref={bubbleRef} style={{
+        <Html position={[0, 0.75, 0]} center sprite zIndexRange={[100, 0]} distanceFactor={4}>
+          <div style={{
             background: 'white',
             padding: '8px 16px',
             borderRadius: '24px',
@@ -242,18 +222,15 @@ function NPC({ asset, isPlaying, roaming, mode, onSelect }) {
             whiteSpace: 'nowrap',
             pointerEvents: 'none',
             boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-            color: '#111827',
-            transformOrigin: 'bottom center',
-            transition: 'transform 0.1s ease-out'
+            color: '#111827'
           }}>
             💬 {currentBubbleText.substring(0, 20)}{currentBubbleText.length > 20 ? '...' : ''}
           </div>
         </Html>
       )}
       {!isPlaying && (
-        <Html position={[0, 0.45, 0]} center sprite zIndexRange={[100, 0]}>
+        <Html position={[0, 0.75, 0]} center sprite zIndexRange={[100, 0]} distanceFactor={4}>
           <div 
-            ref={nameRef}
             onClick={(e) => {
               if (onSelect && (mode === 'select' || mode === 'erase')) {
                 e.stopPropagation();
@@ -264,9 +241,7 @@ function NPC({ asset, isPlaying, roaming, mode, onSelect }) {
               background: 'rgba(0,0,0,0.75)', color: 'white', padding: '2px 6px', 
               borderRadius: '4px', fontSize: '0.7rem', fontWeight: 'bold',
               whiteSpace: 'nowrap', pointerEvents: 'auto', cursor: (mode === 'select' || mode === 'erase') ? 'pointer' : 'default', border: '1px solid rgba(255,255,255,0.4)',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.4)',
-              transformOrigin: 'bottom center',
-              transition: 'transform 0.1s ease-out'
+              boxShadow: '0 2px 4px rgba(0,0,0,0.4)'
             }}>
             👤 {displayName}
           </div>

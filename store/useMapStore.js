@@ -5,7 +5,7 @@ export const VERTEX_COUNT = (GRID_SIZE + 1) * (GRID_SIZE + 1);
 
 const useMapStore = create((set, get) => ({
   // Editor State
-  mode: 'none', // sculpt, paint, water, asset, decal, erase, select, none
+  mode: 'none', // sculpt, paint, water, asset, decal, erase, select, carve, none
   brushSize: 2,
   brushIntensity: 1, // height change amount or paint opacity
   selectedColor: '#3d8c40', // default grass color
@@ -27,6 +27,7 @@ const useMapStore = create((set, get) => ({
   colors: new Float32Array(VERTEX_COUNT * 3).fill(1), // initialized to white or grass
   assets: [], // { id, type, position: [x,y,z] }
   decals: [], // { id, url, position: [x,y,z], scale: [x,y,z] }
+  csgOperations: [], // { id, type: 'subtract', position: [x,y,z], radius: r }
   boundaries: [], // { id, start: [x,z], end: [x,z], condition: { type: 'item_count', itemType: 'rock', amount: 5 } }
   boundaryDrawing: null, // { start: [x,z], current: [x,z] }
   spawnPoint: null, // { x, z }
@@ -96,6 +97,7 @@ const useMapStore = create((set, get) => ({
       colors,
       assets: mapData.assets || [],
       decals: mapData.decals || [],
+      csgOperations: mapData.csgOperations || [],
       boundaries: mapData.boundaries || [],
       spawnPoint: mapData.spawnPoint || null,
       history: [], // Reset history on load
@@ -114,6 +116,7 @@ const useMapStore = create((set, get) => ({
       colors,
       assets: [],
       decals: [],
+      csgOperations: [],
       boundaries: [],
       spawnPoint: null,
       history: [], // Reset history on new map
@@ -141,7 +144,10 @@ const useMapStore = create((set, get) => ({
   
   addWaterSource: (x, z) => set((state) => ({
     waterSources: [...state.waterSources, { x, z, amount: 10 }]
-  }))
+  })),
+  
+  addCsgOperation: (op) => set((state) => ({ csgOperations: [...state.csgOperations, op] })),
+  removeCsgOperation: (id) => set((state) => ({ csgOperations: state.csgOperations.filter(op => op.id !== id) })),
 }));
 
 export default useMapStore;

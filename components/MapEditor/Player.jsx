@@ -164,7 +164,9 @@ export default function Player() {
   const walkActionName = actionNames.find(n => n.toLowerCase().includes('walk'));
   const runActionName = actionNames.find(n => n.toLowerCase().includes('run')) || walkActionName;
 
-  // Get terrain height at (x, z)
+  const physicsRaycaster = useMemo(() => new THREE.Raycaster(), []);
+
+  // Get mathematical terrain height at (x, z)
   const getTerrainHeight = (x, z) => {
     const halfSize = 25;
     const segSize = 50 / GRID_SIZE;
@@ -194,6 +196,25 @@ export default function Player() {
     const h0 = h00 * (1 - tx) + h10 * tx;
     const h1 = h01 * (1 - tx) + h11 * tx;
     return h0 * (1 - tz) + h1 * tz;
+  };
+
+  const getTerrainHeightRaycast = (x, y, z) => {
+    let terrainMesh = null;
+    glScene.traverse((child) => {
+      if (child.name === 'terrainMesh' && child.visible) {
+        terrainMesh = child;
+      }
+    });
+    
+    if (!terrainMesh) return getTerrainHeight(x, z);
+    
+    // Cast ray from slightly above the player's current y position
+    physicsRaycaster.set(new THREE.Vector3(x, y + 1.5, z), new THREE.Vector3(0, -1, 0));
+    const intersects = physicsRaycaster.intersectObject(terrainMesh);
+    if (intersects.length > 0) {
+      return intersects[0].point.y;
+    }
+    return getTerrainHeight(x, z);
   };
 
   const hasSpawned = useRef(false);
@@ -246,7 +267,7 @@ export default function Player() {
         }
       }
 
-      const terrainH = getTerrainHeight(spawnX, spawnZ);
+      const terrainH = getTerrainHeightRaycast(spawnX, 100, spawnZ);
       // Spawn slightly above the ground (at least height 2) so they fall naturally
       group.current.position.set(spawnX, Math.max(2, terrainH + 2), spawnZ);
       hasSpawned.current = true;
@@ -309,7 +330,7 @@ export default function Player() {
     // Lock character's visual rotation directly to camera's yaw (fixed behind head)
     group.current.rotation.y = yaw.current;
 
-    const currentTerrainHeight = getTerrainHeight(group.current.position.x, group.current.position.z);
+    const currentTerrainHeight = getTerrainHeightRaycast(group.current.position.x, group.current.position.y, group.current.position.z);
     
     // Apply movement with slope restriction on XZ
     let nextX = group.current.position.x + currentVelocity.current.x * delta;
@@ -317,7 +338,7 @@ export default function Player() {
     
     const dist = Math.sqrt((nextX - group.current.position.x)**2 + (nextZ - group.current.position.z)**2);
     let canMoveXZ = true;
-    const nextTerrainHeight = getTerrainHeight(nextX, nextZ);
+    const nextTerrainHeight = getTerrainHeightRaycast(nextX, group.current.position.y, nextZ);
     
     if (dist > 0.0001) {
       const slope = (nextTerrainHeight - currentTerrainHeight) / dist;
@@ -467,7 +488,7 @@ export default function Player() {
     group.current.position.y += currentVelocity.current.y * delta;
 
     // Ground Collision & Jumping
-    const currentGroundHeight = getTerrainHeight(group.current.position.x, group.current.position.z);
+    const currentGroundHeight = getTerrainHeightRaycast(group.current.position.x, group.current.position.y, group.current.position.z);
     const distToGround = group.current.position.y - currentGroundHeight;
     
     // Character is grounded if exactly on/below ground, OR very close while falling/running (prevents flying off slopes)
@@ -610,7 +631,7 @@ export default function Player() {
     const idealCameraPos = targetLookAt.clone().add(currentOffset);
     
     // Prevent camera from clipping through the terrain
-    const camGroundHeight = getTerrainHeight(idealCameraPos.x, idealCameraPos.z);
+    const camGroundHeight = getTerrainHeightRaycast(idealCameraPos.x, idealCameraPos.y, idealCameraPos.z);
     if (idealCameraPos.y < camGroundHeight + 0.5) {
       idealCameraPos.y = camGroundHeight + 0.5;
     }

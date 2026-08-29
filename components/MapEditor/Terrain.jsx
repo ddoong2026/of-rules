@@ -3,6 +3,7 @@
 import { useRef, useEffect, useState } from 'react';
 import { useThree, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import { CSG } from 'three-csg-ts';
 import useMapStore, { GRID_SIZE, VERTEX_COUNT } from '@/store/useMapStore';
 
 export default function Terrain() {
@@ -11,6 +12,7 @@ export default function Terrain() {
   const { 
     mode, brushSize, brushIntensity, selectedColor, selectedAsset, selectedDecalImage,
     heights, colors, updateHeights, updateColors, addAsset, addDecal, addWaterSource,
+    csgOperations, addCsgOperation,
     isCameraMode, saveHistory, isPlaying, spawnPoint
   } = useMapStore();
   
@@ -19,6 +21,8 @@ export default function Terrain() {
   const [pointerPos, setPointerPos] = useState(null);
   const [pointerNormal, setPointerNormal] = useState(new THREE.Vector3(0, 1, 0));
   const brushMeshRef = useRef();
+  
+  const [csgGeometry, setCsgGeometry] = useState(null);
 
   // Initialize Geometry
   useEffect(() => {
@@ -64,13 +68,55 @@ export default function Terrain() {
     }
   }, [heights, colors]);
 
+  // Compute CSG when operations or heights change
+  useEffect(() => {
+    if (!geomRef.current) return;
+    
+    if (csgOperations.length === 0) {
+      if (csgGeometry) {
+        csgGeometry.dispose();
+        setCsgGeometry(null);
+      }
+      return;
+    }
+
+    try {
+      const baseMesh = new THREE.Mesh(geomRef.current, new THREE.MeshStandardMaterial());
+      baseMesh.updateMatrixWorld();
+      let bsp = CSG.fromMesh(baseMesh);
+
+      const sphereGeo = new THREE.SphereGeometry(1, 16, 16);
+      // Give sphere color attribute to match terrain
+      const sphereColors = new Float32Array(sphereGeo.attributes.position.count * 3).fill(1);
+      sphereGeo.setAttribute('color', new THREE.BufferAttribute(sphereColors, 3));
+      const sphereMesh = new THREE.Mesh(sphereGeo, new THREE.MeshStandardMaterial());
+
+      for (const op of csgOperations) {
+        if (op.type === 'subtract' && op.shape === 'sphere') {
+          sphereMesh.position.set(...op.position);
+          sphereMesh.scale.set(op.radius, op.radius, op.radius);
+          sphereMesh.updateMatrixWorld();
+          const opBsp = CSG.fromMesh(sphereMesh);
+          bsp = bsp.subtract(opBsp);
+        }
+      }
+
+      const finalMesh = CSG.toMesh(bsp, baseMesh.matrixWorld, baseMesh.material);
+      setCsgGeometry(finalMesh.geometry);
+    } catch (e) {
+      console.error('CSG Computation failed:', e);
+    }
+  }, [heights, csgOperations]); // Note: recomputes when heights change too, to keep holes in place
+
   useFrame(() => {
+    const targetMesh = csgGeometry ? csgMeshRef.current : meshRef.current;
+    
     if (isPlaying && document.pointerLockElement === gl.domElement) {
       r3fRaycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-      const intersects = r3fRaycaster.intersectObject(meshRef.current);
+      const intersects = r3fRaycaster.intersectObject(targetMesh);
       
       if (intersects.length > 0 && brushMeshRef.current) {
-        brushMeshRef.current.visible = (mode === 'sculpt' || mode === 'dig' || mode === 'flatten' || mode === 'paint');
+        brushMeshRef.current.visible = (mode === 'sculpt' || mode === 'dig' || mode === 'carve' || mode === 'flatten' || mode === 'paint');
         
         const pt = intersects[0].point;
         const norm = intersects[0].face.normal.clone().transformDirection(meshRef.current.matrixWorld).normalize();
@@ -82,7 +128,7 @@ export default function Terrain() {
       }
     } else {
        if (brushMeshRef.current) {
-         brushMeshRef.current.visible = !!pointerPos && !isCameraMode && (mode === 'sculpt' || mode === 'dig' || mode === 'flatten' || mode === 'paint');
+         brushMeshRef.current.visible = !!pointerPos && !isCameraMode && (mode === 'sculpt' || mode === 'dig' || mode === 'carve' || mode === 'flatten' || mode === 'paint');
          if (pointerPos) {
            brushMeshRef.current.position.set(pointerPos.x + pointerNormal.x * 0.1, pointerPos.y + pointerNormal.y * 0.1, pointerPos.z + pointerNormal.z * 0.1);
            brushMeshRef.current.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), pointerNormal);
@@ -185,7 +231,8 @@ export default function Terrain() {
     
     if (isPlaying && document.pointerLockElement === gl.domElement) {
        r3fRaycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-       const intersects = r3fRaycaster.intersectObject(meshRef.current);
+       const targetMesh = csgGeometry ? csgMeshRef.current : meshRef.current;
+       const intersects = r3fRaycaster.intersectObject(targetMesh);
        if (intersects.length > 0) {
          targetPoint = intersects[0].point;
        } else {
@@ -196,6 +243,15 @@ export default function Terrain() {
     if (mode === 'sculpt' || mode === 'dig' || mode === 'flatten' || mode === 'paint') {
       saveHistory(); // Save state before stroke
       applyBrush(targetPoint, e.button === 2 || e.shiftKey); // right click or shift for inverted sculpt
+    } else if (mode === 'carve') {
+      saveHistory();
+      addCsgOperation({
+        id: crypto.randomUUID(),
+        type: 'subtract',
+        shape: 'sphere',
+        position: [targetPoint.x, targetPoint.y, targetPoint.z],
+        radius: brushSize * 0.5
+      });
     } else if (mode === 'water') {
       addWaterSource(targetPoint.x, targetPoint.z);
     } else if (mode === 'asset') {
@@ -242,7 +298,7 @@ export default function Terrain() {
   const handlePointerMove = (e) => {
     if (!isPlaying || document.pointerLockElement !== gl.domElement) {
       // Update pointer position for brush cursor in normal mode
-      if (mode === 'sculpt' || mode === 'dig' || mode === 'flatten' || mode === 'paint') {
+      if (mode === 'sculpt' || mode === 'dig' || mode === 'carve' || mode === 'flatten' || mode === 'paint') {
         setPointerPos(e.point);
         if (e.face && e.object) {
           const worldNormal = e.face.normal.clone().transformDirection(e.object.matrixWorld).normalize();
@@ -328,11 +384,17 @@ export default function Terrain() {
     return new THREE.CanvasTexture(canvas);
   })[0];
 
+  const csgMeshRef = useRef();
+
   return (
     <group>
+      {/* Base Terrain */}
       <mesh 
-        ref={meshRef} 
+        ref={meshRef}
+        name="terrainMesh"
         rotation={[-Math.PI / 2, 0, 0]} 
+        receiveShadow 
+        castShadow
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -340,17 +402,48 @@ export default function Terrain() {
         onContextMenu={(e) => {
           if (e.nativeEvent) e.nativeEvent.preventDefault();
         }}
+        visible={!csgGeometry} // Hide base mesh if CSG is active
       >
-        <planeGeometry ref={geomRef} args={[50, 50, GRID_SIZE, GRID_SIZE]} />
+        <planeGeometry 
+          ref={geomRef}
+          args={[50, 50, GRID_SIZE, GRID_SIZE]} 
+        />
         <meshStandardMaterial 
           vertexColors 
-          side={THREE.DoubleSide} 
           roughness={0.8}
+          side={THREE.DoubleSide}
           alphaMap={alphaMap}
           transparent={true}
           alphaTest={0.5}
         />
       </mesh>
+
+      {/* CSG Result Mesh */}
+      {csgGeometry && (
+        <mesh
+          ref={csgMeshRef}
+          name="terrainMesh"
+          geometry={csgGeometry}
+          receiveShadow
+          castShadow
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerOut={handlePointerOut}
+          onContextMenu={(e) => {
+            if (e.nativeEvent) e.nativeEvent.preventDefault();
+          }}
+        >
+          <meshStandardMaterial 
+            vertexColors 
+            roughness={0.8}
+            side={THREE.DoubleSide}
+            alphaMap={alphaMap}
+            transparent={true}
+            alphaTest={0.5}
+          />
+        </mesh>
+      )}
       
       {/* Brush Cursor Indicator */}
       <mesh 

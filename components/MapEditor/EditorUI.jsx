@@ -114,7 +114,8 @@ export default function EditorUI({ onSave, isSaving }) {
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
           <ModeButton current={mode} id="none" label="👆 선택 해제" onClick={() => setMode('none')} />
           <ModeButton current={mode} id="sculpt" label="⛰️ 지형 융기" onClick={() => setMode('sculpt')} />
-          <ModeButton current={mode} id="dig" label="⛏️ 파내기" onClick={() => setMode('dig')} />
+          <ModeButton current={mode} id="dig" label="⛏️ 파내기 (세로)" onClick={() => setMode('dig')} />
+          <ModeButton current={mode} id="carve" label="🕳️ 동굴 뚫기 (가로)" onClick={() => setMode('carve')} />
           <ModeButton current={mode} id="flatten" label="🚜 평지 만들기" onClick={() => setMode('flatten')} />
           <ModeButton current={mode} id="paint" label="🖌️ 색칠하기" onClick={() => setMode('paint')} />
           <ModeButton current={mode} id="water" label="💧 수원 배치" onClick={() => setMode('water')} />
@@ -127,8 +128,8 @@ export default function EditorUI({ onSave, isSaving }) {
         </div>
       </div>
 
-      {/* Brush Settings (Sculpt, Dig, Flatten & Paint) */}
-      {(mode === 'sculpt' || mode === 'dig' || mode === 'flatten' || mode === 'paint') && (
+      {/* Brush Settings (Sculpt, Dig, Carve, Flatten & Paint) */}
+      {(mode === 'sculpt' || mode === 'dig' || mode === 'carve' || mode === 'flatten' || mode === 'paint') && (
         <div style={{ background: '#f3f4f6', padding: '1rem', borderRadius: '6px' }}>
           <h4 style={{ margin: '0 0 0.5rem 0', color: '#4b5563' }}>브러시 설정</h4>
           <div style={{ marginBottom: '1rem' }}>

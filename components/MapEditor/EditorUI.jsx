@@ -449,6 +449,13 @@ function PropertyEditor() {
         </button>
       </div>
 
+      <button
+        onClick={() => setMode(mode === 'moveAsset' ? 'select' : 'moveAsset')}
+        style={{ padding: '0.5rem', background: mode === 'moveAsset' ? '#ef4444' : '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', width: '100%', marginBottom: '0.5rem' }}
+      >
+        {mode === 'moveAsset' ? '취소하기' : '👇 바닥 클릭해서 멀리 옮기기'}
+      </button>
+
       {isNPC && (
         <>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>

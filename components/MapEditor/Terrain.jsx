@@ -384,10 +384,11 @@ export default function Terrain() {
     } else if (mode === 'spawn') {
       const { setSpawnPoint } = useMapStore.getState();
       setSpawnPoint({ x: targetPoint.x, z: targetPoint.z });
-    } else if (mode === 'select') {
-      const { selectedAssetId, updateAsset } = useMapStore.getState();
+    } else if (mode === 'moveAsset') {
+      const { selectedAssetId, updateAsset, setMode } = useMapStore.getState();
       if (selectedAssetId) {
         updateAsset(selectedAssetId, { position: [targetPoint.x, targetPoint.y, targetPoint.z] });
+        setMode('select');
       }
     }
   };

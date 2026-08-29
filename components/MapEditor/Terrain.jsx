@@ -68,6 +68,12 @@ export default function Terrain() {
     }
   }, [heights, colors]);
 
+  const bspCache = useRef({
+    heightsRef: null,
+    operationsLength: 0,
+    bsp: null
+  });
+
   // Compute CSG when operations or heights change
   useEffect(() => {
     if (!geomRef.current) return;
@@ -77,32 +83,60 @@ export default function Terrain() {
         csgGeometry.dispose();
         setCsgGeometry(null);
       }
+      bspCache.current = { heightsRef: null, operationsLength: 0, bsp: null };
       return;
     }
 
     try {
-      const baseMesh = new THREE.Mesh(geomRef.current, new THREE.MeshStandardMaterial());
-      baseMesh.rotation.set(-Math.PI / 2, 0, 0);
-      baseMesh.updateMatrixWorld();
-      let bsp = CSG.fromMesh(baseMesh);
+      let bsp;
+      let startIdx = 0;
 
-      const sphereGeo = new THREE.SphereGeometry(1, 16, 16);
-      // Give sphere color attribute to match terrain
-      const sphereColors = new Float32Array(sphereGeo.attributes.position.count * 3).fill(1);
-      sphereGeo.setAttribute('color', new THREE.BufferAttribute(sphereColors, 3));
-      const sphereMesh = new THREE.Mesh(sphereGeo, new THREE.MeshStandardMaterial());
-
-      for (const op of csgOperations) {
-        if (op.type === 'subtract' && op.shape === 'sphere') {
-          sphereMesh.position.set(...op.position);
-          sphereMesh.scale.set(op.radius, op.radius, op.radius);
-          sphereMesh.updateMatrixWorld();
-          const opBsp = CSG.fromMesh(sphereMesh);
-          bsp = bsp.subtract(opBsp);
-        }
+      // Check if we can reuse the cached BSP
+      if (
+        bspCache.current.heightsRef === heights &&
+        bspCache.current.bsp &&
+        csgOperations.length >= bspCache.current.operationsLength
+      ) {
+        bsp = bspCache.current.bsp;
+        startIdx = bspCache.current.operationsLength;
+      } else {
+        const baseMesh = new THREE.Mesh(geomRef.current, new THREE.MeshStandardMaterial());
+        baseMesh.rotation.set(-Math.PI / 2, 0, 0);
+        baseMesh.updateMatrixWorld();
+        bsp = CSG.fromMesh(baseMesh);
       }
 
-      const finalMesh = CSG.toMesh(bsp, baseMesh.matrixWorld, baseMesh.material);
+      // Only process new operations
+      if (startIdx < csgOperations.length) {
+        const sphereGeo = new THREE.SphereGeometry(1, 16, 16);
+        const sphereColors = new Float32Array(sphereGeo.attributes.position.count * 3).fill(1);
+        sphereGeo.setAttribute('color', new THREE.BufferAttribute(sphereColors, 3));
+        const sphereMesh = new THREE.Mesh(sphereGeo, new THREE.MeshStandardMaterial());
+
+        for (let i = startIdx; i < csgOperations.length; i++) {
+          const op = csgOperations[i];
+          if (op.type === 'subtract' && op.shape === 'sphere') {
+            sphereMesh.position.set(...op.position);
+            sphereMesh.scale.set(op.radius, op.radius, op.radius);
+            sphereMesh.updateMatrixWorld();
+            const opBsp = CSG.fromMesh(sphereMesh);
+            bsp = bsp.subtract(opBsp);
+          }
+        }
+
+        // Update cache
+        bspCache.current = {
+          heightsRef: heights,
+          operationsLength: csgOperations.length,
+          bsp: bsp
+        };
+      }
+
+      const baseMeshDummy = new THREE.Mesh(geomRef.current, new THREE.MeshStandardMaterial());
+      baseMeshDummy.rotation.set(-Math.PI / 2, 0, 0);
+      baseMeshDummy.updateMatrixWorld();
+      
+      const finalMesh = CSG.toMesh(bsp, baseMeshDummy.matrixWorld, baseMeshDummy.material);
       setCsgGeometry(finalMesh.geometry);
     } catch (e) {
       console.error('CSG Computation failed:', e);
@@ -326,6 +360,30 @@ export default function Terrain() {
     if (mode === 'sculpt' || mode === 'dig' || mode === 'flatten' || mode === 'paint') {
       e.stopPropagation();
       applyBrush(targetPoint, e.buttons === 2 || e.shiftKey);
+    } else if (mode === 'carve') {
+      e.stopPropagation();
+      const { csgOperations, addCsgOperation } = useMapStore.getState();
+      const lastOp = csgOperations[csgOperations.length - 1];
+      let shouldAdd = true;
+      if (lastOp) {
+        const dx = targetPoint.x - lastOp.position[0];
+        const dy = targetPoint.y - lastOp.position[1];
+        const dz = targetPoint.z - lastOp.position[2];
+        const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+        // Add new sphere when mouse moves 20% of brush size distance for smooth carving
+        if (dist < brushSize * 0.2) {
+          shouldAdd = false;
+        }
+      }
+      if (shouldAdd) {
+        addCsgOperation({
+          id: crypto.randomUUID(),
+          type: 'subtract',
+          shape: 'sphere',
+          position: [targetPoint.x, targetPoint.y, targetPoint.z],
+          radius: brushSize * 0.5
+        });
+      }
     } else if (mode === 'boundary') {
       const { boundaryDrawing, setBoundaryDrawing } = useMapStore.getState();
       if (boundaryDrawing) {

@@ -250,6 +250,9 @@ function NPC({ asset, isPlaying, roaming, mode, onSelect }) {
   };
   const displayName = asset.npcName || defaultNames[asset.type] || 'NPC';
 
+  const DEFAULT_ROTATION = [0, 0, 0];
+  const DEFAULT_SCALE = [0.5, 0.5, 0.5];
+
   return (
     <group position={[0, 0, 0]} ref={npcGroupRef}>
       <primitive object={clone} scale={0.2} />
@@ -356,21 +359,22 @@ function MineableAsset({ asset, onInteract, mode, isPlaying, children }) {
   }, [isPlaying, roamRadius]);
 
   useFrame((state, delta) => {
-    let jiggle = 0;
-    if (jiggleTimeRef.current > 0) {
-      jiggleTimeRef.current = Math.max(0, jiggleTimeRef.current - delta);
-      jiggle = Math.sin(state.clock.elapsedTime * 40) * 0.05 * jiggleTimeRef.current;
-    }
-    
     if (groupRef.current) {
-      groupRef.current.scale.set(0.5 + jiggle, 0.5 - jiggle, 0.5 + jiggle);
-      
-      if (isPlaying && roamRadius > 0) {
-        const globalState = useMapStore.getState();
-        if (globalState.mineMiniGame.active || globalState.activeDialogue) return;
+      if (isPlaying) {
+        let jiggle = 0;
+        if (jiggleTimeRef.current > 0) {
+          jiggleTimeRef.current = Math.max(0, jiggleTimeRef.current - delta);
+          jiggle = Math.sin(state.clock.elapsedTime * 40) * 0.05 * jiggleTimeRef.current;
+        }
+        const baseScale = asset.scale || [0.5, 0.5, 0.5];
+        groupRef.current.scale.set(baseScale[0] + jiggle, baseScale[1] - jiggle, baseScale[2] + jiggle);
         
-        const distanceToPlayer = state.camera.position.distanceTo(groupRef.current.position);
-        const isVisible = distanceToPlayer < 45; // 시야 범위 내일 때만 이동 연산
+        if (roamRadius > 0) {
+          const globalState = useMapStore.getState();
+          if (globalState.mineMiniGame.active || globalState.activeDialogue) return;
+          
+          const distanceToPlayer = state.camera.position.distanceTo(groupRef.current.position);
+          const isVisible = distanceToPlayer < 45; // 시야 범위 내일 때만 이동 연산
 
         if (roaming && isVisible) {
           const speed = 0.22; // 자연스럽고 느긋한 이동 속도 (기존 0.8에서 대폭 감소)
@@ -418,8 +422,8 @@ function MineableAsset({ asset, onInteract, mode, isPlaying, children }) {
         const worldX = position[0] + currentLocalPos.current.x;
         const worldZ = position[2] + currentLocalPos.current.z;
         const groundY = heights ? getTerrainHeightAt(worldX, worldZ, heights) : position[1];
-        
         groupRef.current.position.set(worldX, groundY, worldZ);
+        }
       } else if (!isPlaying && roamRadius > 0) {
         currentLocalPos.current.set(0, 0, 0);
         const globalState = useMapStore.getState();

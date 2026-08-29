@@ -211,7 +211,7 @@ function NPC({ asset, isPlaying, roaming, mode, onSelect }) {
       <primitive object={clone} scale={0.2} />
       
       {isPlaying && showBubble && isNear && currentBubbleText && (
-        <Html position={[0, 0.75, 0]} center sprite zIndexRange={[100, 0]} distanceFactor={4}>
+        <Html position={[0, 0.75, 0]} center sprite zIndexRange={[100, 0]} distanceFactor={1.5}>
           <div style={{
             background: 'white',
             padding: '8px 16px',
@@ -229,7 +229,7 @@ function NPC({ asset, isPlaying, roaming, mode, onSelect }) {
         </Html>
       )}
       {!isPlaying && (
-        <Html position={[0, 0.75, 0]} center sprite zIndexRange={[100, 0]} distanceFactor={4}>
+        <Html position={[0, 0.75, 0]} center sprite zIndexRange={[100, 0]} distanceFactor={1.5}>
           <div 
             onClick={(e) => {
               if (onSelect && (mode === 'select' || mode === 'erase')) {

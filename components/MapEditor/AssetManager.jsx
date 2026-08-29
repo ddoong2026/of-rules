@@ -3,7 +3,7 @@
 import { useRef, useEffect, useMemo, useState } from 'react';
 import useMapStore, { GRID_SIZE } from '@/store/useMapStore';
 import useInventoryStore from '@/store/useInventoryStore';
-import { useTexture, Html, useGLTF, useAnimations } from '@react-three/drei';
+import { useTexture, Html, useGLTF, useAnimations, TransformControls } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { SkeletonUtils } from 'three-stdlib';
@@ -422,13 +422,20 @@ function MineableAsset({ asset, onInteract, mode, isPlaying, children }) {
         groupRef.current.position.set(worldX, groundY, worldZ);
       } else if (!isPlaying && roamRadius > 0) {
         currentLocalPos.current.set(0, 0, 0);
-        groupRef.current.position.set(position[0], position[1], position[2]);
-        groupRef.current.rotation.y = 0;
+        const globalState = useMapStore.getState();
+        if (globalState.mode !== 'select' || globalState.selectedAssetId !== asset.id) {
+          groupRef.current.position.set(position[0], position[1], position[2]);
+          if (asset.rotation) {
+            groupRef.current.rotation.set(asset.rotation[0], asset.rotation[1], asset.rotation[2]);
+          } else {
+            groupRef.current.rotation.set(0, 0, 0);
+          }
+        }
       }
     }
   });
 
-  const { setSelectedAssetId } = useMapStore();
+  const { setSelectedAssetId, transformMode, updateAsset } = useMapStore();
 
   const handleClick = (e) => {
     if (mode === 'erase') {
@@ -471,24 +478,47 @@ function MineableAsset({ asset, onInteract, mode, isPlaying, children }) {
     };
   }, [id, type, isPlaying, onInteract]);
 
+  const isSelected = selectedAssetId === asset.id;
   const canInteract = mode === 'erase' || mode === 'select' || mode === 'selectTarget';
 
   return (
-    <group 
-      ref={groupRef} 
-      position={position} 
-      onClick={canInteract ? handleClick : undefined} 
-      scale={0.5}
-      userData={{ isAsset: true, assetId: id }} 
-    >
-      {typeof children === 'function' ? children(roaming, canInteract ? handleClick : undefined) : children}
-      {isSelected && roamRadius > 0 && (
-        <mesh position={[0, 0.1, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[roamRadius * 2 - 0.1, roamRadius * 2 + 0.1, 32]} />
-          <meshBasicMaterial color="#eab308" transparent opacity={0.6} side={THREE.DoubleSide} />
-        </mesh>
+    <>
+      <group 
+        ref={groupRef} 
+        position={position}
+        rotation={asset.rotation || [0, 0, 0]}
+        scale={asset.scale || [0.5, 0.5, 0.5]}
+        onClick={canInteract ? handleClick : undefined} 
+        userData={{ isAsset: true, assetId: id }} 
+      >
+        {typeof children === 'function' ? children(roaming, canInteract ? handleClick : undefined) : children}
+        {isSelected && roamRadius > 0 && (
+          <mesh position={[0, 0.1, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <ringGeometry args={[roamRadius * 2 - 0.1, roamRadius * 2 + 0.1, 32]} />
+            <meshBasicMaterial color="#eab308" transparent opacity={0.6} side={THREE.DoubleSide} />
+          </mesh>
+        )}
+      </group>
+      
+      {isSelected && mode === 'select' && (
+        <TransformControls 
+          object={groupRef} 
+          mode={transformMode}
+          onMouseUp={() => {
+            if (groupRef.current) {
+              const pos = groupRef.current.position;
+              const rot = groupRef.current.rotation;
+              const scl = groupRef.current.scale;
+              updateAsset(asset.id, {
+                position: [pos.x, pos.y, pos.z],
+                rotation: [rot.x, rot.y, rot.z],
+                scale: [scl.x, scl.y, scl.z]
+              });
+            }
+          }}
+        />
       )}
-    </group>
+    </>
   );
 }
 

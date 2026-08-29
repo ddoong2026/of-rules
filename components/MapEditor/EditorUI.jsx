@@ -305,7 +305,7 @@ function ModeButton({ id, label, current, onClick }) {
 }
 
 function PropertyEditor() {
-  const { selectedAssetId, assets, updateAsset, setSelectedAssetId, selectedBoundaryId, boundaries, updateBoundary, removeBoundary, setSelectedBoundaryId, mode, setMode } = useMapStore();
+  const { selectedAssetId, assets, updateAsset, setSelectedAssetId, selectedBoundaryId, boundaries, updateBoundary, removeBoundary, setSelectedBoundaryId, mode, setMode, transformMode, setTransformMode } = useMapStore();
   
   if (selectedBoundaryId) {
     const boundary = boundaries.find(b => b.id === selectedBoundaryId);
@@ -425,6 +425,27 @@ function PropertyEditor() {
           style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}
         >
           ✖
+        </button>
+      </div>
+
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+        <button
+          onClick={() => setTransformMode('translate')}
+          style={{ flex: 1, padding: '0.4rem', background: transformMode === 'translate' ? '#3b82f6' : '#f3f4f6', color: transformMode === 'translate' ? 'white' : 'black', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+        >
+          이동
+        </button>
+        <button
+          onClick={() => setTransformMode('rotate')}
+          style={{ flex: 1, padding: '0.4rem', background: transformMode === 'rotate' ? '#3b82f6' : '#f3f4f6', color: transformMode === 'rotate' ? 'white' : 'black', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+        >
+          회전
+        </button>
+        <button
+          onClick={() => setTransformMode('scale')}
+          style={{ flex: 1, padding: '0.4rem', background: transformMode === 'scale' ? '#3b82f6' : '#f3f4f6', color: transformMode === 'scale' ? 'white' : 'black', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+        >
+          크기
         </button>
       </div>
 

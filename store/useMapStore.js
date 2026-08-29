@@ -16,6 +16,7 @@ const useMapStore = create((set, get) => ({
   isCameraMode: false,
   isPlaying: false,
   sunTime: 12, // 0 to 24 hours
+  transformMode: 'translate', // 'translate', 'rotate', 'scale'
   
   // Undo History
   history: [], // array of { heights: Float32Array, colors: Float32Array }
@@ -55,6 +56,7 @@ const useMapStore = create((set, get) => ({
   setMineMiniGame: (active, assetId = null, assetType = null) => set({ mineMiniGame: { active, assetId, assetType } }),
   setActiveDialogue: (active) => set({ activeDialogue: active }),
   setSpawnPoint: (pt) => set({ spawnPoint: pt }),
+  setTransformMode: (mode) => set({ transformMode: mode }),
   
   saveHistory: () => set((state) => {
     const newHistory = [...state.history, { 

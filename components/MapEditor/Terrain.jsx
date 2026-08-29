@@ -113,14 +113,52 @@ export default function Terrain() {
         sphereGeo.setAttribute('color', new THREE.BufferAttribute(sphereColors, 3));
         const sphereMesh = new THREE.Mesh(sphereGeo, new THREE.MeshStandardMaterial());
 
+        const cylGeo = new THREE.CylinderGeometry(1, 1, 1, 16);
+        cylGeo.rotateX(Math.PI / 2);
+        const cylColors = new Float32Array(cylGeo.attributes.position.count * 3).fill(1);
+        cylGeo.setAttribute('color', new THREE.BufferAttribute(cylColors, 3));
+        const cylMesh = new THREE.Mesh(cylGeo, new THREE.MeshStandardMaterial());
+
         for (let i = startIdx; i < csgOperations.length; i++) {
           const op = csgOperations[i];
-          if (op.type === 'subtract' && op.shape === 'sphere') {
+          const opColor = op.color || [0.6, 0.6, 0.6];
+          
+          if (op.shape === 'sphere') {
+            for(let j=0; j<sphereColors.length; j+=3) {
+              sphereColors[j] = opColor[0]; sphereColors[j+1] = opColor[1]; sphereColors[j+2] = opColor[2];
+            }
+            sphereGeo.attributes.color.needsUpdate = true;
+
             sphereMesh.position.set(...op.position);
             sphereMesh.scale.set(op.radius, op.radius, op.radius);
             sphereMesh.updateMatrixWorld();
             const opBsp = CSG.fromMesh(sphereMesh);
             bsp = bsp.subtract(opBsp);
+          } else if (op.shape === 'capsule') {
+            const start = new THREE.Vector3(...op.start);
+            const end = new THREE.Vector3(...op.end);
+            const dist = start.distanceTo(end);
+
+            for(let j=0; j<cylColors.length; j+=3) {
+              cylColors[j] = opColor[0]; cylColors[j+1] = opColor[1]; cylColors[j+2] = opColor[2];
+            }
+            cylGeo.attributes.color.needsUpdate = true;
+
+            cylMesh.position.copy(start).lerp(end, 0.5);
+            cylMesh.scale.set(op.radius, op.radius, dist);
+            cylMesh.lookAt(end);
+            cylMesh.updateMatrixWorld();
+            bsp = bsp.subtract(CSG.fromMesh(cylMesh));
+
+            for(let j=0; j<sphereColors.length; j+=3) {
+              sphereColors[j] = opColor[0]; sphereColors[j+1] = opColor[1]; sphereColors[j+2] = opColor[2];
+            }
+            sphereGeo.attributes.color.needsUpdate = true;
+
+            sphereMesh.position.copy(end);
+            sphereMesh.scale.set(op.radius, op.radius, op.radius);
+            sphereMesh.updateMatrixWorld();
+            bsp = bsp.subtract(CSG.fromMesh(sphereMesh));
           }
         }
 
@@ -137,6 +175,21 @@ export default function Terrain() {
       baseMeshDummy.updateMatrixWorld();
       
       const finalMesh = CSG.toMesh(bsp, baseMeshDummy.matrixWorld, baseMeshDummy.material);
+      
+      // Fix UVs so alphaMap correctly maps over the whole terrain including new cave walls
+      const posAttr = finalMesh.geometry.attributes.position;
+      const uvAttr = finalMesh.geometry.attributes.uv;
+      for (let i = 0; i < posAttr.count; i++) {
+        // Local coordinates: plane is on XY from -25 to +25.
+        const x = posAttr.getX(i);
+        const y = posAttr.getY(i);
+        uvAttr.setXY(i, (x + 25) / 50, (y + 25) / 50);
+      }
+      uvAttr.needsUpdate = true;
+      
+      // Ensure vertex colors are smooth
+      finalMesh.geometry.computeVertexNormals();
+
       setCsgGeometry(finalMesh.geometry);
     } catch (e) {
       console.error('CSG Computation failed:', e);
@@ -280,12 +333,21 @@ export default function Terrain() {
       applyBrush(targetPoint, e.button === 2 || e.shiftKey); // right click or shift for inverted sculpt
     } else if (mode === 'carve') {
       saveHistory();
+      
+      const cx = Math.max(0, Math.min(GRID_SIZE, Math.round((targetPoint.x + 25) / (50 / GRID_SIZE))));
+      const cz = Math.max(0, Math.min(GRID_SIZE, Math.round((targetPoint.z + 25) / (50 / GRID_SIZE))));
+      const idx = cz * (GRID_SIZE + 1) + cx;
+      const r = colors[idx * 3] || 0.6;
+      const g = colors[idx * 3 + 1] || 0.6;
+      const b = colors[idx * 3 + 2] || 0.6;
+
       addCsgOperation({
         id: crypto.randomUUID(),
         type: 'subtract',
         shape: 'sphere',
         position: [targetPoint.x, targetPoint.y, targetPoint.z],
-        radius: brushSize * 0.5
+        radius: brushSize * 0.5,
+        color: [r, g, b]
       });
     } else if (mode === 'water') {
       addWaterSource(targetPoint.x, targetPoint.z);
@@ -366,22 +428,32 @@ export default function Terrain() {
       const lastOp = csgOperations[csgOperations.length - 1];
       let shouldAdd = true;
       if (lastOp) {
-        const dx = targetPoint.x - lastOp.position[0];
-        const dy = targetPoint.y - lastOp.position[1];
-        const dz = targetPoint.z - lastOp.position[2];
+        const lastPos = lastOp.end || lastOp.position;
+        const dx = targetPoint.x - lastPos[0];
+        const dy = targetPoint.y - lastPos[1];
+        const dz = targetPoint.z - lastPos[2];
         const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
-        // Add new sphere when mouse moves 20% of brush size distance for smooth carving
-        if (dist < brushSize * 0.2) {
+        // Only add segment if moved more than a minimum distance
+        if (dist < 0.25) {
           shouldAdd = false;
         }
       }
       if (shouldAdd) {
+        const cx = Math.max(0, Math.min(GRID_SIZE, Math.round((targetPoint.x + 25) / (50 / GRID_SIZE))));
+        const cz = Math.max(0, Math.min(GRID_SIZE, Math.round((targetPoint.z + 25) / (50 / GRID_SIZE))));
+        const idx = cz * (GRID_SIZE + 1) + cx;
+        const r = colors[idx * 3] || 0.6;
+        const g = colors[idx * 3 + 1] || 0.6;
+        const b = colors[idx * 3 + 2] || 0.6;
+
         addCsgOperation({
           id: crypto.randomUUID(),
           type: 'subtract',
-          shape: 'sphere',
-          position: [targetPoint.x, targetPoint.y, targetPoint.z],
-          radius: brushSize * 0.5
+          shape: 'capsule',
+          start: lastOp ? (lastOp.end || lastOp.position) : [targetPoint.x, targetPoint.y, targetPoint.z],
+          end: [targetPoint.x, targetPoint.y, targetPoint.z],
+          radius: brushSize * 0.5,
+          color: [r, g, b]
         });
       }
     } else if (mode === 'boundary') {

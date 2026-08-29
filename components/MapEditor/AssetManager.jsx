@@ -212,19 +212,49 @@ function NPC({ asset, isPlaying, roaming, mode, onSelect }) {
       
       {isPlaying && showBubble && isNear && currentBubbleText && (
         <Html position={[0, 0.75, 0]} center sprite zIndexRange={[100, 0]} distanceFactor={1.5}>
-          <div style={{
-            background: 'white',
-            padding: '8px 16px',
-            borderRadius: '24px',
-            border: '4px solid black',
-            fontSize: '1.5rem',
-            fontWeight: 'bold',
-            whiteSpace: 'nowrap',
-            pointerEvents: 'none',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-            color: '#111827'
+          <div style={{ 
+            position: 'relative', 
+            display: 'flex', 
+            flexDirection: 'column', 
+            alignItems: 'center',
+            filter: 'drop-shadow(0px 4px 12px rgba(0,0,0,0.3))'
           }}>
-            💬 {currentBubbleText.substring(0, 20)}{currentBubbleText.length > 20 ? '...' : ''}
+            {/* 꼬리 테두리 (검은색) */}
+            <div style={{
+              position: 'absolute',
+              bottom: '-12px',
+              borderLeft: '12px solid transparent',
+              borderRight: '12px solid transparent',
+              borderTop: '16px solid black',
+              zIndex: 1
+            }} />
+            
+            {/* 꼬리 안쪽 (흰색) */}
+            <div style={{
+              position: 'absolute',
+              bottom: '-8px',
+              borderLeft: '8px solid transparent',
+              borderRight: '8px solid transparent',
+              borderTop: '14px solid white',
+              zIndex: 3
+            }} />
+            
+            {/* 말풍선 본체 */}
+            <div style={{
+              background: 'white',
+              padding: '8px 16px',
+              borderRadius: '24px',
+              border: '4px solid black',
+              fontSize: '1.5rem',
+              fontWeight: 'bold',
+              whiteSpace: 'nowrap',
+              pointerEvents: 'none',
+              color: '#111827',
+              position: 'relative',
+              zIndex: 2
+            }}>
+              {currentBubbleText.substring(0, 20)}{currentBubbleText.length > 20 ? '...' : ''}
+            </div>
           </div>
         </Html>
       )}

@@ -196,6 +196,7 @@ export default function Player() {
     return h0 * (1 - tz) + h1 * tz;
   };
 
+  const hasSpawned = useRef(false);
   const cameraOverride = useRef({
     active: false,
     state: 'none', // 'switch_to_1st_person', 'walking_to', 'waiting', 'walking_back', 'switch_to_3rd_person'

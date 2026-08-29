@@ -82,6 +82,7 @@ export default function Terrain() {
 
     try {
       const baseMesh = new THREE.Mesh(geomRef.current, new THREE.MeshStandardMaterial());
+      baseMesh.rotation.set(-Math.PI / 2, 0, 0);
       baseMesh.updateMatrixWorld();
       let bsp = CSG.fromMesh(baseMesh);
 
@@ -423,6 +424,7 @@ export default function Terrain() {
         <mesh
           ref={csgMeshRef}
           name="terrainMesh"
+          rotation={[-Math.PI / 2, 0, 0]}
           geometry={csgGeometry}
           receiveShadow
           castShadow

@@ -3,10 +3,14 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import useMapStore from '@/store/useMapStore';
 
-function generateSingleCondition(isRange) {
+function generateSingleCondition(isRange, oldCond = null) {
   if (!isRange) {
-    const type = ['초과', '미만', '이상', '이하'][Math.floor(Math.random() * 4)];
-    const value = Math.floor(Math.random() * 8) + 2; // 2 to 9
+    const type = oldCond ? oldCond.type : ['초과', '미만', '이상', '이하'][Math.floor(Math.random() * 4)];
+    let value;
+    do {
+      value = Math.floor(Math.random() * 8) + 2; // 2 to 9
+    } while (oldCond && value === oldCond.value);
+
     return {
       isRange: false,
       type,
@@ -14,14 +18,15 @@ function generateSingleCondition(isRange) {
       text: `${value} ${type}`
     };
   } else {
-    const type1 = ['초과', '이상'][Math.floor(Math.random() * 2)];
-    const type2 = ['미만', '이하'][Math.floor(Math.random() * 2)];
+    const type1 = oldCond ? oldCond.type1 : ['초과', '이상'][Math.floor(Math.random() * 2)];
+    const type2 = oldCond ? oldCond.type2 : ['미만', '이하'][Math.floor(Math.random() * 2)];
     let value1, value2;
     while (true) {
       value1 = Math.floor(Math.random() * 7) + 1;
       value2 = Math.floor(Math.random() * 7) + 4;
       if (value1 >= value2) continue;
-
+      if (oldCond && value1 === oldCond.value1 && value2 === oldCond.value2) continue;
+      
       let hasValid = false;
       for (let i = 1; i <= 10; i++) {
         const c1 = type1 === '초과' ? i > value1 : i >= value1;
@@ -44,18 +49,21 @@ function generateSingleCondition(isRange) {
   }
 }
 
-function generateCondition() {
-  const isRange = Math.random() > 0.5;
-  const gameTypeRand = Math.random();
-  let gameType = 'multi-select';
-  if (gameTypeRand > 0.66) gameType = 'text-to-line';
-  else if (gameTypeRand > 0.33) gameType = 'line-to-text';
+function generateCondition(oldCond = null) {
+  const isRange = oldCond ? oldCond.isRange : Math.random() > 0.5;
+  let gameType = oldCond ? oldCond.gameType : 'multi-select';
+  
+  if (!oldCond) {
+    const gameTypeRand = Math.random();
+    if (gameTypeRand > 0.66) gameType = 'text-to-line';
+    else if (gameTypeRand > 0.33) gameType = 'line-to-text';
+  }
 
-  const trueCond = generateSingleCondition(isRange);
+  const trueCond = generateSingleCondition(isRange, oldCond);
   trueCond.gameType = gameType;
 
   if (gameType === 'multi-select') {
-    trueCond.isNumberLine = Math.random() > 0.5;
+    trueCond.isNumberLine = oldCond ? oldCond.isNumberLine : Math.random() > 0.5;
   } else {
     const options = [trueCond];
     if (!trueCond.isRange) {
@@ -120,8 +128,8 @@ export default function MiningMiniGameUI() {
   const [isDragging, setIsDragging] = useState(false);
   const [dragMode, setDragMode] = useState(null);
 
-  const initRound = useCallback(() => {
-    setCondition(generateCondition());
+  const initRound = useCallback((keepType = false) => {
+    setCondition(prev => keepType && prev ? generateCondition(prev) : generateCondition());
     setSelectedNumbers(new Set());
     setSelectedOptionIndex(null);
     setFeedback(null);
@@ -346,7 +354,7 @@ export default function MiningMiniGameUI() {
       if (feedback === 'FAIL' && canRetry && (e.code === 'Space' || e.key === 'Enter')) {
         e.preventDefault();
         if (attempts >= 2) {
-          initRound();
+          initRound(true);
         } else {
           setFeedback(null);
         }
@@ -479,7 +487,7 @@ export default function MiningMiniGameUI() {
                   </button>
                 )}
                 {attempts >= 2 && (
-                  <button onClick={initRound} style={{ padding: '12px 24px', fontSize: '1.2rem', background: '#3B82F6', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', boxShadow: '0 4px 6px rgba(0,0,0,0.2)' }}>
+                  <button onClick={() => initRound(true)} style={{ padding: '12px 24px', fontSize: '1.2rem', background: '#3B82F6', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', boxShadow: '0 4px 6px rgba(0,0,0,0.2)' }}>
                     새로운 문제로 넘어가기
                   </button>
                 )}

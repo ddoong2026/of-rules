@@ -124,7 +124,7 @@ export default function EditorUI({ onSave, isSaving }) {
           <ModeButton current={mode} id="boundary" label="🚧 경계선" onClick={() => setMode('boundary')} />
           <ModeButton current={mode} id="spawn" label="🚩 스폰 위치" onClick={() => setMode('spawn')} />
           <ModeButton current={mode} id="erase" label="🗑️ 지우개" onClick={() => setMode('erase')} />
-          <ModeButton current={mode === 'selectTarget' ? 'select' : mode} id="select" label="🖱️ 선택/편집" onClick={() => setMode('select')} />
+          <ModeButton current={mode === 'selectTarget' || mode === 'drawPath' ? 'select' : mode} id="select" label="🖱️ 선택/편집" onClick={() => setMode('select')} />
         </div>
       </div>
 
@@ -246,10 +246,10 @@ export default function EditorUI({ onSave, isSaving }) {
       )}
 
       {/* Select / Edit Mode */}
-      {(mode === 'select' || mode === 'selectTarget') && (
+      {(mode === 'select' || mode === 'selectTarget' || mode === 'drawPath') && (
         <div style={{ background: '#e0e7ff', padding: '1rem', borderRadius: '6px' }}>
           <h4 style={{ margin: '0 0 0.5rem 0', color: '#3730a3' }}>
-            {mode === 'selectTarget' ? '🎯 카메라 이동 대상 에셋 선택 중...' : '선택/편집 모드'}
+            {mode === 'selectTarget' ? '🎯 카메라 이동 대상 에셋 선택 중...' : mode === 'drawPath' ? '🖌️ 경로 선 그리는 중...' : '선택/편집 모드'}
           </h4>
           {(!selectedAssetId && !selectedBoundaryId) ? (
             <p style={{ fontSize: '0.8rem', color: '#4338ca', margin: 0 }}>
@@ -522,19 +522,65 @@ function PropertyEditor() {
             </>
           )}
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', marginTop: '0.5rem' }}>
             <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>배회 구역 반경 (Roam Radius)</label>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <input 
+                type="number" 
+                min="0" max="20" step="0.1"
+                value={asset.roamRadius || 0} 
+                onChange={(e) => updateAsset(asset.id, { roamRadius: Number(e.target.value) })}
+                className="glass-input"
+                style={{ width: '60px', padding: '0.2rem' }}
+              />
+              <input 
                 type="range" 
-                min="0" max="20" step="1"
+                min="0" max="20" step="0.1"
                 value={asset.roamRadius || 0} 
                 onChange={(e) => updateAsset(asset.id, { roamRadius: Number(e.target.value) })}
                 style={{ flex: 1 }}
               />
-              <span style={{ fontSize: '0.8rem', width: '20px' }}>{asset.roamRadius || 0}</span>
             </div>
-            <span style={{ fontSize: '0.7rem', color: '#6b7280' }}>0이면 제자리에 멈춰 있습니다.</span>
+            <span style={{ fontSize: '0.7rem', color: '#6b7280' }}>0이면 제자리에 멈춰 있습니다. (1 이하는 0.1 단위 조절)</span>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', marginTop: '0.5rem' }}>
+            <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>이동 경로 (Path)</label>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              <select 
+                className="glass-input"
+                value={asset.pathMode || 'roam'}
+                onChange={(e) => updateAsset(asset.id, { pathMode: e.target.value })}
+                style={{ padding: '0.4rem', flex: 1 }}
+              >
+                <option value="roam">배회 (반경 내 무작위)</option>
+                <option value="one-way">경로 따라 이동 (편도)</option>
+                <option value="round-trip">경로 따라 이동 (왕복)</option>
+                <option value="repeat">경로 따라 이동 (반복)</option>
+              </select>
+            </div>
+            
+            {(asset.pathMode === 'one-way' || asset.pathMode === 'round-trip' || asset.pathMode === 'repeat') && (
+              <div style={{ display: 'flex', gap: '0.5rem', flexDirection: 'column' }}>
+                <button
+                  onClick={() => setMode(mode === 'drawPath' ? 'select' : 'drawPath')}
+                  style={{ padding: '0.4rem', background: mode === 'drawPath' ? '#ef4444' : '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                >
+                  {mode === 'drawPath' ? '그리기 종료' : '🖌️ 맵에 드래그하여 선 그리기'}
+                </button>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button
+                    onClick={() => updateAsset(asset.id, { pathPoints: [] })}
+                    style={{ padding: '0.4rem', background: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '4px', cursor: 'pointer', flex: 1 }}
+                  >
+                    경로 초기화
+                  </button>
+                </div>
+                <span style={{ fontSize: '0.7rem', color: '#6b7280' }}>
+                  점이 {asset.pathPoints?.length || 0}개 찍혀있습니다.
+                </span>
+              </div>
+            )}
           </div>
         </>
       )}

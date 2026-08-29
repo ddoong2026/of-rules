@@ -390,6 +390,15 @@ export default function Terrain() {
         updateAsset(selectedAssetId, { position: [targetPoint.x, targetPoint.y, targetPoint.z] });
         setMode('select');
       }
+    } else if (mode === 'drawPath') {
+      const { selectedAssetId, assets, updateAsset } = useMapStore.getState();
+      if (selectedAssetId) {
+        const asset = assets.find(a => a.id === selectedAssetId);
+        if (asset) {
+          const pts = asset.pathPoints || [];
+          updateAsset(selectedAssetId, { pathPoints: [...pts, { x: targetPoint.x, y: targetPoint.y, z: targetPoint.z }] });
+        }
+      }
     }
   };
 
@@ -465,6 +474,19 @@ export default function Terrain() {
         const dz = targetPoint.z - lastPoint[1];
         if (Math.sqrt(dx*dx + dz*dz) > 0.5) { // Add point every 0.5 units
           setBoundaryDrawing({ points: [...boundaryDrawing.points, [targetPoint.x, targetPoint.z]] });
+        }
+      }
+    } else if (mode === 'drawPath') {
+      e.stopPropagation();
+      const { selectedAssetId, assets, updateAsset } = useMapStore.getState();
+      if (selectedAssetId) {
+        const asset = assets.find(a => a.id === selectedAssetId);
+        if (asset) {
+          const pts = asset.pathPoints || [];
+          const lastPt = pts[pts.length - 1];
+          if (!lastPt || Math.hypot(targetPoint.x - lastPt.x, targetPoint.z - lastPt.z) > 0.5) {
+            updateAsset(selectedAssetId, { pathPoints: [...pts, { x: targetPoint.x, y: targetPoint.y, z: targetPoint.z }] });
+          }
         }
       }
     }

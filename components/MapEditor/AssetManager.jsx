@@ -3,7 +3,7 @@
 import { useRef, useEffect, useMemo, useState } from 'react';
 import useMapStore, { GRID_SIZE } from '@/store/useMapStore';
 import useInventoryStore from '@/store/useInventoryStore';
-import { useTexture, Html, useGLTF, useAnimations, TransformControls } from '@react-three/drei';
+import { useTexture, Html, useGLTF, useAnimations, TransformControls, Line } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { SkeletonUtils } from 'three-stdlib';
@@ -340,9 +340,26 @@ function MineableAsset({ asset, onInteract, mode, isPlaying, children }) {
   const targetLocalPos = useRef(new THREE.Vector3(0, 0, 0));
   const currentLocalPos = useRef(new THREE.Vector3(0, 0, 0));
   const [roaming, setRoaming] = useState(false);
+  const currentPathIndex = useRef(0);
+  const pathDirection = useRef(1);
 
   useEffect(() => {
-    if (!isPlaying || roamRadius <= 0) return;
+    if (!isPlaying) {
+      if (['one-way', 'round-trip', 'repeat'].includes(asset.pathMode)) {
+        currentPathIndex.current = 0;
+        pathDirection.current = 1;
+      }
+      return;
+    }
+    
+    if (['one-way', 'round-trip', 'repeat'].includes(asset.pathMode)) {
+      if (asset.pathPoints && asset.pathPoints.length > 0) {
+        setRoaming(true);
+      }
+      return;
+    }
+    
+    if (roamRadius <= 0) return;
     
     const interval = setInterval(() => {
       if (Math.random() > 0.35) {
@@ -356,7 +373,7 @@ function MineableAsset({ asset, onInteract, mode, isPlaying, children }) {
     }, Math.random() * 4000 + 3000);
     
     return () => clearInterval(interval);
-  }, [isPlaying, roamRadius]);
+  }, [isPlaying, roamRadius, asset.pathMode, asset.pathPoints]);
 
   useFrame((state, delta) => {
     if (groupRef.current) {
@@ -369,62 +386,112 @@ function MineableAsset({ asset, onInteract, mode, isPlaying, children }) {
         const baseScale = asset.scale || [0.5, 0.5, 0.5];
         groupRef.current.scale.set(baseScale[0] + jiggle, baseScale[1] - jiggle, baseScale[2] + jiggle);
         
-        if (roamRadius > 0) {
+        if (roamRadius > 0 || ['one-way', 'round-trip', 'repeat'].includes(asset.pathMode)) {
           const globalState = useMapStore.getState();
           if (globalState.mineMiniGame.active || globalState.activeDialogue) return;
           
           const distanceToPlayer = state.camera.position.distanceTo(groupRef.current.position);
           const isVisible = distanceToPlayer < 45; // 시야 범위 내일 때만 이동 연산
 
-        if (roaming && isVisible) {
-          const speed = 0.22; // 자연스럽고 느긋한 이동 속도 (기존 0.8에서 대폭 감소)
-          const dir = targetLocalPos.current.clone().sub(currentLocalPos.current);
-          const dist = dir.length();
-          
-          if (dist > 0.04) {
-            dir.normalize();
-            const stepX = dir.x * speed * delta;
-            const stepZ = dir.z * speed * delta;
-            const nextLocalX = currentLocalPos.current.x + stepX;
-            const nextLocalZ = currentLocalPos.current.z + stepZ;
+          if (roaming && isVisible) {
+            const speed = 0.22; // 자연스럽고 느긋한 이동 속도
+            let targetX, targetZ;
+            let isPathMode = ['one-way', 'round-trip', 'repeat'].includes(asset.pathMode) && asset.pathPoints && asset.pathPoints.length > 0;
             
-            let canMove = true;
-            if (heights) {
-              const nextWorldX = position[0] + nextLocalX;
-              const nextWorldZ = position[2] + nextLocalZ;
-              const nextY = getTerrainHeightAt(nextWorldX, nextWorldZ, heights);
-              const currentY = getTerrainHeightAt(position[0] + currentLocalPos.current.x, position[2] + currentLocalPos.current.z, heights);
+            if (isPathMode) {
+              const pts = asset.pathPoints;
+              if (currentPathIndex.current >= pts.length) currentPathIndex.current = pts.length - 1;
+              if (currentPathIndex.current < 0) currentPathIndex.current = 0;
+              const targetPt = pts[currentPathIndex.current];
+              targetX = targetPt.x - position[0];
+              targetZ = targetPt.z - position[2];
+            } else {
+              targetX = targetLocalPos.current.x;
+              targetZ = targetLocalPos.current.z;
+            }
+
+            const dx = targetX - currentLocalPos.current.x;
+            const dz = targetZ - currentLocalPos.current.z;
+            const dist = Math.hypot(dx, dz);
+            
+            if (dist > 0.04) {
+              const dirX = dx / dist;
+              const dirZ = dz / dist;
+              const stepX = dirX * speed * delta;
+              const stepZ = dirZ * speed * delta;
+              const nextLocalX = currentLocalPos.current.x + stepX;
+              const nextLocalZ = currentLocalPos.current.z + stepZ;
               
-              // 물속(-0.1 미만) 진입 불가 및 급격한 경사(0.5 이상 차이) 진입 불가
-              if (nextY < -0.1 || Math.abs(nextY - currentY) > 0.5) {
-                canMove = false;
+              let canMove = true;
+              if (heights && !isPathMode) {
+                const nextWorldX = position[0] + nextLocalX;
+                const nextWorldZ = position[2] + nextLocalZ;
+                const nextY = getTerrainHeightAt(nextWorldX, nextWorldZ, heights);
+                const currentY = getTerrainHeightAt(position[0] + currentLocalPos.current.x, position[2] + currentLocalPos.current.z, heights);
+                
+                // 물속(-0.1 미만) 진입 불가 및 급격한 경사(0.5 이상 차이) 진입 불가
+                if (nextY < -0.1 || Math.abs(nextY - currentY) > 0.5) {
+                  canMove = false;
+                }
+              }
+              
+              if (canMove) {
+                currentLocalPos.current.x = nextLocalX;
+                currentLocalPos.current.z = nextLocalZ;
+                const angle = Math.atan2(dirX, dirZ);
+                
+                // Normalize current rotation to match target angle closely
+                let currentRot = groupRef.current.rotation.y;
+                while (currentRot - angle > Math.PI) currentRot -= Math.PI * 2;
+                while (currentRot - angle < -Math.PI) currentRot += Math.PI * 2;
+                groupRef.current.rotation.y = THREE.MathUtils.lerp(groupRef.current.rotation.y, angle, 4 * delta);
+              } else {
+                if (!isPathMode) setRoaming(false); // 경로가 막히면 이동 취소
+              }
+            } else {
+              if (isPathMode) {
+                const pts = asset.pathPoints;
+                if (asset.pathMode === 'one-way') {
+                  if (currentPathIndex.current < pts.length - 1) {
+                    currentPathIndex.current++;
+                  } else {
+                    setRoaming(false);
+                  }
+                } else if (asset.pathMode === 'round-trip') {
+                  if (pathDirection.current === 1) {
+                    if (currentPathIndex.current < pts.length - 1) {
+                      currentPathIndex.current++;
+                    } else {
+                      pathDirection.current = -1;
+                      if (pts.length > 1) currentPathIndex.current--;
+                    }
+                  } else {
+                    if (currentPathIndex.current > 0) {
+                      currentPathIndex.current--;
+                    } else {
+                      pathDirection.current = 1;
+                      if (pts.length > 1) currentPathIndex.current++;
+                    }
+                  }
+                } else if (asset.pathMode === 'repeat') {
+                  if (currentPathIndex.current < pts.length - 1) {
+                    currentPathIndex.current++;
+                  } else {
+                    currentPathIndex.current = 0;
+                  }
+                }
+              } else {
+                setRoaming(false);
               }
             }
-            
-            if (canMove) {
-              currentLocalPos.current.x = nextLocalX;
-              currentLocalPos.current.z = nextLocalZ;
-              const angle = Math.atan2(dir.x, dir.z);
-              
-              // Normalize current rotation to match target angle closely
-              let currentRot = groupRef.current.rotation.y;
-              while (currentRot - angle > Math.PI) currentRot -= Math.PI * 2;
-              while (currentRot - angle < -Math.PI) currentRot += Math.PI * 2;
-              groupRef.current.rotation.y = THREE.MathUtils.lerp(groupRef.current.rotation.y, angle, 4 * delta);
-            } else {
-              setRoaming(false); // 경로가 막히면 이동 취소
-            }
-          } else {
-            setRoaming(false);
           }
+          
+          const worldX = position[0] + currentLocalPos.current.x;
+          const worldZ = position[2] + currentLocalPos.current.z;
+          const groundY = heights ? getTerrainHeightAt(worldX, worldZ, heights) : position[1];
+          groupRef.current.position.set(worldX, groundY, worldZ);
         }
-        
-        const worldX = position[0] + currentLocalPos.current.x;
-        const worldZ = position[2] + currentLocalPos.current.z;
-        const groundY = heights ? getTerrainHeightAt(worldX, worldZ, heights) : position[1];
-        groupRef.current.position.set(worldX, groundY, worldZ);
-        }
-      } else if (!isPlaying && roamRadius > 0) {
+      } else if (!isPlaying && (roamRadius > 0 || ['one-way', 'round-trip', 'repeat'].includes(asset.pathMode))) {
         currentLocalPos.current.set(0, 0, 0);
         const globalState = useMapStore.getState();
         if (globalState.mode !== 'select' || globalState.selectedAssetId !== asset.id) {
@@ -495,11 +562,20 @@ function MineableAsset({ asset, onInteract, mode, isPlaying, children }) {
         userData={{ isAsset: true, assetId: id }} 
       >
         {typeof children === 'function' ? children(roaming, canInteract ? handleClick : undefined) : children}
-        {isSelected && roamRadius > 0 && (
+        {isSelected && (!['one-way', 'round-trip', 'repeat'].includes(asset.pathMode)) && roamRadius > 0 && (
           <mesh position={[0, 0.1, 0]} rotation={[-Math.PI / 2, 0, 0]}>
             <ringGeometry args={[roamRadius * 2 - 0.1, roamRadius * 2 + 0.1, 32]} />
             <meshBasicMaterial color="#eab308" transparent opacity={0.6} side={THREE.DoubleSide} />
           </mesh>
+        )}
+        {isSelected && ['one-way', 'round-trip', 'repeat'].includes(asset.pathMode) && asset.pathPoints && asset.pathPoints.length > 1 && (
+          <Line 
+            points={asset.pathPoints.map(p => new THREE.Vector3(p.x - position[0], (heights ? getTerrainHeightAt(p.x, p.z, heights) : p.y || 0) - position[1] + 0.2, p.z - position[2]))} 
+            color="#ef4444" 
+            lineWidth={3}
+            transparent
+            opacity={0.8}
+          />
         )}
       </group>
       

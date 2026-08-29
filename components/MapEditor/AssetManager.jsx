@@ -478,7 +478,6 @@ function MineableAsset({ asset, onInteract, mode, isPlaying, children }) {
     };
   }, [id, type, isPlaying, onInteract]);
 
-  const isSelected = selectedAssetId === asset.id;
   const canInteract = mode === 'erase' || mode === 'select' || mode === 'selectTarget';
 
   return (

@@ -104,7 +104,7 @@ function TunnelAsset() {
 function TimeMachineAsset() {
   const { scene } = useGLTF('/models/timemachin.glb');
   const clone = useMemo(() => scene.clone(), [scene]);
-  return <primitive object={clone} scale={1} />;
+  return <primitive object={clone} scale={4} position={[0, 2, 0]} />;
 }
 
 function Lake({ isPlaying }) {

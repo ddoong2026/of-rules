@@ -198,19 +198,50 @@ export default function Player() {
     return h0 * (1 - tz) + h1 * tz;
   };
 
+  const terrainMeshRef = useRef(null);
+
   const getTerrainHeightRaycast = (x, y, z) => {
-    let terrainMesh = null;
-    glScene.traverse((child) => {
-      if (child.name === 'terrainMesh' && child.visible) {
-        terrainMesh = child;
+    // 1. Check if we are near any cave. If not, fallback to fast 2D lookup.
+    const { csgOperations } = useMapStore.getState();
+    let isNearCave = false;
+    if (csgOperations.length > 0) {
+      for (const op of csgOperations) {
+        if (op.shape === 'sphere') {
+          const dx = x - op.position[0];
+          const dz = z - op.position[2];
+          if (dx*dx + dz*dz < (op.radius + 3)**2) {
+            isNearCave = true; break;
+          }
+        } else if (op.shape === 'capsule') {
+          const minX = Math.min(op.start[0], op.end[0]) - op.radius - 3;
+          const maxX = Math.max(op.start[0], op.end[0]) + op.radius + 3;
+          const minZ = Math.min(op.start[2], op.end[2]) - op.radius - 3;
+          const maxZ = Math.max(op.start[2], op.end[2]) + op.radius + 3;
+          if (x >= minX && x <= maxX && z >= minZ && z <= maxZ) {
+            isNearCave = true; break;
+          }
+        }
       }
-    });
+    }
+
+    if (!isNearCave) return getTerrainHeight(x, z);
+
+    // 2. Cache terrain mesh to avoid slow glScene.traverse every frame
+    if (!terrainMeshRef.current || !terrainMeshRef.current.visible) {
+      let found = null;
+      glScene.traverse((child) => {
+        if (child.name === 'terrainMesh' && child.visible) {
+          found = child;
+        }
+      });
+      terrainMeshRef.current = found;
+    }
     
-    if (!terrainMesh) return getTerrainHeight(x, z);
+    if (!terrainMeshRef.current) return getTerrainHeight(x, z);
     
     // Cast ray from slightly above the player's current y position
     physicsRaycaster.set(new THREE.Vector3(x, y + 1.5, z), new THREE.Vector3(0, -1, 0));
-    const intersects = physicsRaycaster.intersectObject(terrainMesh);
+    const intersects = physicsRaycaster.intersectObject(terrainMeshRef.current);
     if (intersects.length > 0) {
       return intersects[0].point.y;
     }

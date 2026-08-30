@@ -535,6 +535,7 @@ export default function Player() {
                   }
                 }
               }
+            }
           }
         }
       }

@@ -49,6 +49,10 @@ export default function Player() {
   
   const mineProgressRef = useRef(0);
   const mineTargetIdRef = useRef(null);
+  
+  const [playerBubble, setPlayerBubble] = useState(null);
+  const triggeredZones = useRef(new Set());
+  const lastZoneTriggerTime = useRef(0);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -125,12 +129,12 @@ export default function Player() {
           const isTree = targetAsset?.type === 'tree';
           const isNPC = targetAsset?.type?.startsWith('caveman');
           
-          if (isNPC) {
-            if (targetAsset.hasDialogue !== false) {
-              window.dispatchEvent(new CustomEvent('npc-interact', { detail: { asset: targetAsset } }));
-              if (document.pointerLockElement === canvas) {
-                document.exitPointerLock();
-              }
+          const hasDialogueEnabled = targetAsset.hasDialogue === true || (isNPC && targetAsset.hasDialogue !== false);
+
+          if (hasDialogueEnabled) {
+            window.dispatchEvent(new CustomEvent('npc-interact', { detail: { asset: targetAsset } }));
+            if (document.pointerLockElement === canvas) {
+              document.exitPointerLock();
             }
             return;
           }
@@ -442,7 +446,7 @@ export default function Player() {
       
       for (const b of boundaries) {
         let isActive = true;
-        if (b.condition) {
+        if (b.condition && !b.isZone) {
           let currentAmount = 0;
           for (let i = 0; i < items.length; i++) {
             if (items[i] && items[i].type === b.condition.itemType) currentAmount += items[i].count;
@@ -464,44 +468,73 @@ export default function Player() {
               const ub = ((b2.x - b1.x) * (b1.z - p1.z) - (b2.z - b1.z) * (b1.x - p1.x)) / denom;
               
               if (ua >= -0.1 && ua <= 1.1 && ub >= 0 && ub <= 1) {
-                canMoveXZ = false;
-                currentVelocity.current.x = 0;
-                currentVelocity.current.z = 0;
-                
-                const now = performance.now();
-                if (now - lastBoundaryMessageTime.current > 3500) { // 3.5s cooldown
-                  lastBoundaryMessageTime.current = now;
-                  const message = b.condition.message || "조건을 달성해야 통과할 수 있습니다.";
-                  const additionalMessage = b.condition.additionalMessage;
-                  const targetAssetId = b.condition.targetAssetId;
+                if (!b.isZone) {
+                  canMoveXZ = false;
+                  currentVelocity.current.x = 0;
+                  currentVelocity.current.z = 0;
                   
-                  if (targetAssetId) {
-                    const targetAsset = useMapStore.getState().assets.find(a => a.id === targetAssetId);
-                    if (targetAsset) {
-                      cameraOverride.current.active = true;
-                      cameraOverride.current.state = 'switch_to_1st_person';
-                      cameraOverride.current.startTime = now;
-                      cameraOverride.current.targetPos.set(targetAsset.position[0], targetAsset.position[1], targetAsset.position[2]);
-                      cameraOverride.current.startPos.copy(group.current.position);
-                      cameraOverride.current.startYaw = yaw.current;
-                      cameraOverride.current.targetYaw = Math.atan2(targetAsset.position[0] - group.current.position.x, targetAsset.position[2] - group.current.position.z);
-                      
-                      let dyaw = cameraOverride.current.targetYaw - cameraOverride.current.startYaw;
-                      while (dyaw > Math.PI) dyaw -= 2 * Math.PI;
-                      while (dyaw < -Math.PI) dyaw += 2 * Math.PI;
-                      cameraOverride.current.targetYaw = cameraOverride.current.startYaw + dyaw;
-                      
-                      cameraOverride.current.messageData = { message, additionalMessage, boundaryId: b.id };
+                  const now = performance.now();
+                  if (now - lastBoundaryMessageTime.current > 3500) { // 3.5s cooldown
+                    lastBoundaryMessageTime.current = now;
+                    const message = b.condition.message || "조건을 달성해야 통과할 수 있습니다.";
+                    const additionalMessage = b.condition.additionalMessage;
+                    const targetAssetId = b.condition.targetAssetId;
+                    
+                    if (targetAssetId) {
+                      const targetAsset = useMapStore.getState().assets.find(a => a.id === targetAssetId);
+                      if (targetAsset) {
+                        cameraOverride.current.active = true;
+                        cameraOverride.current.state = 'switch_to_1st_person';
+                        cameraOverride.current.startTime = now;
+                        cameraOverride.current.targetPos.set(targetAsset.position[0], targetAsset.position[1], targetAsset.position[2]);
+                        cameraOverride.current.startPos.copy(group.current.position);
+                        cameraOverride.current.startYaw = yaw.current;
+                        cameraOverride.current.targetYaw = Math.atan2(targetAsset.position[0] - group.current.position.x, targetAsset.position[2] - group.current.position.z);
+                        
+                        let dyaw = cameraOverride.current.targetYaw - cameraOverride.current.startYaw;
+                        while (dyaw > Math.PI) dyaw -= 2 * Math.PI;
+                        while (dyaw < -Math.PI) dyaw += 2 * Math.PI;
+                        cameraOverride.current.targetYaw = cameraOverride.current.startYaw + dyaw;
+                        
+                        cameraOverride.current.messageData = { message, additionalMessage, boundaryId: b.id };
+                      } else {
+                        window.dispatchEvent(new CustomEvent('boundary-collide', { detail: { message, additionalMessage, boundaryId: b.id } }));
+                      }
                     } else {
                       window.dispatchEvent(new CustomEvent('boundary-collide', { detail: { message, additionalMessage, boundaryId: b.id } }));
                     }
-                  } else {
-                    window.dispatchEvent(new CustomEvent('boundary-collide', { detail: { message, additionalMessage, boundaryId: b.id } }));
+                  }
+                  break;
+                } else {
+                  // Zone Trigger Logic
+                  const now = performance.now();
+                  const zoneId = b.id;
+                  
+                  if (b.condition?.triggerOnce !== false && triggeredZones.current.has(zoneId)) {
+                    continue; // Skip if already triggered and is triggerOnce
+                  }
+
+                  if (now - lastZoneTriggerTime.current > 1000) { // 1s global cooldown for zones
+                    lastZoneTriggerTime.current = now;
+                    triggeredZones.current.add(zoneId);
+
+                    const eventType = b.condition?.eventType || 'bubble';
+                    const msg = b.condition?.message || '';
+
+                    if (eventType === 'bubble') {
+                      setPlayerBubble(msg);
+                      setTimeout(() => setPlayerBubble(null), 3000);
+                    } else if (eventType === 'message') {
+                      window.dispatchEvent(new CustomEvent('boundary-collide', { detail: { message: msg, additionalMessage: '', targetAssetId: null, boundaryId: b.id } }));
+                    } else if (eventType === 'dialogue') {
+                      window.dispatchEvent(new CustomEvent('npc-interact', { detail: { asset: { npcName: '알림', dialogue: msg } } }));
+                      if (document.pointerLockElement) {
+                        document.exitPointerLock();
+                      }
+                    }
                   }
                 }
-                break;
               }
-            }
           }
         }
       }
@@ -729,6 +762,54 @@ export default function Player() {
   return (
     <group ref={group} dispose={null} userData={{ isPlayer: true }}>
       <PlayerGauge progressRef={mineProgressRef} />
+      {playerBubble && (
+        <Html position={[0, 4, 0]} center sprite zIndexRange={[100, 0]} distanceFactor={2}>
+          <div style={{ 
+            position: 'relative', 
+            display: 'flex', 
+            flexDirection: 'column', 
+            alignItems: 'center',
+            filter: 'drop-shadow(0px 4px 12px rgba(0,0,0,0.3))'
+          }}>
+            {/* 꼬리 테두리 (검은색) */}
+            <div style={{
+              position: 'absolute',
+              bottom: '-12px',
+              borderLeft: '12px solid transparent',
+              borderRight: '12px solid transparent',
+              borderTop: '16px solid black',
+              zIndex: 1
+            }} />
+            
+            {/* 꼬리 안쪽 (흰색) */}
+            <div style={{
+              position: 'absolute',
+              bottom: '-8px',
+              borderLeft: '8px solid transparent',
+              borderRight: '8px solid transparent',
+              borderTop: '14px solid white',
+              zIndex: 3
+            }} />
+            
+            {/* 말풍선 본체 */}
+            <div style={{
+              background: 'white',
+              padding: '8px 16px',
+              borderRadius: '24px',
+              border: '4px solid black',
+              fontSize: '1.5rem',
+              fontWeight: 'bold',
+              whiteSpace: 'nowrap',
+              pointerEvents: 'none',
+              color: '#111827',
+              position: 'relative',
+              zIndex: 2
+            }}>
+              {playerBubble.substring(0, 30)}{playerBubble.length > 30 ? '...' : ''}
+            </div>
+          </div>
+        </Html>
+      )}
       <primitive object={scene} scale={0.1} />
     </group>
   );

@@ -122,6 +122,7 @@ export default function EditorUI({ onSave, isSaving }) {
           <ModeButton current={mode} id="asset" label="🌲 에셋 배치" onClick={() => setMode('asset')} />
           <ModeButton current={mode} id="decal" label="🛣️ 도로/타일" onClick={() => setMode('decal')} />
           <ModeButton current={mode} id="boundary" label="🚧 경계선" onClick={() => setMode('boundary')} />
+          <ModeButton current={mode} id="zone" label="🌟 이벤트 구역" onClick={() => setMode('zone')} />
           <ModeButton current={mode} id="spawn" label="🚩 스폰 위치" onClick={() => setMode('spawn')} />
           <ModeButton current={mode} id="erase" label="🗑️ 지우개" onClick={() => setMode('erase')} />
           <ModeButton current={mode === 'selectTarget' || mode === 'drawPath' ? 'select' : mode} id="select" label="🖱️ 선택/편집" onClick={() => setMode('select')} />
@@ -309,106 +310,165 @@ function PropertyEditor() {
   
   if (selectedBoundaryId) {
     const boundary = boundaries.find(b => b.id === selectedBoundaryId);
-    if (!boundary) return <div style={{ fontSize: '0.8rem', color: '#ef4444' }}>경계선을 찾을 수 없습니다.</div>;
+    if (!boundary) return <div style={{ fontSize: '0.8rem', color: '#ef4444' }}>찾을 수 없습니다.</div>;
     
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', marginTop: '1rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h5 style={{ margin: 0, color: '#1e3a8a' }}>🚧 경계선 (조건부 게이트)</h5>
+    if (boundary.isZone) {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', marginTop: '1rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h5 style={{ margin: 0, color: '#047857' }}>🌟 이벤트 구역</h5>
+            <button 
+              onClick={() => setSelectedBoundaryId(null)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}
+            >
+              ✖
+            </button>
+          </div>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+            <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>이벤트 종류</label>
+            <select 
+              className="glass-input"
+              value={boundary.condition?.eventType || 'bubble'}
+              onChange={(e) => updateBoundary(boundary.id, { condition: { ...boundary.condition, eventType: e.target.value } })}
+              style={{ padding: '0.4rem' }}
+            >
+              <option value="bubble">말풍선 (캐릭터 위)</option>
+              <option value="message">안내 문구 (화면 중앙)</option>
+              <option value="dialogue">대화창 (하단 UI)</option>
+            </select>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+            <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>표시할 내용</label>
+            <textarea 
+              className="glass-input" 
+              placeholder="표시할 문구를 입력하세요"
+              value={boundary.condition?.message || ''} 
+              onChange={(e) => updateBoundary(boundary.id, { condition: { ...boundary.condition, message: e.target.value } })}
+              rows={3}
+              style={{ padding: '0.4rem', resize: 'vertical' }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <input 
+              type="checkbox" 
+              id="triggerOnce"
+              checked={boundary.condition?.triggerOnce !== false} 
+              onChange={(e) => updateBoundary(boundary.id, { condition: { ...boundary.condition, triggerOnce: e.target.checked } })}
+            />
+            <label htmlFor="triggerOnce" style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>한 번만 실행하기 (재진입 시 무시)</label>
+          </div>
+
           <button 
-            onClick={() => setSelectedBoundaryId(null)}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}
+            onClick={() => removeBoundary(boundary.id)}
+            style={{ padding: '0.5rem', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', marginTop: '0.5rem' }}
           >
-            ✖
+            🗑️ 구역 삭제하기
           </button>
         </div>
-        
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-          <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>요구 아이템 (Item Type)</label>
-          <select 
-            className="glass-input"
-            value={boundary.condition?.itemType || 'rock'}
-            onChange={(e) => updateBoundary(boundary.id, { condition: { ...boundary.condition, itemType: e.target.value } })}
-            style={{ padding: '0.4rem' }}
-          >
-            <option value="rock">돌멩이 (rock)</option>
-            <option value="tree">도토리/나뭇가지류 (tree)</option>
-            <option value="caveman1">원시인 관련 (caveman)</option>
-          </select>
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-          <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>필요 개수 (Amount)</label>
-          <input 
-            type="number" 
-            className="glass-input" 
-            value={boundary.condition?.amount || 1} 
-            onChange={(e) => updateBoundary(boundary.id, { condition: { ...boundary.condition, amount: parseInt(e.target.value) || 1 } })}
-            min="1"
-            style={{ padding: '0.4rem' }}
-          />
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-          <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>접근 차단 메시지</label>
-          <input 
-            type="text" 
-            className="glass-input" 
-            placeholder="예: 돌멩이를 더 모아오세요!"
-            value={boundary.condition?.message || ''} 
-            onChange={(e) => updateBoundary(boundary.id, { condition: { ...boundary.condition, message: e.target.value } })}
-            style={{ padding: '0.4rem' }}
-          />
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-          <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>카메라 이동 대상 에셋 (선택)</label>
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-            <button
-              onClick={() => setMode(mode === 'selectTarget' ? 'select' : 'selectTarget')}
-              style={{ padding: '0.4rem', flex: 1, background: mode === 'selectTarget' ? '#ef4444' : '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+      );
+    } else {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', marginTop: '1rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h5 style={{ margin: 0, color: '#1e3a8a' }}>🚧 경계선 (조건부 게이트)</h5>
+            <button 
+              onClick={() => setSelectedBoundaryId(null)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}
             >
-              {mode === 'selectTarget' ? '취소하기' : '🎯 맵에서 클릭하여 지정'}
+              ✖
             </button>
-            {boundary.condition?.targetAssetId && (
-              <button
-                onClick={() => updateBoundary(boundary.id, { condition: { ...boundary.condition, targetAssetId: null } })}
-                style={{ padding: '0.4rem', background: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '4px', cursor: 'pointer' }}
-                title="대상 지우기"
-              >
-                ❌
-              </button>
-            )}
           </div>
-          {boundary.condition?.targetAssetId && (
-            <div style={{ fontSize: '0.85rem', color: '#059669', marginTop: '0.2rem', fontWeight: 'bold' }}>
-               ✓ 선택됨: {assets.find(a => a.id === boundary.condition.targetAssetId)?.npcName || '에셋'}
-            </div>
-          )}
-        </div>
-
-        {boundary.condition?.targetAssetId && (
+          
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-            <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>추가 안내 문구</label>
+            <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>요구 아이템 (Item Type)</label>
+            <select 
+              className="glass-input"
+              value={boundary.condition?.itemType || 'rock'}
+              onChange={(e) => updateBoundary(boundary.id, { condition: { ...boundary.condition, itemType: e.target.value } })}
+              style={{ padding: '0.4rem' }}
+            >
+              <option value="rock">돌멩이 (rock)</option>
+              <option value="tree">도토리/나뭇가지류 (tree)</option>
+              <option value="caveman1">원시인 관련 (caveman)</option>
+            </select>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+            <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>필요 개수 (Amount)</label>
             <input 
-              type="text" 
+              type="number" 
               className="glass-input" 
-              placeholder="예: 저기 있는 촌장님께 가보세요!"
-              value={boundary.condition?.additionalMessage || ''} 
-              onChange={(e) => updateBoundary(boundary.id, { condition: { ...boundary.condition, additionalMessage: e.target.value } })}
+              value={boundary.condition?.amount || 1} 
+              onChange={(e) => updateBoundary(boundary.id, { condition: { ...boundary.condition, amount: parseInt(e.target.value) || 1 } })}
+              min="1"
               style={{ padding: '0.4rem' }}
             />
           </div>
-        )}
-        
-        <button 
-          onClick={() => removeBoundary(boundary.id)}
-          style={{ padding: '0.5rem', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', marginTop: '0.5rem' }}
-        >
-          🗑️ 이 경계선 삭제하기
-        </button>
-      </div>
-    );
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+            <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>접근 차단 메시지</label>
+            <input 
+              type="text" 
+              className="glass-input" 
+              placeholder="예: 돌멩이를 더 모아오세요!"
+              value={boundary.condition?.message || ''} 
+              onChange={(e) => updateBoundary(boundary.id, { condition: { ...boundary.condition, message: e.target.value } })}
+              style={{ padding: '0.4rem' }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+            <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>카메라 이동 대상 에셋 (선택)</label>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              <button
+                onClick={() => setMode(mode === 'selectTarget' ? 'select' : 'selectTarget')}
+                style={{ padding: '0.4rem', flex: 1, background: mode === 'selectTarget' ? '#ef4444' : '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+              >
+                {mode === 'selectTarget' ? '취소하기' : '🎯 맵에서 클릭하여 지정'}
+              </button>
+              {boundary.condition?.targetAssetId && (
+                <button
+                  onClick={() => updateBoundary(boundary.id, { condition: { ...boundary.condition, targetAssetId: null } })}
+                  style={{ padding: '0.4rem', background: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '4px', cursor: 'pointer' }}
+                  title="대상 지우기"
+                >
+                  ❌
+                </button>
+              )}
+            </div>
+            {boundary.condition?.targetAssetId && (
+              <div style={{ fontSize: '0.85rem', color: '#059669', marginTop: '0.2rem', fontWeight: 'bold' }}>
+                 ✓ 선택됨: {assets.find(a => a.id === boundary.condition.targetAssetId)?.npcName || '에셋'}
+              </div>
+            )}
+          </div>
+
+          {boundary.condition?.targetAssetId && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+              <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>추가 안내 문구</label>
+              <input 
+                type="text" 
+                className="glass-input" 
+                placeholder="예: 저기 있는 촌장님께 가보세요!"
+                value={boundary.condition?.additionalMessage || ''} 
+                onChange={(e) => updateBoundary(boundary.id, { condition: { ...boundary.condition, additionalMessage: e.target.value } })}
+                style={{ padding: '0.4rem' }}
+              />
+            </div>
+          )}
+          
+          <button 
+            onClick={() => removeBoundary(boundary.id)}
+            style={{ padding: '0.5rem', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', marginTop: '0.5rem' }}
+          >
+            🗑️ 이 경계선 삭제하기
+          </button>
+        </div>
+      );
+    }
   }
 
   const asset = assets.find(a => a.id === selectedAssetId);
@@ -456,134 +516,130 @@ function PropertyEditor() {
         {mode === 'moveAsset' ? '취소하기' : '👇 바닥 클릭해서 멀리 옮기기'}
       </button>
 
-      {isNPC && (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+        <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>이름 (NPC/에셋)</label>
+        <input 
+          type="text" 
+          className="glass-input" 
+          value={asset.npcName || ''} 
+          onChange={(e) => updateAsset(asset.id, { npcName: e.target.value })}
+          placeholder="예: 촌장님, 말하는 나무"
+          style={{ padding: '0.4rem' }}
+        />
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+        <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>말풍선 대사 (Bubble Dialogue)</label>
+        <span style={{ fontSize: '0.7rem', color: '#6b7280' }}>엔터로 구분하면 무작위로 하나씩 뜹니다.</span>
+        <textarea 
+          className="glass-input" 
+          value={asset.bubbleDialogue || ''} 
+          onChange={(e) => updateAsset(asset.id, { bubbleDialogue: e.target.value })}
+          placeholder="머리 위에 무작위로 뜰 대사들"
+          rows={2}
+          style={{ padding: '0.4rem', resize: 'vertical' }}
+        />
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem', marginBottom: '0.5rem' }}>
+        <input 
+          type="checkbox" 
+          id="hasDialogue"
+          checked={asset.hasDialogue === true || (asset.type.startsWith('caveman') && asset.hasDialogue !== false)} 
+          onChange={(e) => updateAsset(asset.id, { hasDialogue: e.target.checked })}
+        />
+        <label htmlFor="hasDialogue" style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>클릭 상호작용(대화창) 활성화</label>
+      </div>
+      
+      {(asset.hasDialogue === true || (asset.type.startsWith('caveman') && asset.hasDialogue !== false)) && (
         <>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-            <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>NPC 이름</label>
-            <input 
-              type="text" 
-              className="glass-input" 
-              value={asset.npcName || ''} 
-              onChange={(e) => updateAsset(asset.id, { npcName: e.target.value })}
-              placeholder="예: 촌장님"
-              style={{ padding: '0.4rem' }}
-            />
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-            <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>말풍선 대사 (Bubble Dialogue)</label>
-            <span style={{ fontSize: '0.7rem', color: '#6b7280' }}>엔터로 구분하면 무작위로 하나씩 뜹니다.</span>
+            <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>스크립트 대화 (Sequential Dialogue)</label>
+            <span style={{ fontSize: '0.7rem', color: '#6b7280' }}>엔터로 구분하면 순서대로 진행됩니다.</span>
             <textarea 
               className="glass-input" 
-              value={asset.bubbleDialogue || ''} 
-              onChange={(e) => updateAsset(asset.id, { bubbleDialogue: e.target.value })}
-              placeholder="머리 위에 무작위로 뜰 대사들"
-              rows={2}
+              value={asset.dialogue || ''} 
+              onChange={(e) => updateAsset(asset.id, { dialogue: e.target.value })}
+              placeholder="클릭 시 나타날 순차적 대화 스크립트"
+              rows={3}
               style={{ padding: '0.4rem', resize: 'vertical' }}
             />
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem', marginBottom: '0.5rem' }}>
-            <input 
-              type="checkbox" 
-              id="hasDialogue"
-              checked={asset.hasDialogue !== false} 
-              onChange={(e) => updateAsset(asset.id, { hasDialogue: e.target.checked })}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+            <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>퀘스트 (Quest)</label>
+            <textarea 
+              className="glass-input" 
+              value={asset.quest || ''} 
+              onChange={(e) => updateAsset(asset.id, { quest: e.target.value })}
+              placeholder="퀘스트 내용"
+              rows={2}
+              style={{ padding: '0.4rem', resize: 'vertical' }}
             />
-            <label htmlFor="hasDialogue" style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>클릭 상호작용(대화창) 활성화</label>
-          </div>
-          
-          {asset.hasDialogue !== false && (
-            <>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>스크립트 대화 (Sequential Dialogue)</label>
-                <span style={{ fontSize: '0.7rem', color: '#6b7280' }}>엔터로 구분하면 순서대로 진행됩니다.</span>
-                <textarea 
-                  className="glass-input" 
-                  value={asset.dialogue || ''} 
-                  onChange={(e) => updateAsset(asset.id, { dialogue: e.target.value })}
-                  placeholder="클릭 시 나타날 순차적 대화 스크립트"
-                  rows={3}
-                  style={{ padding: '0.4rem', resize: 'vertical' }}
-                />
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>퀘스트 (Quest)</label>
-                <textarea 
-                  className="glass-input" 
-                  value={asset.quest || ''} 
-                  onChange={(e) => updateAsset(asset.id, { quest: e.target.value })}
-                  placeholder="퀘스트 내용"
-                  rows={2}
-                  style={{ padding: '0.4rem', resize: 'vertical' }}
-                />
-              </div>
-            </>
-          )}
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', marginTop: '0.5rem' }}>
-            <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>배회 구역 반경 (Roam Radius)</label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <input 
-                type="number" 
-                min="0" max="20" step="0.1"
-                value={asset.roamRadius || 0} 
-                onChange={(e) => updateAsset(asset.id, { roamRadius: Number(e.target.value) })}
-                className="glass-input"
-                style={{ width: '60px', padding: '0.2rem' }}
-              />
-              <input 
-                type="range" 
-                min="0" max="20" step="0.1"
-                value={asset.roamRadius || 0} 
-                onChange={(e) => updateAsset(asset.id, { roamRadius: Number(e.target.value) })}
-                style={{ flex: 1 }}
-              />
-            </div>
-            <span style={{ fontSize: '0.7rem', color: '#6b7280' }}>0이면 제자리에 멈춰 있습니다. (1 이하는 0.1 단위 조절)</span>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', marginTop: '0.5rem' }}>
-            <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>이동 경로 (Path)</label>
-            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-              <select 
-                className="glass-input"
-                value={asset.pathMode || 'roam'}
-                onChange={(e) => updateAsset(asset.id, { pathMode: e.target.value })}
-                style={{ padding: '0.4rem', flex: 1 }}
-              >
-                <option value="roam">배회 (반경 내 무작위)</option>
-                <option value="one-way">경로 따라 이동 (편도)</option>
-                <option value="round-trip">경로 따라 이동 (왕복)</option>
-                <option value="repeat">경로 따라 이동 (반복)</option>
-              </select>
-            </div>
-            
-            {(asset.pathMode === 'one-way' || asset.pathMode === 'round-trip' || asset.pathMode === 'repeat') && (
-              <div style={{ display: 'flex', gap: '0.5rem', flexDirection: 'column' }}>
-                <button
-                  onClick={() => setMode(mode === 'drawPath' ? 'select' : 'drawPath')}
-                  style={{ padding: '0.4rem', background: mode === 'drawPath' ? '#ef4444' : '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
-                >
-                  {mode === 'drawPath' ? '그리기 종료' : '🖌️ 맵에 드래그하여 선 그리기'}
-                </button>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <button
-                    onClick={() => updateAsset(asset.id, { pathPoints: [] })}
-                    style={{ padding: '0.4rem', background: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '4px', cursor: 'pointer', flex: 1 }}
-                  >
-                    경로 초기화
-                  </button>
-                </div>
-                <span style={{ fontSize: '0.7rem', color: '#6b7280' }}>
-                  점이 {asset.pathPoints?.length || 0}개 찍혀있습니다.
-                </span>
-              </div>
-            )}
           </div>
         </>
       )}
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', marginTop: '0.5rem' }}>
+        <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>배회 구역 반경 (Roam Radius)</label>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <input 
+            type="number" 
+            min="0" max="20" step="0.1"
+            value={asset.roamRadius || 0} 
+            onChange={(e) => updateAsset(asset.id, { roamRadius: Number(e.target.value) })}
+            className="glass-input"
+            style={{ width: '60px', padding: '0.2rem' }}
+          />
+          <input 
+            type="range" 
+            min="0" max="20" step="0.1"
+            value={asset.roamRadius || 0} 
+            onChange={(e) => updateAsset(asset.id, { roamRadius: Number(e.target.value) })}
+            style={{ flex: 1 }}
+          />
+        </div>
+        <span style={{ fontSize: '0.7rem', color: '#6b7280' }}>0이면 제자리에 멈춰 있습니다. (1 이하는 0.1 단위 조절)</span>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', marginTop: '0.5rem' }}>
+        <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>이동 경로 (Path)</label>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <select 
+            className="glass-input"
+            value={asset.pathMode || 'roam'}
+            onChange={(e) => updateAsset(asset.id, { pathMode: e.target.value })}
+            style={{ padding: '0.4rem', flex: 1 }}
+          >
+            <option value="roam">배회 (반경 내 무작위)</option>
+            <option value="one-way">경로 따라 이동 (편도)</option>
+            <option value="round-trip">경로 따라 이동 (왕복)</option>
+            <option value="repeat">경로 따라 이동 (반복)</option>
+          </select>
+        </div>
+        
+        {(asset.pathMode === 'one-way' || asset.pathMode === 'round-trip' || asset.pathMode === 'repeat') && (
+          <div style={{ display: 'flex', gap: '0.5rem', flexDirection: 'column' }}>
+            <button
+              onClick={() => setMode(mode === 'drawPath' ? 'select' : 'drawPath')}
+              style={{ padding: '0.4rem', background: mode === 'drawPath' ? '#ef4444' : '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+            >
+              {mode === 'drawPath' ? '그리기 종료' : '🖌️ 맵에 드래그하여 선 그리기'}
+            </button>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button
+                onClick={() => updateAsset(asset.id, { pathPoints: [] })}
+                style={{ padding: '0.4rem', background: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '4px', cursor: 'pointer', flex: 1 }}
+              >
+                경로 초기화
+              </button>
+            </div>
+            <span style={{ fontSize: '0.7rem', color: '#6b7280' }}>
+              점이 {asset.pathPoints?.length || 0}개 찍혀있습니다.
+            </span>
+          </div>
+        )}
+      </div>
       
       {!isNPC && (
         <p style={{ fontSize: '0.8rem', color: '#6b7280' }}>

@@ -71,6 +71,11 @@ export default function NPCDialogueUI() {
     caveman2: '🧑‍🌾',
     caveman3: '🧙‍♂️',
     caveman4: '🤠',
+    tree: '🌳',
+    rock: '🪨',
+    house: '🏠',
+    cave: '🕳️',
+    lake: '💧',
   }[activeAsset.type] || '👤';
 
   const defaultNames = {
@@ -78,8 +83,13 @@ export default function NPCDialogueUI() {
     caveman2: '원시인 2',
     caveman3: '원시인 3',
     caveman4: '원시인 4',
+    tree: '나무',
+    rock: '바위',
+    house: '집',
+    cave: '동굴',
+    lake: '호수',
   };
-  const npcName = activeAsset.npcName || defaultNames[activeAsset.type] || '주민';
+  const npcName = activeAsset.npcName || defaultNames[activeAsset.type] || '알 수 없음';
 
   return (
     <div 

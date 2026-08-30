@@ -378,9 +378,9 @@ export default function Terrain() {
         position: [targetPoint.x, targetPoint.y, targetPoint.z],
         scale: [brushSize * 2, brushSize * 2, brushSize * 2] // Arbitrary scaling based on brush
       });
-    } else if (mode === 'boundary') {
+    } else if (mode === 'boundary' || mode === 'zone') {
       const { setBoundaryDrawing } = useMapStore.getState();
-      setBoundaryDrawing({ points: [[targetPoint.x, targetPoint.z]] });
+      setBoundaryDrawing({ points: [[targetPoint.x, targetPoint.z]], isZone: mode === 'zone' });
     } else if (mode === 'spawn') {
       const { setSpawnPoint } = useMapStore.getState();
       setSpawnPoint({ x: targetPoint.x, z: targetPoint.z });
@@ -466,14 +466,14 @@ export default function Terrain() {
           color: [r, g, b]
         });
       }
-    } else if (mode === 'boundary') {
+    } else if (mode === 'boundary' || mode === 'zone') {
       const { boundaryDrawing, setBoundaryDrawing } = useMapStore.getState();
       if (boundaryDrawing) {
         const lastPoint = boundaryDrawing.points[boundaryDrawing.points.length - 1];
         const dx = targetPoint.x - lastPoint[0];
         const dz = targetPoint.z - lastPoint[1];
         if (Math.sqrt(dx*dx + dz*dz) > 0.5) { // Add point every 0.5 units
-          setBoundaryDrawing({ points: [...boundaryDrawing.points, [targetPoint.x, targetPoint.z]] });
+          setBoundaryDrawing({ ...boundaryDrawing, points: [...boundaryDrawing.points, [targetPoint.x, targetPoint.z]] });
         }
       }
     } else if (mode === 'drawPath') {
@@ -495,14 +495,17 @@ export default function Terrain() {
   const handlePointerUp = (e) => {
     setIsPointerDown(false);
     
-    if (mode === 'boundary') {
+    if (mode === 'boundary' || mode === 'zone') {
       const { boundaryDrawing, setBoundaryDrawing, addBoundary } = useMapStore.getState();
       if (boundaryDrawing) {
         if (boundaryDrawing.points.length > 1) {
           addBoundary({
             id: crypto.randomUUID(),
+            isZone: boundaryDrawing.isZone,
             points: boundaryDrawing.points,
-            condition: { itemType: 'rock', amount: 3 }
+            condition: boundaryDrawing.isZone 
+              ? { eventType: 'bubble', message: '' } 
+              : { itemType: 'rock', amount: 3 }
           });
         }
         setBoundaryDrawing(null);
@@ -511,7 +514,7 @@ export default function Terrain() {
   };
 
   const handlePointerOut = (e) => {
-    if (mode === 'boundary' && useMapStore.getState().boundaryDrawing) {
+    if ((mode === 'boundary' || mode === 'zone') && useMapStore.getState().boundaryDrawing) {
       handlePointerUp(e);
     }
     setIsPointerDown(false);

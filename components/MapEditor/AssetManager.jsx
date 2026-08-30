@@ -164,21 +164,16 @@ function getTerrainHeightAt(x, z, heights) {
   return h0 * (1 - tz) + h1 * tz;
 }
 
-function NPC({ asset, isPlaying, roaming, mode, onSelect }) {
+function AssetOverlay({ asset, isPlaying, mode, onSelect }) {
   const [showBubble, setShowBubble] = useState(false);
   const [currentBubbleText, setCurrentBubbleText] = useState('');
-  const { scene, animations } = useGLTF(`/models/${asset.type}.glb`);
-  const clone = useMemo(() => SkeletonUtils.clone(scene), [scene]);
-  const { actions } = useAnimations(animations, clone);
-  const npcGroupRef = useRef();
   const [isNear, setIsNear] = useState(false);
-  const walkActionRef = useRef(null);
+  const overlayGroupRef = useRef();
 
-  // Check player distance
   useFrame(({ camera }) => {
-    if (!isPlaying || !npcGroupRef.current) return;
+    if (!isPlaying || !overlayGroupRef.current) return;
     const worldPos = new THREE.Vector3();
-    npcGroupRef.current.getWorldPosition(worldPos);
+    overlayGroupRef.current.getWorldPosition(worldPos);
     const distance = camera.position.distanceTo(worldPos);
     
     // NPC 활동 영역(roamRadius) 기반으로 근접 여부 판단 (최소 5)
@@ -188,6 +183,125 @@ function NPC({ asset, isPlaying, roaming, mode, onSelect }) {
     if (currentlyNear !== isNear) {
       setIsNear(currentlyNear);
     }
+  });
+
+  useEffect(() => {
+    const dialogueSource = asset.bubbleDialogue || (asset.hasDialogue !== false ? asset.dialogue : null);
+    if (!isPlaying || !dialogueSource) return;
+    
+    const lines = dialogueSource.split('\n').map(l => l.trim()).filter(l => l);
+    if (lines.length === 0) return;
+
+    // 간헐적으로 말풍선 띄우기 (3~8초 간격으로 2초간 표시)
+    const interval = setInterval(() => {
+      if (isNear) {
+        const randomLine = lines[Math.floor(Math.random() * lines.length)];
+        setCurrentBubbleText(randomLine);
+        setShowBubble(true);
+        setTimeout(() => setShowBubble(false), 2000);
+      }
+    }, Math.random() * 5000 + 3000);
+    
+    return () => clearInterval(interval);
+  }, [isPlaying, asset.bubbleDialogue, asset.dialogue, asset.hasDialogue, isNear]);
+
+  const defaultNames = {
+    caveman1: '원시인 1',
+    caveman2: '원시인 2',
+    caveman3: '원시인 3',
+    caveman4: '원시인 4',
+  };
+  const displayName = asset.npcName || defaultNames[asset.type] || (asset.type.startsWith('caveman') ? 'NPC' : asset.type);
+
+  // 에셋 타입별 적절한 말풍선 높이 설정 (local Y)
+  const yOffset = asset.type.startsWith('caveman') ? 3.75 : 3.0;
+
+  return (
+    <group position={[0, 0, 0]} ref={overlayGroupRef}>
+      {isPlaying && showBubble && isNear && currentBubbleText && (
+        <Html position={[0, yOffset, 0]} center sprite zIndexRange={[100, 0]} distanceFactor={1.5}>
+          <div style={{ 
+            position: 'relative', 
+            display: 'flex', 
+            flexDirection: 'column', 
+            alignItems: 'center',
+            filter: 'drop-shadow(0px 4px 12px rgba(0,0,0,0.3))'
+          }}>
+            {/* 꼬리 테두리 (검은색) */}
+            <div style={{
+              position: 'absolute',
+              bottom: '-12px',
+              borderLeft: '12px solid transparent',
+              borderRight: '12px solid transparent',
+              borderTop: '16px solid black',
+              zIndex: 1
+            }} />
+            
+            {/* 꼬리 안쪽 (흰색) */}
+            <div style={{
+              position: 'absolute',
+              bottom: '-8px',
+              borderLeft: '8px solid transparent',
+              borderRight: '8px solid transparent',
+              borderTop: '14px solid white',
+              zIndex: 3
+            }} />
+            
+            {/* 말풍선 본체 */}
+            <div style={{
+              background: 'white',
+              padding: '8px 16px',
+              borderRadius: '24px',
+              border: '4px solid black',
+              fontSize: '1.5rem',
+              fontWeight: 'bold',
+              whiteSpace: 'nowrap',
+              pointerEvents: 'none',
+              color: '#111827',
+              position: 'relative',
+              zIndex: 2
+            }}>
+              {currentBubbleText.substring(0, 20)}{currentBubbleText.length > 20 ? '...' : ''}
+            </div>
+          </div>
+        </Html>
+      )}
+      {!isPlaying && (asset.npcName || asset.hasDialogue || asset.bubbleDialogue || asset.roamRadius > 0 || asset.type.startsWith('caveman')) && (
+        <Html position={[0, yOffset, 0]} center sprite zIndexRange={[100, 0]} distanceFactor={1.5}>
+          <div 
+            onClick={(e) => {
+              if (onSelect && (mode === 'select' || mode === 'erase')) {
+                e.stopPropagation();
+                onSelect(e);
+              }
+            }}
+            style={{
+              background: 'rgba(0,0,0,0.75)', color: 'white', padding: '2px 6px', 
+              borderRadius: '4px', fontSize: '0.7rem', fontWeight: 'bold',
+              whiteSpace: 'nowrap', pointerEvents: 'auto', cursor: (mode === 'select' || mode === 'erase') ? 'pointer' : 'default', border: '1px solid rgba(255,255,255,0.4)',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.4)'
+            }}>
+            👤 {displayName}
+          </div>
+        </Html>
+      )}
+    </group>
+  );
+}
+
+function NPC({ asset, isPlaying, roaming, mode, onSelect }) {
+  const { scene, animations } = useGLTF(`/models/${asset.type}.glb`);
+  const clone = useMemo(() => SkeletonUtils.clone(scene), [scene]);
+  const { actions } = useAnimations(animations, clone);
+  const npcGroupRef = useRef();
+  const walkActionRef = useRef(null);
+
+  // Check player distance
+  useFrame(({ camera }) => {
+    if (!isPlaying || !npcGroupRef.current) return;
+    const worldPos = new THREE.Vector3();
+    npcGroupRef.current.getWorldPosition(worldPos);
+    const distance = camera.position.distanceTo(worldPos);
     
     // 거리가 멀어지면 애니메이션 일시정지 (최적화)
     const isVisible = distance < 45;
@@ -221,34 +335,6 @@ function NPC({ asset, isPlaying, roaming, mode, onSelect }) {
       Object.values(actions).forEach(a => a?.stop());
     };
   }, [actions, roaming, isPlaying]);
-
-  useEffect(() => {
-    const dialogueSource = asset.bubbleDialogue || asset.dialogue;
-    if (!isPlaying || !dialogueSource) return;
-    
-    const lines = dialogueSource.split('\n').map(l => l.trim()).filter(l => l);
-    if (lines.length === 0) return;
-
-    // 간헐적으로 말풍선 띄우기 (3~8초 간격으로 2초간 표시)
-    const interval = setInterval(() => {
-      if (isNear) {
-        const randomLine = lines[Math.floor(Math.random() * lines.length)];
-        setCurrentBubbleText(randomLine);
-        setShowBubble(true);
-        setTimeout(() => setShowBubble(false), 2000);
-      }
-    }, Math.random() * 5000 + 3000);
-    
-    return () => clearInterval(interval);
-  }, [isPlaying, asset.bubbleDialogue, asset.dialogue, isNear]);
-
-  const defaultNames = {
-    caveman1: '원시인 1',
-    caveman2: '원시인 2',
-    caveman3: '원시인 3',
-    caveman4: '원시인 4',
-  };
-  const displayName = asset.npcName || defaultNames[asset.type] || 'NPC';
 
   const DEFAULT_ROTATION = [0, 0, 0];
   const DEFAULT_SCALE = [0.5, 0.5, 0.5];
@@ -423,15 +509,47 @@ function MineableAsset({ asset, onInteract, mode, isPlaying, children }) {
               const nextLocalZ = currentLocalPos.current.z + stepZ;
               
               let canMove = true;
+              const nextWorldX = position[0] + nextLocalX;
+              const nextWorldZ = position[2] + nextLocalZ;
+              
               if (heights && !isPathMode) {
-                const nextWorldX = position[0] + nextLocalX;
-                const nextWorldZ = position[2] + nextLocalZ;
                 const nextY = getTerrainHeightAt(nextWorldX, nextWorldZ, heights);
                 const currentY = getTerrainHeightAt(position[0] + currentLocalPos.current.x, position[2] + currentLocalPos.current.z, heights);
                 
                 // 물속(-0.1 미만) 진입 불가 및 급격한 경사(0.5 이상 차이) 진입 불가
                 if (nextY < -0.1 || Math.abs(nextY - currentY) > 0.5) {
                   canMove = false;
+                }
+              }
+              
+              // 에셋 충돌 검사 (모든 이동 시)
+              if (canMove) {
+                const globalState = useMapStore.getState();
+                const ASSET_RADII = {
+                  tree: 0.2, rock: 0.3, house: 0.8, cave: 1.0, lake: 0.0,
+                  caveman1: 0.2, caveman2: 0.2, caveman3: 0.2, caveman4: 0.2
+                };
+                const myRadius = ASSET_RADII[asset.type] || 0.2;
+                
+                for (const other of globalState.assets) {
+                  if (other.id === id || other.minedAt) continue;
+                  
+                  const otherRadius = ASSET_RADII[other.type] || 0.2;
+                  if (otherRadius === 0) continue;
+                  
+                  const dx = nextWorldX - other.position[0];
+                  const dz = nextWorldZ - other.position[2];
+                  const distSq = dx*dx + dz*dz;
+                  
+                  const minDist = myRadius + otherRadius;
+                  
+                  // Y축 차이 검사 (다른 에셋이 같은 층에 있는지)
+                  const myY = heights ? getTerrainHeightAt(nextWorldX, nextWorldZ, heights) : position[1];
+                  const otherY = other.position[1];
+                  if (distSq < minDist * minDist && Math.abs(myY - otherY) < 1.0) {
+                    canMove = false;
+                    break;
+                  }
                 }
               }
               
@@ -561,6 +679,7 @@ function MineableAsset({ asset, onInteract, mode, isPlaying, children }) {
         onClick={canInteract ? handleClick : undefined} 
         userData={{ isAsset: true, assetId: id }} 
       >
+        <AssetOverlay asset={asset} isPlaying={isPlaying} mode={mode} onSelect={canInteract ? handleClick : undefined} />
         {typeof children === 'function' ? children(roaming, canInteract ? handleClick : undefined) : children}
         {isSelected && (!['one-way', 'round-trip', 'repeat'].includes(asset.pathMode)) && roamRadius > 0 && (() => {
           const points = [];

@@ -562,21 +562,62 @@ function MineableAsset({ asset, onInteract, mode, isPlaying, children }) {
         userData={{ isAsset: true, assetId: id }} 
       >
         {typeof children === 'function' ? children(roaming, canInteract ? handleClick : undefined) : children}
-        {isSelected && (!['one-way', 'round-trip', 'repeat'].includes(asset.pathMode)) && roamRadius > 0 && (
-          <mesh position={[0, 0.1, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-            <ringGeometry args={[roamRadius * 2 - 0.1, roamRadius * 2 + 0.1, 32]} />
-            <meshBasicMaterial color="#eab308" transparent opacity={0.6} side={THREE.DoubleSide} />
-          </mesh>
-        )}
-        {isSelected && ['one-way', 'round-trip', 'repeat'].includes(asset.pathMode) && asset.pathPoints && asset.pathPoints.length > 1 && (
-          <Line 
-            points={asset.pathPoints.map(p => new THREE.Vector3(p.x - position[0], (heights ? getTerrainHeightAt(p.x, p.z, heights) : p.y || 0) - position[1] + 0.2, p.z - position[2]))} 
-            color="#ef4444" 
-            lineWidth={3}
-            transparent
-            opacity={0.8}
-          />
-        )}
+        {isSelected && (!['one-way', 'round-trip', 'repeat'].includes(asset.pathMode)) && roamRadius > 0 && (() => {
+          const points = [];
+          const segments = 64;
+          for (let i = 0; i <= segments; i++) {
+            const theta = (i / segments) * Math.PI * 2;
+            const rx = Math.cos(theta) * roamRadius * 2;
+            const rz = Math.sin(theta) * roamRadius * 2;
+            const worldX = position[0] + rx;
+            const worldZ = position[2] + rz;
+            const y = heights ? getTerrainHeightAt(worldX, worldZ, heights) : position[1];
+            points.push(new THREE.Vector3(rx, y - position[1] + 0.1, rz));
+          }
+          return (
+            <Line 
+              points={points} 
+              color="#eab308" 
+              lineWidth={3}
+              transparent
+              opacity={0.6}
+            />
+          );
+        })()}
+        {isSelected && ['one-way', 'round-trip', 'repeat'].includes(asset.pathMode) && asset.pathPoints && asset.pathPoints.length > 1 && (() => {
+          const points = [];
+          const pts = asset.pathPoints;
+          const isClosed = asset.pathMode === 'repeat';
+          for (let i = 0; i < (isClosed ? pts.length : pts.length - 1); i++) {
+            const p1 = pts[i];
+            const p2 = pts[(i + 1) % pts.length];
+            const dist = Math.hypot(p2.x - p1.x, p2.z - p1.z);
+            const segments = Math.max(1, Math.ceil(dist / 0.5));
+            for (let j = 0; j < segments; j++) {
+              const t = j / segments;
+              const px = p1.x * (1 - t) + p2.x * t;
+              const pz = p1.z * (1 - t) + p2.z * t;
+              const py = heights ? getTerrainHeightAt(px, pz, heights) : p1.y || 0;
+              points.push(new THREE.Vector3(px - position[0], py - position[1] + 0.2, pz - position[2]));
+            }
+          }
+          if (!isClosed) {
+            const lastP = pts[pts.length - 1];
+            const lastPy = heights ? getTerrainHeightAt(lastP.x, lastP.z, heights) : lastP.y || 0;
+            points.push(new THREE.Vector3(lastP.x - position[0], lastPy - position[1] + 0.2, lastP.z - position[2]));
+          } else if (points.length > 0) {
+            points.push(points[0]); // close the loop for Line component
+          }
+          return (
+            <Line 
+              points={points} 
+              color="#ef4444" 
+              lineWidth={3}
+              transparent
+              opacity={0.8}
+            />
+          );
+        })()}
       </group>
       
       {isSelected && mode === 'select' && (

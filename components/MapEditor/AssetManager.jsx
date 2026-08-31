@@ -444,7 +444,7 @@ function MineableAsset({ asset, onInteract, mode, isPlaying, children }) {
               const nextWorldX = position[0] + nextLocalX;
               const nextWorldZ = position[2] + nextLocalZ;
               
-              if (heights && !isPathMode) {
+              if (heightsTop && !isPathMode) {
                 const nextY = getTerrainHeightAt(nextWorldX, nextWorldZ, heightsTop);
                 const currentY = getTerrainHeightAt(position[0] + currentLocalPos.current.x, position[2] + currentLocalPos.current.z, heightsTop);
                 

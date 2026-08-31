@@ -136,6 +136,16 @@ const useMapStore = create((set, get) => ({
       heightsWater = new Float32Array(VERTEX_COUNT).fill(-0.01);
     }
     
+    // Parse Colors
+    let colors = new Float32Array(VERTEX_COUNT * 3);
+    if (mapData.colors) {
+      colors = new Float32Array(mapData.colors);
+    } else {
+      for (let i = 0; i < VERTEX_COUNT * 3; i += 3) {
+        colors[i] = 0.24; colors[i + 1] = 0.55; colors[i + 2] = 0.25;
+      }
+    }
+
     set({
       currentMapId: mapData.id,
       mapName: mapData.name,
@@ -143,6 +153,7 @@ const useMapStore = create((set, get) => ({
       heightsTop,
       heightsBottom,
       heightsWater,
+      heights: heightsLegacy,
       colors,
       assets: mapData.assets || [],
       decals: mapData.decals || [],

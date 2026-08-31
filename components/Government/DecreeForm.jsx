@@ -34,8 +34,14 @@ export default function DecreeForm({ law, onSuccess, onCancel }) {
     if (error) {
       alert('오류가 발생했습니다: ' + error.message);
     } else {
+      await supabase.rpc('process_transaction', {
+        p_user_id: user.id,
+        p_amount: 1000,
+        p_description: '명령 제정 보상',
+        p_type: 'INCOME'
+      });
       window.dispatchEvent(new CustomEvent('show-pet'));
-      alert('명령 제정안이 상신되었습니다. 교사의 승인 후 시행됩니다.');
+      alert('명령 제정안이 상신되었습니다. 교사의 승인 후 시행되며 보상 1,000돈이 지급되었습니다.');
       onSuccess();
     }
   };

@@ -72,6 +72,12 @@ export default function PetitionsTab({ onProposeLaw }) {
         alert('오류가 발생했습니다: ' + error.message);
       }
     } else {
+      await supabase.rpc('process_transaction', {
+        p_user_id: user.id,
+        p_amount: 500,
+        p_description: '청원 동의 보상',
+        p_type: 'INCOME'
+      });
       window.dispatchEvent(new CustomEvent('show-pet'));
       fetchPetitions();
     }
@@ -106,7 +112,12 @@ export default function PetitionsTab({ onProposeLaw }) {
       </div>
 
       {showForm ? (
-        <PetitionForm onSuccess={() => setShowForm(false)} />
+        <PetitionForm 
+          onSuccess={() => {
+            setShowForm(false);
+            fetchPetitions();
+          }} 
+        />
       ) : (
         <div className={styles.list}>
           {petitions.length === 0 ? (
@@ -136,7 +147,7 @@ export default function PetitionsTab({ onProposeLaw }) {
                       </button>
                     )}
                     
-                    {petition.status === 'IN_ASSEMBLY' && ['ASSEMBLY', 'TEACHER'].includes(role?.role) && (
+                    {petition.status === 'IN_ASSEMBLY' && (['ASSEMBLY', 'TEACHER'].includes(role?.role) || role?.job === '국회의원') && (
                       <button 
                         className={styles.actionBtn} 
                         onClick={() => onProposeLaw && onProposeLaw(petition)}

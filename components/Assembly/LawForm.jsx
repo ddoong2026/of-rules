@@ -86,6 +86,12 @@ export default function LawForm({ onSuccess, onCancel, initialData }) {
     if (error) {
       alert('오류가 발생했습니다: ' + error.message);
     } else {
+      await supabase.rpc('process_transaction', {
+        p_user_id: user.id,
+        p_amount: 1000,
+        p_description: '법률안 발의 보상',
+        p_type: 'INCOME'
+      });
       window.dispatchEvent(new CustomEvent('show-pet'));
       onSuccess();
     }

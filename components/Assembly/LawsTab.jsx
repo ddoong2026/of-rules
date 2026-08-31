@@ -44,7 +44,7 @@ export default function LawsTab({ initialData, clearInitialData }) {
   }, []);
 
   const handleVote = async (lawId, isFor) => {
-    if (!user || !['ASSEMBLY', 'TEACHER'].includes(role?.role)) return alert('국회의원과 교사만 투표할 수 있습니다.');
+    if (!user || (!['ASSEMBLY', 'TEACHER'].includes(role?.role) && role?.job !== '국회의원')) return alert('국회의원과 교사만 투표할 수 있습니다.');
     
     if (role?.role === 'TEACHER') {
       const law = laws.find(l => l.id === lawId);
@@ -143,7 +143,7 @@ export default function LawsTab({ initialData, clearInitialData }) {
     <div>
       <div className={styles.tabHeader}>
         <h2>입법 현황</h2>
-        {['ASSEMBLY', 'TEACHER'].includes(role?.role) && (
+        {(['ASSEMBLY', 'TEACHER'].includes(role?.role) || role?.job === '국회의원') && (
           <button className="glass-button" onClick={() => setShowForm(!showForm)}>
             {showForm ? '목록으로' : '법률안 발의'}
           </button>
@@ -154,6 +154,7 @@ export default function LawsTab({ initialData, clearInitialData }) {
         <LawForm 
           onSuccess={() => {
             setShowForm(false);
+            fetchLaws();
             if (clearInitialData) clearInitialData();
           }} 
           onCancel={() => {
@@ -221,7 +222,7 @@ export default function LawsTab({ initialData, clearInitialData }) {
                       </>
                     )}
                     
-                    {law.status === 'PROPOSED' && ['ASSEMBLY', 'TEACHER'].includes(role?.role) ? (
+                    {law.status === 'PROPOSED' && (['ASSEMBLY', 'TEACHER'].includes(role?.role) || role?.job === '국회의원') ? (
                       <div style={{display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end'}}>
                         <button className={styles.actionBtn} onClick={() => handleVote(law.id, true)} style={{color: '#15803d', padding: '0.2rem 0.5rem'}}>
                           <CheckCircle size={16} /> 찬성 ({law.votes_for})

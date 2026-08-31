@@ -309,6 +309,26 @@ export default function Terrain() {
           const heightDiff = newHeightsWater[idx] - targetWaterHeight;
           newHeightsWater[idx] -= heightDiff * falloff * (brushIntensity * 0.5); // Faster reset to 0
           modifiedWater = true;
+        } else if (mode === 'dig') {
+          const delta = brushIntensity * falloff * (isDigging ? -1 : 1);
+          // 파내기(dig) 모드는 항상 아래로 파냅니다 (isDigging이 거짓이라도).
+          // 원한다면 isDigging일 때 위로 올리게 할 수도 있지만, 직관성을 위해 항상 파내기로 설정합니다.
+          const digAmount = isDigging ? -delta : delta; // delta is already positive if !isDigging
+          const actualDigAmount = Math.abs(digAmount); // Always positive digging amount
+          
+          newHeightsTop[idx] -= actualDigAmount;
+          if (newHeightsTop[idx] < 0) newHeightsTop[idx] = 0;
+          
+          if (newHeightsBottom[idx] > newHeightsTop[idx]) {
+            newHeightsBottom[idx] = newHeightsTop[idx];
+          }
+          if (newHeightsBase[idx] > newHeightsBottom[idx]) {
+            newHeightsBase[idx] = newHeightsBottom[idx];
+          }
+          
+          modifiedTop = true;
+          modifiedBottom = true;
+          modifiedBase = true;
         } else if (mode === 'flatten') {
           const heightDiff = centerHeightTop - newHeightsTop[idx];
           newHeightsTop[idx] += heightDiff * falloff * (brushIntensity * 0.1);

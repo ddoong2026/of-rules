@@ -220,12 +220,12 @@ export default function Player() {
       return topH;
     }
     
-    // 2. 동굴 안에 있는 경우 (머리 위 공간이 1.5 이상 확보되어야 들어갈 수 있음)
-    if (y >= baseH - 1.5 && bottomH >= baseH + 1.5) {
+    // 2. 동굴 안에 있는 경우 (입구의 경사 때문에 천장이 낮아도 진입할 수 있도록 조건 완화)
+    if (y >= baseH - 1.5 && bottomH >= baseH + 0.1) {
       return baseH;
     }
     
-    // 3. 꽉 막힌 산 내부이거나 동굴 천장이 너무 낮은 경우 (충돌을 위해 제일 높은 층 반환)
+    // 3. 꽉 막힌 산 내부이거나 동굴이 없는 곳 (충돌을 위해 제일 높은 층 반환)
     return topH;
   };
 

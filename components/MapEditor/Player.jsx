@@ -243,12 +243,28 @@ export default function Player() {
                           (heightsTop[i10] <= heightsBase[i10] + 0.1) || 
                           (heightsTop[i01] <= heightsBase[i01] + 0.1) || 
                           (heightsTop[i11] <= heightsBase[i11] + 0.1);
+                          
+    const isCaveEntrance = hasCaveTile && isOutsideTile;
 
-    if (bottomH > baseH || (hasCaveTile && isOutsideTile)) {
+    // 1. 동굴 입구 타일인 경우 (Top 렌더링이 생략된 구멍)
+    // 시각적으로 뚫려있으므로 무조건 Base를 밟습니다. Top은 투명벽이 됩니다.
+    if (isCaveEntrance) {
+      return baseH;
+    }
+
+    // 2. 산 위나 평지에 있는 경우
+    // y 좌표가 Top 표면 근처이거나 그 이상일 때 (지붕 위를 걸을 때)
+    if (y >= topH - 1.5) {
+      return topH;
+    }
+    
+    // 3. 동굴 안쪽에 있는 경우 (입구를 통과한 후)
+    // 지붕(Top)보다 아래에 있고, 동굴(Bottom)이 파여있는 경우
+    if (bottomH > baseH) {
       return baseH;
     }
     
-    // 3. 꽉 막힌 산 내부이거나 동굴이 없는 곳 (충돌을 위해 제일 높은 층 반환)
+    // 4. 꽉 막힌 산 내부이거나 동굴이 없는 곳 (충돌을 위해 제일 높은 층 반환)
     return topH;
   };
 

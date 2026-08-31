@@ -151,7 +151,7 @@ export default function Terrain() {
     else if (mode === 'sculptTop' && meshTopRef.current) active = [meshTopRef.current];
     else if (mode === 'sculptWater' && meshWaterRef.current) active = [meshWaterRef.current];
     else if (mode === 'resetWater' && meshWaterRef.current) active = [meshWaterRef.current];
-    else if (mode === 'sculptBottom' && meshBottomRef.current) active = [meshBottomRef.current];
+    else if (mode === 'sculptBottom' && meshBottomRef.current && meshTopRef.current) active = [meshBottomRef.current, meshTopRef.current];
     else if (groupRef.current) active = groupRef.current.children;
     return active.length > 0 ? active : (groupRef.current ? groupRef.current.children : []);
   };

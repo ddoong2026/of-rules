@@ -524,7 +524,7 @@ export default function Player() {
     group.current.position.y += currentVelocity.current.y * delta;
 
     // Ground Collision & Jumping
-    const currentGroundHeight = getTerrainHeightRaycast(group.current.position.x, group.current.position.y, group.current.position.z);
+    const currentGroundHeight = getWalkableHeight(group.current.position.x, group.current.position.y, group.current.position.z);
     const distToGround = group.current.position.y - currentGroundHeight;
     
     // Character is grounded if exactly on/below ground, OR very close while falling/running (prevents flying off slopes)

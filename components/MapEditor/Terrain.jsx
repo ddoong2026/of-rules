@@ -181,7 +181,7 @@ export default function Terrain() {
     }
   });
 
-  const applyBrush = (point, isShift) => {
+  const applyBrush = (point, isShift, isAlt) => {
     const halfSize = 25;
     const segSize = 50 / GRID_SIZE;
     
@@ -367,20 +367,8 @@ export default function Terrain() {
         scale: [brushSize * 2, brushSize * 2, brushSize * 2] 
       });
     } else if (mode === 'boundary' || mode === 'zone') {
-      const { boundaryDrawing, setBoundaryDrawing, addBoundary } = useMapStore.getState();
-      if (!boundaryDrawing || !boundaryDrawing.points || boundaryDrawing.points.length === 0) {
-        setBoundaryDrawing({ points: [[targetPoint.x, targetPoint.z]], isZone: mode === 'zone' });
-      } else {
-        const safeId = (window.crypto && window.crypto.randomUUID) ? window.crypto.randomUUID() : Math.random().toString(36).substring(2);
-        const newPoints = [boundaryDrawing.points[0], [targetPoint.x, targetPoint.z]];
-        addBoundary({
-          id: safeId,
-          points: newPoints,
-          isZone: mode === 'zone',
-          label: mode === 'zone' ? '이벤트 구역' : '새 경계선'
-        });
-        setBoundaryDrawing(null);
-      }
+      const { setBoundaryDrawing } = useMapStore.getState();
+      setBoundaryDrawing({ points: [[targetPoint.x, targetPoint.z]], isZone: mode === 'zone' });
     } else if (mode === 'spawn') {
       const { setSpawnPoint } = useMapStore.getState();
       setSpawnPoint({ x: targetPoint.x, z: targetPoint.z });
@@ -422,16 +410,7 @@ export default function Terrain() {
       }
     }
 
-    if (!isPointerDown && !isCameraMode && (mode === 'boundary' || mode === 'zone') && currentTarget) {
-      const { boundaryDrawing, setBoundaryDrawing } = useMapStore.getState();
-      if (boundaryDrawing && boundaryDrawing.points && boundaryDrawing.points.length > 0) {
-        const confirmedPoints = boundaryDrawing.points.slice(0, 1);
-        setBoundaryDrawing({ 
-          points: [...confirmedPoints, [currentTarget.x, currentTarget.z]], 
-          isZone: boundaryDrawing.isZone 
-        });
-      }
-    }
+    // (Removed preview logic since we're using drag-to-draw curves now)
 
     if (!isPointerDown || isCameraMode) return;
 
@@ -454,18 +433,33 @@ export default function Terrain() {
     } else if ((mode === 'boundary' || mode === 'zone') && targetPoint) {
       const { boundaryDrawing, setBoundaryDrawing } = useMapStore.getState();
       if (boundaryDrawing && boundaryDrawing.points && boundaryDrawing.points.length > 0) {
-        // Keep all confirmed points, just update the preview (last) point
-        const confirmedPoints = boundaryDrawing.points.slice(0, 1); // For simple line, always keep just the 1st point and preview the 2nd
-        setBoundaryDrawing({ 
-          points: [...confirmedPoints, [targetPoint.x, targetPoint.z]], 
-          isZone: boundaryDrawing.isZone 
-        });
+        const lastPt = boundaryDrawing.points[boundaryDrawing.points.length - 1];
+        const dx = targetPoint.x - lastPt[0];
+        const dz = targetPoint.z - lastPt[1];
+        // Add point if moved enough to form a nice curve
+        if (dx*dx + dz*dz > 1.0) {
+          setBoundaryDrawing({ 
+            points: [...boundaryDrawing.points, [targetPoint.x, targetPoint.z]], 
+            isZone: boundaryDrawing.isZone 
+          });
+        }
       }
     }
   };
 
   const handlePointerUp = () => {
     setIsPointerDown(false);
+    const { mode, boundaryDrawing, addBoundary, setBoundaryDrawing } = useMapStore.getState();
+    if ((mode === 'boundary' || mode === 'zone') && boundaryDrawing && boundaryDrawing.points.length > 1) {
+      const safeId = (window.crypto && window.crypto.randomUUID) ? window.crypto.randomUUID() : Math.random().toString(36).substring(2);
+      addBoundary({
+        id: safeId,
+        points: boundaryDrawing.points,
+        isZone: mode === 'zone',
+        label: mode === 'zone' ? '이벤트 구역' : '새 경계선'
+      });
+      setBoundaryDrawing(null);
+    }
   };
 
   return (

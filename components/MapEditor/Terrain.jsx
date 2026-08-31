@@ -317,7 +317,8 @@ export default function Terrain() {
           const actualDigAmount = Math.abs(digAmount); // Always positive digging amount
           
           newHeightsTop[idx] -= actualDigAmount;
-          if (newHeightsTop[idx] < 0) newHeightsTop[idx] = 0;
+          // 물이 자연스럽게 고일 수 있도록 0 이하로도 파낼 수 있게 허용하되, 무한히 내려가진 않도록 -50으로 제한
+          if (newHeightsTop[idx] < -50) newHeightsTop[idx] = -50;
           
           if (newHeightsBottom[idx] > newHeightsTop[idx]) {
             newHeightsBottom[idx] = newHeightsTop[idx];
@@ -416,7 +417,7 @@ export default function Terrain() {
       setBoundaryDrawing({ points: [[targetPoint.x, targetPoint.z]], isZone: mode === 'zone' });
     } else if (mode === 'spawn') {
       const { setSpawnPoint } = useMapStore.getState();
-      setSpawnPoint({ x: targetPoint.x, z: targetPoint.z });
+      setSpawnPoint({ x: targetPoint.x, y: targetPoint.y, z: targetPoint.z });
     } else if (mode === 'moveAsset') {
       const { selectedAssetId, updateAsset, setMode } = useMapStore.getState();
       if (selectedAssetId) {

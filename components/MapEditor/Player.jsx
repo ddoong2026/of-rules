@@ -248,15 +248,18 @@ export default function Player() {
     if (group.current && !hasSpawned.current) {
       const spawnPoint = useMapStore.getState().spawnPoint;
       let spawnX = 0;
+      let spawnY = null;
       let spawnZ = 0;
       let found = false;
 
       if (spawnPoint) {
         if (Array.isArray(spawnPoint)) {
           spawnX = spawnPoint[0] || 0;
+          spawnY = spawnPoint[1] !== undefined ? spawnPoint[1] : null;
           spawnZ = spawnPoint[2] || 0;
         } else {
           spawnX = spawnPoint.x || 0;
+          spawnY = spawnPoint.y !== undefined ? spawnPoint.y : null;
           spawnZ = spawnPoint.z || 0;
         }
         found = true;
@@ -279,7 +282,12 @@ export default function Player() {
         }
       }
 
-      const terrainH = getWalkableHeight(spawnX, 100, spawnZ);
+      // If the user specified a precise Y coordinate when clicking (like inside a cave),
+      // use that Y to find the exact walkable height (which layer they clicked on).
+      // If not, assume they are falling from the sky (Y=100) and land on the topmost layer.
+      const searchY = spawnY !== null ? spawnY : 100;
+      const terrainH = getWalkableHeight(spawnX, searchY, spawnZ);
+      
       // Spawn slightly above the ground (at least height 2) so they fall naturally
       group.current.position.set(spawnX, Math.max(2, terrainH + 2), spawnZ);
       hasSpawned.current = true;

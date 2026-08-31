@@ -202,24 +202,23 @@ export default function Player() {
     return h0 * (1 - tz) + h1 * tz;
   };
 
-  const terrainMeshRef = useRef(null);
+  const terrainGroupRef = useRef(null);
 
   const getTerrainHeightRaycast = (x, y, z) => {
-    if (!terrainMeshRef.current || !terrainMeshRef.current.visible) {
+    if (!terrainGroupRef.current) {
       let found = null;
       glScene.traverse((child) => {
-        if (child.name === 'terrainMesh' && child.visible) {
+        if (child.name === 'terrainGroup') {
           found = child;
         }
       });
-      terrainMeshRef.current = found;
+      terrainGroupRef.current = found;
     }
     
-    if (!terrainMeshRef.current) return getTerrainHeight(x, z);
+    if (!terrainGroupRef.current) return getTerrainHeight(x, z);
     
-    // Cast ray from slightly above the player's current y position
     physicsRaycaster.set(new THREE.Vector3(x, y + 1.5, z), new THREE.Vector3(0, -1, 0));
-    const intersects = physicsRaycaster.intersectObject(terrainMeshRef.current);
+    const intersects = physicsRaycaster.intersectObjects(terrainGroupRef.current.children);
     if (intersects.length > 0) {
       for (let i = 0; i < intersects.length; i++) {
         if (intersects[i].face && intersects[i].face.normal.y > 0) {

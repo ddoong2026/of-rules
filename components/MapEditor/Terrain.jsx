@@ -5,34 +5,35 @@ import { useThree, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import useMapStore, { GRID_SIZE, VERTEX_COUNT } from '@/store/useMapStore';
 
-function generate3LayerMesh(heightsBase, heightsBottom, heightsTop, colorsArr, gridSize, cellSize) {
+function generate4LayerMesh(heightsBase, heightsBottom, heightsTop, heightsWater, colorsArr, gridSize, cellSize) {
   const width = gridSize + 1;
   const depth = gridSize + 1;
   const halfSize = (gridSize * cellSize) / 2;
 
-  const positions = [];
-  const indices = [];
-  const uvs = [];
-  const colors = [];
-  
-  const vertexIndexMap = new Map();
-  let indexCounter = 0;
+  const createLayerData = () => ({
+    positions: [], indices: [], uvs: [], colors: [], vertexIndexMap: new Map(), indexCounter: 0
+  });
 
-  const getVertexIndex = (x, y, z, u, v, r, g, b, layer) => {
-    const key = `${layer},${x.toFixed(3)},${y.toFixed(3)},${z.toFixed(3)}`;
-    if (vertexIndexMap.has(key)) {
-      return vertexIndexMap.get(key);
+  const baseData = createLayerData();
+  const bottomData = createLayerData();
+  const topData = createLayerData();
+  const waterData = createLayerData();
+
+  const getVertexIndex = (data, x, y, z, u, v, r, g, b) => {
+    const key = `${x.toFixed(3)},${y.toFixed(3)},${z.toFixed(3)}`;
+    if (data.vertexIndexMap.has(key)) {
+      return data.vertexIndexMap.get(key);
     }
-    positions.push(x, y, z);
-    uvs.push(u, v);
-    colors.push(r, g, b);
-    vertexIndexMap.set(key, indexCounter);
-    return indexCounter++;
+    data.positions.push(x, y, z);
+    data.uvs.push(u, v);
+    data.colors.push(r, g, b);
+    data.vertexIndexMap.set(key, data.indexCounter);
+    return data.indexCounter++;
   };
 
-  const addQuad = (v0, v1, v2, v3) => {
-    indices.push(v0, v1, v2);
-    indices.push(v0, v2, v3);
+  const addQuad = (data, v0, v1, v2, v3) => {
+    data.indices.push(v0, v1, v2);
+    data.indices.push(v0, v2, v3);
   };
 
   for (let x = 0; x < width - 1; x++) {
@@ -42,19 +43,27 @@ function generate3LayerMesh(heightsBase, heightsBottom, heightsTop, colorsArr, g
       const nextX = (x + 1) * cellSize - halfSize;
       const nextZ = (z + 1) * cellSize - halfSize;
 
+      const centerX = posX + cellSize / 2;
+      const centerZ = posZ + cellSize / 2;
+      
+      // Circular Culling (Radius 25)
+      if (centerX * centerX + centerZ * centerZ > 25 * 25) {
+        continue;
+      }
+
       const i00 = z * width + x;
       const i10 = z * width + (x + 1);
       const i01 = (z + 1) * width + x;
       const i11 = (z + 1) * width + (x + 1);
 
       // Top Vertices (Layer 0)
-      const t00 = getVertexIndex(posX, heightsTop[i00], posZ, x / width, z / depth, colorsArr[i00*3], colorsArr[i00*3+1], colorsArr[i00*3+2], 0);
-      const t10 = getVertexIndex(nextX, heightsTop[i10], posZ, (x + 1) / width, z / depth, colorsArr[i10*3], colorsArr[i10*3+1], colorsArr[i10*3+2], 0);
-      const t01 = getVertexIndex(posX, heightsTop[i01], nextZ, x / width, (z + 1) / depth, colorsArr[i01*3], colorsArr[i01*3+1], colorsArr[i01*3+2], 0);
-      const t11 = getVertexIndex(nextX, heightsTop[i11], nextZ, (x + 1) / width, (z + 1) / depth, colorsArr[i11*3], colorsArr[i11*3+1], colorsArr[i11*3+2], 0);
+      const t00 = getVertexIndex(topData, posX, heightsTop[i00], posZ, x / width, z / depth, colorsArr[i00*3], colorsArr[i00*3+1], colorsArr[i00*3+2]);
+      const t10 = getVertexIndex(topData, nextX, heightsTop[i10], posZ, (x + 1) / width, z / depth, colorsArr[i10*3], colorsArr[i10*3+1], colorsArr[i10*3+2]);
+      const t01 = getVertexIndex(topData, posX, heightsTop[i01], nextZ, x / width, (z + 1) / depth, colorsArr[i01*3], colorsArr[i01*3+1], colorsArr[i01*3+2]);
+      const t11 = getVertexIndex(topData, nextX, heightsTop[i11], nextZ, (x + 1) / width, (z + 1) / depth, colorsArr[i11*3], colorsArr[i11*3+1], colorsArr[i11*3+2]);
 
       // Top Face (+Y)
-      addQuad(t00, t01, t11, t10);
+      addQuad(topData, t00, t01, t11, t10);
 
       const hasCave = (heightsBottom[i00] - heightsBase[i00] > 0.01) ||
                       (heightsBottom[i10] - heightsBase[i10] > 0.01) ||
@@ -63,39 +72,71 @@ function generate3LayerMesh(heightsBase, heightsBottom, heightsTop, colorsArr, g
 
       if (hasCave) {
         // Ceiling Vertices (Layer 1)
-        const b00 = getVertexIndex(posX, heightsBottom[i00], posZ, x / width, z / depth, colorsArr[i00*3], colorsArr[i00*3+1], colorsArr[i00*3+2], 1);
-        const b10 = getVertexIndex(nextX, heightsBottom[i10], posZ, (x + 1) / width, z / depth, colorsArr[i10*3], colorsArr[i10*3+1], colorsArr[i10*3+2], 1);
-        const b01 = getVertexIndex(posX, heightsBottom[i01], nextZ, x / width, (z + 1) / depth, colorsArr[i01*3], colorsArr[i01*3+1], colorsArr[i01*3+2], 1);
-        const b11 = getVertexIndex(nextX, heightsBottom[i11], nextZ, (x + 1) / width, (z + 1) / depth, colorsArr[i11*3], colorsArr[i11*3+1], colorsArr[i11*3+2], 1);
+        const b00 = getVertexIndex(bottomData, posX, heightsBottom[i00], posZ, x / width, z / depth, colorsArr[i00*3], colorsArr[i00*3+1], colorsArr[i00*3+2]);
+        const b10 = getVertexIndex(bottomData, nextX, heightsBottom[i10], posZ, (x + 1) / width, z / depth, colorsArr[i10*3], colorsArr[i10*3+1], colorsArr[i10*3+2]);
+        const b01 = getVertexIndex(bottomData, posX, heightsBottom[i01], nextZ, x / width, (z + 1) / depth, colorsArr[i01*3], colorsArr[i01*3+1], colorsArr[i01*3+2]);
+        const b11 = getVertexIndex(bottomData, nextX, heightsBottom[i11], nextZ, (x + 1) / width, (z + 1) / depth, colorsArr[i11*3], colorsArr[i11*3+1], colorsArr[i11*3+2]);
 
         // Ground Vertices (Layer 2)
-        const g00 = getVertexIndex(posX, heightsBase[i00], posZ, x / width, z / depth, colorsArr[i00*3], colorsArr[i00*3+1], colorsArr[i00*3+2], 2);
-        const g10 = getVertexIndex(nextX, heightsBase[i10], posZ, (x + 1) / width, z / depth, colorsArr[i10*3], colorsArr[i10*3+1], colorsArr[i10*3+2], 2);
-        const g01 = getVertexIndex(posX, heightsBase[i01], nextZ, x / width, (z + 1) / depth, colorsArr[i01*3], colorsArr[i01*3+1], colorsArr[i01*3+2], 2);
-        const g11 = getVertexIndex(nextX, heightsBase[i11], nextZ, (x + 1) / width, (z + 1) / depth, colorsArr[i11*3], colorsArr[i11*3+1], colorsArr[i11*3+2], 2);
+        const g00 = getVertexIndex(baseData, posX, heightsBase[i00], posZ, x / width, z / depth, colorsArr[i00*3], colorsArr[i00*3+1], colorsArr[i00*3+2]);
+        const g10 = getVertexIndex(baseData, nextX, heightsBase[i10], posZ, (x + 1) / width, z / depth, colorsArr[i10*3], colorsArr[i10*3+1], colorsArr[i10*3+2]);
+        const g01 = getVertexIndex(baseData, posX, heightsBase[i01], nextZ, x / width, (z + 1) / depth, colorsArr[i01*3], colorsArr[i01*3+1], colorsArr[i01*3+2]);
+        const g11 = getVertexIndex(baseData, nextX, heightsBase[i11], nextZ, (x + 1) / width, (z + 1) / depth, colorsArr[i11*3], colorsArr[i11*3+1], colorsArr[i11*3+2]);
 
         // Ceiling Face (-Y, CCW)
-        addQuad(b00, b10, b11, b01);
+        addQuad(bottomData, b00, b10, b11, b01);
         // Ground Face (+Y)
-        addQuad(g00, g01, g11, g10);
+        addQuad(baseData, g00, g01, g11, g10);
+      }
+      
+      const hasWater = (heightsWater[i00] >= heightsBase[i00] - 0.1) ||
+                       (heightsWater[i10] >= heightsBase[i10] - 0.1) ||
+                       (heightsWater[i01] >= heightsBase[i01] - 0.1) ||
+                       (heightsWater[i11] >= heightsBase[i11] - 0.1);
+      if (hasWater) {
+        // Water Vertices (Layer 3) - Use white vertex color, tint via material
+        const w00 = getVertexIndex(waterData, posX, heightsWater[i00], posZ, x / width, z / depth, 1, 1, 1);
+        const w10 = getVertexIndex(waterData, nextX, heightsWater[i10], posZ, (x + 1) / width, z / depth, 1, 1, 1);
+        const w01 = getVertexIndex(waterData, posX, heightsWater[i01], nextZ, x / width, (z + 1) / depth, 1, 1, 1);
+        const w11 = getVertexIndex(waterData, nextX, heightsWater[i11], nextZ, (x + 1) / width, (z + 1) / depth, 1, 1, 1);
+        
+        // Water Face (+Y)
+        addQuad(waterData, w00, w01, w11, w10);
       }
     }
   }
 
+  const formatData = (d) => {
+    const geo = new THREE.BufferGeometry();
+    if (d.positions.length > 0) {
+      geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(d.positions), 3));
+      geo.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(d.uvs), 2));
+      geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(d.colors), 3));
+      geo.setIndex(new THREE.BufferAttribute(new Uint16Array(d.indices), 1));
+      geo.computeVertexNormals();
+    }
+    return geo;
+  };
+
   return {
-    positions: new Float32Array(positions),
-    indices: new Uint16Array(indices),
-    uvs: new Float32Array(uvs),
-    colors: new Float32Array(colors),
+    baseGeo: formatData(baseData),
+    bottomGeo: formatData(bottomData),
+    topGeo: formatData(topData),
+    waterGeo: formatData(waterData),
   };
 }
 
 export default function Terrain() {
-  const meshRef = useRef();
+  const groupRef = useRef();
+  const meshTopRef = useRef();
+  const meshBottomRef = useRef();
+  const meshBaseRef = useRef();
+  const meshWaterRef = useRef();
+  
   const { 
     mode, brushSize, brushIntensity, selectedColor, selectedAsset, selectedDecalImage,
-    heightsBase, heightsTop, heightsBottom, colors, 
-    updateHeightsBase, updateHeightsTop, updateHeightsBottom, updateColors, 
+    heightsBase, heightsTop, heightsBottom, heightsWater, colors, 
+    updateHeightsBase, updateHeightsTop, updateHeightsBottom, updateHeightsWater, updateColors, 
     addAsset, addDecal, addWaterSource,
     isCameraMode, saveHistory, isPlaying
   } = useMapStore();
@@ -107,28 +148,41 @@ export default function Terrain() {
   const brushMeshRef = useRef();
   
   // Mesh Geometry Generation
-  const geometry = useMemo(() => {
-    const data = generate3LayerMesh(heightsBase, heightsBottom, heightsTop, colors, GRID_SIZE, 50 / GRID_SIZE);
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(data.positions, 3));
-    geo.setAttribute('uv', new THREE.BufferAttribute(data.uvs, 2));
-    geo.setAttribute('color', new THREE.BufferAttribute(data.colors, 3));
-    geo.setIndex(new THREE.BufferAttribute(data.indices, 1));
-    geo.computeVertexNormals();
-    return geo;
-  }, [heightsBase, heightsTop, heightsBottom, colors]);
+  const geometries = useMemo(() => {
+    return generate4LayerMesh(heightsBase, heightsBottom, heightsTop, heightsWater, colors, GRID_SIZE, 50 / GRID_SIZE);
+  }, [heightsBase, heightsTop, heightsBottom, heightsWater, colors]);
 
-  const isBrushMode = ['sculptBase', 'sculptTop', 'dig', 'carve', 'flatten', 'paint'].includes(mode);
+  const isBrushMode = ['sculptBase', 'sculptTop', 'sculptWater', 'dig', 'carve', 'flatten', 'paint'].includes(mode);
+
+  const getOpacities = () => {
+    if (mode === 'sculptBase') return { base: 1, bottom: 0.2, top: 0.2, water: 0.2 };
+    if (mode === 'sculptTop') return { base: 0.2, bottom: 0.2, top: 1, water: 0.2 };
+    if (mode === 'sculptWater') return { base: 0.2, bottom: 0.2, top: 0.2, water: 1 };
+    if (mode === 'carve') return { base: 0.2, bottom: 1, top: 0.2, water: 0.2 };
+    return { base: 1, bottom: 1, top: 1, water: 0.6 };
+  };
+
+  const { base: oBase, bottom: oBottom, top: oTop, water: oWater } = getOpacities();
+
+  const getActiveMeshes = () => {
+    let active = [];
+    if (mode === 'sculptBase' && meshBaseRef.current) active = [meshBaseRef.current];
+    else if (mode === 'sculptTop' && meshTopRef.current) active = [meshTopRef.current];
+    else if (mode === 'sculptWater' && meshWaterRef.current) active = [meshWaterRef.current];
+    else if (mode === 'carve' && meshBottomRef.current) active = [meshBottomRef.current];
+    else if (groupRef.current) active = groupRef.current.children;
+    return active.length > 0 ? active : (groupRef.current ? groupRef.current.children : []);
+  };
 
   useFrame(() => {
     if (isPlaying && document.pointerLockElement === gl.domElement) {
       r3fRaycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-      const intersects = r3fRaycaster.intersectObject(meshRef.current);
+      const intersects = r3fRaycaster.intersectObjects(groupRef.current ? groupRef.current.children : []);
       
       if (intersects.length > 0 && brushMeshRef.current) {
         brushMeshRef.current.visible = isBrushMode;
         const pt = intersects[0].point;
-        const norm = intersects[0].face.normal.clone().transformDirection(meshRef.current.matrixWorld).normalize();
+        const norm = intersects[0].face.normal.clone().transformDirection(intersects[0].object.matrixWorld).normalize();
         brushMeshRef.current.position.set(pt.x + norm.x * 0.1, pt.y + norm.y * 0.1, pt.z + norm.z * 0.1);
         brushMeshRef.current.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), norm);
       } else if (brushMeshRef.current) {
@@ -149,7 +203,6 @@ export default function Terrain() {
     const halfSize = 25;
     const segSize = 50 / GRID_SIZE;
     
-    // Ignore clicks outside the circle (radius 25)
     if (point.x * point.x + point.z * point.z > halfSize * halfSize) return;
     
     const xIdx = Math.round((point.x + halfSize) / segSize);
@@ -160,11 +213,13 @@ export default function Terrain() {
     let modifiedBase = false;
     let modifiedTop = false;
     let modifiedBottom = false;
+    let modifiedWater = false;
     let modifiedColors = false;
 
     const newHeightsBase = new Float32Array(heightsBase);
     const newHeightsTop = new Float32Array(heightsTop);
     const newHeightsBottom = new Float32Array(heightsBottom);
+    const newHeightsWater = new Float32Array(heightsWater);
     const newColors = new Float32Array(colors);
     
     const targetColor = new THREE.Color(selectedColor);
@@ -216,14 +271,17 @@ export default function Terrain() {
           modifiedTop = true;
           modifiedBottom = true;
           modifiedBase = true;
+        } else if (mode === 'sculptWater') {
+          const delta = brushIntensity * falloff * (isDigging ? -1 : 1);
+          newHeightsWater[idx] += delta;
+          modifiedWater = true;
         } else if (mode === 'dig') {
-          // Dig lowers all 3 layers simultaneously
-          const delta = brushIntensity * falloff * (isDigging ? -1 : 1); // Shift raises them
+          // Dig lowers Base, Bottom, Top. Water stays unaffected to expose it!
+          const delta = brushIntensity * falloff * (isDigging ? -1 : 1); 
           newHeightsTop[idx] -= delta;
           newHeightsBottom[idx] -= delta;
           newHeightsBase[idx] -= delta;
           
-          // Enforce constraints
           if (newHeightsBottom[idx] > newHeightsTop[idx]) newHeightsBottom[idx] = newHeightsTop[idx];
           if (newHeightsBase[idx] > newHeightsBottom[idx]) newHeightsBase[idx] = newHeightsBottom[idx];
           
@@ -263,6 +321,7 @@ export default function Terrain() {
     if (modifiedBase) updateHeightsBase(newHeightsBase);
     if (modifiedTop) updateHeightsTop(newHeightsTop);
     if (modifiedBottom) updateHeightsBottom(newHeightsBottom);
+    if (modifiedWater) updateHeightsWater(newHeightsWater);
     if (modifiedColors) updateColors(newColors);
   };
 
@@ -275,7 +334,7 @@ export default function Terrain() {
     
     if (isPlaying && document.pointerLockElement === gl.domElement) {
        r3fRaycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-       const intersects = r3fRaycaster.intersectObject(meshRef.current);
+       const intersects = r3fRaycaster.intersectObjects(groupRef.current ? groupRef.current.children : []);
        if (intersects.length > 0) {
          targetPoint = intersects[0].point;
        } else {
@@ -342,10 +401,13 @@ export default function Terrain() {
   const handlePointerMove = (e) => {
     if (!isPlaying || document.pointerLockElement !== gl.domElement) {
       if (isBrushMode) {
-        setPointerPos(e.point);
-        if (e.face && e.object) {
-          const worldNormal = e.face.normal.clone().transformDirection(e.object.matrixWorld).normalize();
-          setPointerNormal(worldNormal);
+        const intersects = r3fRaycaster.intersectObjects(getActiveMeshes());
+        if (intersects.length > 0) {
+           setPointerPos(intersects[0].point);
+           const worldNormal = intersects[0].face.normal.clone().transformDirection(intersects[0].object.matrixWorld).normalize();
+           setPointerNormal(worldNormal);
+        } else {
+           setPointerPos(null);
         }
       } else {
         setPointerPos(null);
@@ -357,15 +419,20 @@ export default function Terrain() {
     let targetPoint = e.point;
     if (isPlaying && document.pointerLockElement === gl.domElement) {
        r3fRaycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-       const intersects = r3fRaycaster.intersectObject(meshRef.current);
+       const intersects = r3fRaycaster.intersectObjects(groupRef.current ? groupRef.current.children : []);
        if (intersects.length > 0) {
          targetPoint = intersects[0].point;
        } else {
          return;
        }
+    } else {
+       const intersects = r3fRaycaster.intersectObjects(getActiveMeshes());
+       if (intersects.length > 0) {
+         targetPoint = intersects[0].point;
+       }
     }
 
-    if (isBrushMode) {
+    if (isBrushMode && targetPoint) {
       e.stopPropagation();
       applyBrush(targetPoint, e.buttons === 2 || e.shiftKey);
     }
@@ -377,21 +444,54 @@ export default function Terrain() {
 
   return (
     <group>
-      <mesh
-        name="terrainMesh"
-        ref={meshRef}
-        geometry={geometry}
+      <group name="terrainGroup" ref={groupRef}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerUp}
       >
-        <meshStandardMaterial 
-          vertexColors 
-          roughness={0.8}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
+        <mesh ref={meshTopRef} geometry={geometries.topGeo}>
+          <meshStandardMaterial 
+            vertexColors 
+            roughness={0.8}
+            side={THREE.DoubleSide}
+            transparent={oTop < 1}
+            opacity={oTop}
+            depthWrite={oTop === 1}
+          />
+        </mesh>
+        <mesh ref={meshBottomRef} geometry={geometries.bottomGeo}>
+          <meshStandardMaterial 
+            vertexColors 
+            roughness={0.8}
+            side={THREE.DoubleSide}
+            transparent={oBottom < 1}
+            opacity={oBottom}
+            depthWrite={oBottom === 1}
+          />
+        </mesh>
+        <mesh ref={meshBaseRef} geometry={geometries.baseGeo}>
+          <meshStandardMaterial 
+            vertexColors 
+            roughness={0.8}
+            side={THREE.DoubleSide}
+            transparent={oBase < 1}
+            opacity={oBase}
+            depthWrite={oBase === 1}
+          />
+        </mesh>
+        <mesh ref={meshWaterRef} geometry={geometries.waterGeo}>
+          <meshStandardMaterial 
+            color="#3b82f6"
+            roughness={1}
+            metalness={0}
+            side={THREE.DoubleSide}
+            transparent={true}
+            opacity={oWater}
+            depthWrite={oWater === 1}
+          />
+        </mesh>
+      </group>
       
       {/* Brush cursor */}
       <mesh ref={brushMeshRef} visible={false}>

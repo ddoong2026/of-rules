@@ -27,6 +27,7 @@ const useMapStore = create((set, get) => ({
   heightsBase: new Float32Array(VERTEX_COUNT).fill(0),
   heightsTop: new Float32Array(VERTEX_COUNT).fill(10), // 기본 높이 10
   heightsBottom: new Float32Array(VERTEX_COUNT).fill(0),
+  heightsWater: new Float32Array(VERTEX_COUNT).fill(0),
   colors: new Float32Array(VERTEX_COUNT * 3).fill(1), // initialized to white or grass
   assets: [], // { id, type, position: [x,y,z] }
   decals: [], // { id, url, position: [x,y,z], scale: [x,y,z] }
@@ -65,6 +66,7 @@ const useMapStore = create((set, get) => ({
       heightsBase: new Float32Array(state.heightsBase),
       heightsTop: new Float32Array(state.heightsTop), 
       heightsBottom: new Float32Array(state.heightsBottom), 
+      heightsWater: new Float32Array(state.heightsWater),
       colors: new Float32Array(state.colors) 
     }];
     if (newHistory.length > 20) newHistory.shift(); // Keep max 20 states
@@ -79,6 +81,7 @@ const useMapStore = create((set, get) => ({
       heightsBase: previousState.heightsBase,
       heightsTop: previousState.heightsTop, 
       heightsBottom: previousState.heightsBottom, 
+      heightsWater: previousState.heightsWater,
       colors: previousState.colors, 
       history: newHistory 
     };
@@ -86,12 +89,13 @@ const useMapStore = create((set, get) => ({
   
   loadMap: (mapData) => {
     // Parse jsonb arrays back to typed arrays
-    let heightsBase, heightsTop, heightsBottom;
+    let heightsBase, heightsTop, heightsBottom, heightsWater;
     if (mapData.heights && !Array.isArray(mapData.heights) && mapData.heights.base !== undefined) {
-      // New 3-Layer format
+      // New 3-Layer format (or 4-Layer)
       heightsBase = new Float32Array(mapData.heights.base);
       heightsTop = new Float32Array(mapData.heights.top);
       heightsBottom = new Float32Array(mapData.heights.bottom);
+      heightsWater = mapData.heights.water ? new Float32Array(mapData.heights.water) : new Float32Array(VERTEX_COUNT).fill(0);
     } else {
       // Old single-layer format (or dual format with no base)
       const oldHeights = new Float32Array(
@@ -100,6 +104,7 @@ const useMapStore = create((set, get) => ({
       heightsBase = new Float32Array(oldHeights);
       heightsBottom = new Float32Array(oldHeights);
       heightsTop = new Float32Array(oldHeights);
+      heightsWater = new Float32Array(VERTEX_COUNT).fill(0);
     }
     
     const colors = new Float32Array(mapData.colors || VERTEX_COUNT * 3);
@@ -119,6 +124,7 @@ const useMapStore = create((set, get) => ({
       heightsBase,
       heightsTop,
       heightsBottom,
+      heightsWater,
       colors,
       assets: mapData.assets || [],
       decals: mapData.decals || [],
@@ -140,6 +146,7 @@ const useMapStore = create((set, get) => ({
       heightsBase: new Float32Array(VERTEX_COUNT).fill(0),
       heightsTop: new Float32Array(VERTEX_COUNT).fill(10),
       heightsBottom: new Float32Array(VERTEX_COUNT).fill(0),
+      heightsWater: new Float32Array(VERTEX_COUNT).fill(0),
       colors,
       assets: [],
       decals: [],
@@ -153,6 +160,7 @@ const useMapStore = create((set, get) => ({
   updateHeightsBase: (newHeights) => set({ heightsBase: newHeights }),
   updateHeightsTop: (newHeights) => set({ heightsTop: newHeights }),
   updateHeightsBottom: (newHeights) => set({ heightsBottom: newHeights }),
+  updateHeightsWater: (newHeights) => set({ heightsWater: newHeights }),
   updateColors: (newColors) => set({ colors: newColors }),
   
   addAsset: (asset) => set((state) => ({ assets: [...state.assets, asset] })),

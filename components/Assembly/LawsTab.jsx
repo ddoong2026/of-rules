@@ -17,7 +17,7 @@ export default function LawsTab({ initialData, clearInitialData }) {
     const { data, error } = await supabase
       .from('laws')
       .select(`
-        id, title, reason, content, target_department, status, votes_for, votes_against, created_at, rejection_reason,
+        id, title, reason, content, target_department, status, votes_for, votes_against, created_at,
         users:proposer_id (name)
       `)
       .order('created_at', { ascending: false });
@@ -98,19 +98,15 @@ export default function LawsTab({ initialData, clearInitialData }) {
   };
 
   const handleRejectLaw = async (lawId) => {
-    const reason = prompt('법률안 반려(부결) 이유를 입력하세요.\n(취소하거나 빈칸으로 두면 반려되지 않습니다.)');
-    if (!reason) return;
+    if (!confirm('정말로 이 법률안을 반려하시겠습니까?')) return;
     
     const { error } = await supabase
       .from('laws')
-      .update({ status: 'REJECTED', rejection_reason: reason })
+      .update({ status: 'REJECTED' })
       .eq('id', lawId);
       
-    if (error) {
-      alert('오류가 발생했습니다: ' + error.message);
-    } else {
-      fetchLaws();
-    }
+    if (error) alert('오류가 발생했습니다: ' + error.message);
+    else fetchLaws();
   };
 
   const handlePromulgate = async (lawId) => {

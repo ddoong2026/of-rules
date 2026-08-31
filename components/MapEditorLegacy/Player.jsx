@@ -539,6 +539,7 @@ export default function Player() {
         }
       }
     }
+    } // added closing bracket for if(canMoveXZ && !cameraOverride.current.active)
 
     if (canMoveXZ && !cameraOverride.current.active) {
       group.current.position.x = nextX;

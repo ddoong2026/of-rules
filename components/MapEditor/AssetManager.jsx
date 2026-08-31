@@ -351,7 +351,7 @@ function MineableAsset({ asset, onInteract, mode, isPlaying, children }) {
   const groupRef = useRef();
   const jiggleTimeRef = useRef(0);
   
-  const { selectedAssetId, heights } = useMapStore();
+  const { selectedAssetId, heightsTop } = useMapStore();
   const isSelected = mode === 'select' && selectedAssetId === id;
   
   const roamRadius = (type.startsWith('caveman') && asset.roamRadius) ? asset.roamRadius : 0;
@@ -445,8 +445,8 @@ function MineableAsset({ asset, onInteract, mode, isPlaying, children }) {
               const nextWorldZ = position[2] + nextLocalZ;
               
               if (heights && !isPathMode) {
-                const nextY = getTerrainHeightAt(nextWorldX, nextWorldZ, heights);
-                const currentY = getTerrainHeightAt(position[0] + currentLocalPos.current.x, position[2] + currentLocalPos.current.z, heights);
+                const nextY = getTerrainHeightAt(nextWorldX, nextWorldZ, heightsTop);
+                const currentY = getTerrainHeightAt(position[0] + currentLocalPos.current.x, position[2] + currentLocalPos.current.z, heightsTop);
                 
                 // 물속(-0.1 미만) 진입 불가 및 급격한 경사(0.5 이상 차이) 진입 불가
                 if (nextY < -0.1 || Math.abs(nextY - currentY) > 0.5) {
@@ -476,7 +476,7 @@ function MineableAsset({ asset, onInteract, mode, isPlaying, children }) {
                   const minDist = myRadius + otherRadius;
                   
                   // Y축 차이 검사 (다른 에셋이 같은 층에 있는지)
-                  const myY = heights ? getTerrainHeightAt(nextWorldX, nextWorldZ, heights) : position[1];
+                  const myY = heightsTop ? getTerrainHeightAt(nextWorldX, nextWorldZ, heightsTop) : position[1];
                   const otherY = other.position[1];
                   if (distSq < minDist * minDist && Math.abs(myY - otherY) < 1.0) {
                     canMove = false;
@@ -538,7 +538,7 @@ function MineableAsset({ asset, onInteract, mode, isPlaying, children }) {
           
           const worldX = position[0] + currentLocalPos.current.x;
           const worldZ = position[2] + currentLocalPos.current.z;
-          const groundY = heights ? getTerrainHeightAt(worldX, worldZ, heights) : position[1];
+          const groundY = heightsTop ? getTerrainHeightAt(worldX, worldZ, heightsTop) : position[1];
           groupRef.current.position.set(worldX, groundY, worldZ);
         }
       } else if (!isPlaying && (roamRadius > 0 || ['one-way', 'round-trip', 'repeat'].includes(asset.pathMode))) {
@@ -622,7 +622,7 @@ function MineableAsset({ asset, onInteract, mode, isPlaying, children }) {
             const rz = Math.sin(theta) * roamRadius * 2;
             const worldX = position[0] + rx;
             const worldZ = position[2] + rz;
-            const y = heights ? getTerrainHeightAt(worldX, worldZ, heights) : position[1];
+            const y = heightsTop ? getTerrainHeightAt(worldX, worldZ, heightsTop) : position[1];
             points.push(new THREE.Vector3(rx, y - position[1] + 0.1, rz));
           }
           return (
@@ -648,13 +648,13 @@ function MineableAsset({ asset, onInteract, mode, isPlaying, children }) {
               const t = j / segments;
               const px = p1.x * (1 - t) + p2.x * t;
               const pz = p1.z * (1 - t) + p2.z * t;
-              const py = heights ? getTerrainHeightAt(px, pz, heights) : p1.y || 0;
+              const py = heightsTop ? getTerrainHeightAt(px, pz, heightsTop) : p1.y || 0;
               points.push(new THREE.Vector3(px - position[0], py - position[1] + 0.2, pz - position[2]));
             }
           }
           if (!isClosed) {
             const lastP = pts[pts.length - 1];
-            const lastPy = heights ? getTerrainHeightAt(lastP.x, lastP.z, heights) : lastP.y || 0;
+            const lastPy = heightsTop ? getTerrainHeightAt(lastP.x, lastP.z, heightsTop) : lastP.y || 0;
             points.push(new THREE.Vector3(lastP.x - position[0], lastPy - position[1] + 0.2, lastP.z - position[2]));
           } else if (points.length > 0) {
             points.push(points[0]); // close the loop for Line component

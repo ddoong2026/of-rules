@@ -24,7 +24,8 @@ const useMapStore = create((set, get) => ({
   // Map Data
   currentMapId: null,
   mapName: '새 맵',
-  heights: new Float32Array(VERTEX_COUNT).fill(0),
+  heightsTop: new Float32Array(VERTEX_COUNT).fill(10), // 기본 높이 10
+  heightsBottom: new Float32Array(VERTEX_COUNT).fill(0),
   colors: new Float32Array(VERTEX_COUNT * 3).fill(1), // initialized to white or grass
   assets: [], // { id, type, position: [x,y,z] }
   decals: [], // { id, url, position: [x,y,z], scale: [x,y,z] }
@@ -60,7 +61,8 @@ const useMapStore = create((set, get) => ({
   
   saveHistory: () => set((state) => {
     const newHistory = [...state.history, { 
-      heights: new Float32Array(state.heights), 
+      heightsTop: new Float32Array(state.heightsTop), 
+      heightsBottom: new Float32Array(state.heightsBottom), 
       colors: new Float32Array(state.colors) 
     }];
     if (newHistory.length > 20) newHistory.shift(); // Keep max 20 states
@@ -72,7 +74,8 @@ const useMapStore = create((set, get) => ({
     const newHistory = [...state.history];
     const previousState = newHistory.pop();
     return { 
-      heights: previousState.heights, 
+      heightsTop: previousState.heightsTop, 
+      heightsBottom: previousState.heightsBottom, 
       colors: previousState.colors, 
       history: newHistory 
     };
@@ -80,7 +83,18 @@ const useMapStore = create((set, get) => ({
   
   loadMap: (mapData) => {
     // Parse jsonb arrays back to typed arrays
-    const heights = new Float32Array(mapData.heights || VERTEX_COUNT);
+    let heightsTop, heightsBottom;
+    if (mapData.heights && !Array.isArray(mapData.heights) && mapData.heights.top) {
+      // New format (Dual Heightmap object)
+      heightsTop = new Float32Array(mapData.heights.top);
+      heightsBottom = new Float32Array(mapData.heights.bottom);
+    } else {
+      // Old format (Single array)
+      heightsTop = new Float32Array(mapData.heights || VERTEX_COUNT);
+      // For old flat maps, bottom is just 0
+      heightsBottom = new Float32Array(VERTEX_COUNT).fill(0);
+    }
+    
     const colors = new Float32Array(mapData.colors || VERTEX_COUNT * 3);
     
     if (!mapData.colors || mapData.colors.length === 0) {
@@ -95,7 +109,8 @@ const useMapStore = create((set, get) => ({
     set({
       currentMapId: mapData.id,
       mapName: mapData.name || '새 맵',
-      heights,
+      heightsTop,
+      heightsBottom,
       colors,
       assets: mapData.assets || [],
       decals: mapData.decals || [],
@@ -114,7 +129,8 @@ const useMapStore = create((set, get) => ({
     set({
       currentMapId: null,
       mapName: '새 맵',
-      heights: new Float32Array(VERTEX_COUNT).fill(0),
+      heightsTop: new Float32Array(VERTEX_COUNT).fill(10),
+      heightsBottom: new Float32Array(VERTEX_COUNT).fill(0),
       colors,
       assets: [],
       decals: [],
@@ -125,7 +141,8 @@ const useMapStore = create((set, get) => ({
     });
   },
 
-  updateHeights: (newHeights) => set({ heights: newHeights }),
+  updateHeightsTop: (newHeights) => set({ heightsTop: newHeights }),
+  updateHeightsBottom: (newHeights) => set({ heightsBottom: newHeights }),
   updateColors: (newColors) => set({ colors: newColors }),
   
   addAsset: (asset) => set((state) => ({ assets: [...state.assets, asset] })),

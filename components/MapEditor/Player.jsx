@@ -37,7 +37,7 @@ export default function Player() {
   const { scene, animations } = useGLTF('/models/charactor2.glb');
   const { actions } = useAnimations(animations, group);
   const { camera, scene: glScene } = useThree();
-  const heights = useMapStore((state) => state.heights);
+  const heightsTop = useMapStore((state) => state.heightsTop);
   const assets = useMapStore((state) => state.assets);
 
   const [keys, setKeys] = useState({ w: false, a: false, s: false, d: false, shift: false, space: false, control: false });
@@ -191,10 +191,10 @@ export default function Player() {
     const tx = gridX - x0;
     const tz = gridZ - z0;
 
-    const h00 = heights[z0 * (GRID_SIZE + 1) + x0] || 0;
-    const h10 = heights[z0 * (GRID_SIZE + 1) + x1] || 0;
-    const h01 = heights[z1 * (GRID_SIZE + 1) + x0] || 0;
-    const h11 = heights[z1 * (GRID_SIZE + 1) + x1] || 0;
+    const h00 = heightsTop[z0 * (GRID_SIZE + 1) + x0] || 0;
+    const h10 = heightsTop[z0 * (GRID_SIZE + 1) + x1] || 0;
+    const h01 = heightsTop[z1 * (GRID_SIZE + 1) + x0] || 0;
+    const h11 = heightsTop[z1 * (GRID_SIZE + 1) + x1] || 0;
 
     // Bilinear interpolation
     const h0 = h00 * (1 - tx) + h10 * tx;

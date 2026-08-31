@@ -5,7 +5,7 @@ import useMapStore, { GRID_SIZE, VERTEX_COUNT } from '@/store/useMapStore';
 import * as THREE from 'three';
 
 export default function FluidSystem() {
-  const { heights, waterSources } = useMapStore();
+  const { heightsTop, waterSources } = useMapStore();
   const workerRef = useRef(null);
   
   // Instance mesh for dynamic water particles/blocks
@@ -32,12 +32,12 @@ export default function FluidSystem() {
   useEffect(() => {
     if (workerRef.current && waterSources.length > 0) {
       workerRef.current.postMessage({
-        heights: heights,
+        heights: heightsTop,
         waterSources: waterSources,
         gridSize: GRID_SIZE
       });
     }
-  }, [heights, waterSources]);
+  }, [heightsTop, waterSources]);
 
   // Update InstancedMesh
   useEffect(() => {

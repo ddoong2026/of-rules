@@ -1,19 +1,103 @@
 'use client';
 
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useMemo } from 'react';
 import { useThree, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { CSG } from 'three-csg-ts';
 import useMapStore, { GRID_SIZE, VERTEX_COUNT } from '@/store/useMapStore';
+
+function generateDualMesh(heightsTop, heightsBottom, colorsArr, gridSize, cellSize, minThickness = 0.1) {
+  const width = gridSize + 1;
+  const depth = gridSize + 1;
+  const halfSize = (gridSize * cellSize) / 2;
+
+  const positions = [];
+  const indices = [];
+  const uvs = [];
+  const colors = [];
+  
+  const vertexIndexMap = new Map();
+  let indexCounter = 0;
+
+  const getVertexIndex = (x, y, z, u, v, r, g, b) => {
+    const key = `${x.toFixed(3)},${y.toFixed(3)},${z.toFixed(3)}`;
+    if (vertexIndexMap.has(key)) {
+      return vertexIndexMap.get(key);
+    }
+    positions.push(x, y, z);
+    uvs.push(u, v);
+    colors.push(r, g, b);
+    vertexIndexMap.set(key, indexCounter);
+    return indexCounter++;
+  };
+
+  const addQuad = (v0, v1, v2, v3) => {
+    indices.push(v0, v1, v2);
+    indices.push(v0, v2, v3);
+  };
+
+  const isActive = (xIdx, zIdx) => {
+    if (xIdx < 0 || xIdx >= width || zIdx < 0 || zIdx >= depth) return false;
+    const idx = zIdx * width + xIdx;
+    return (heightsTop[idx] - heightsBottom[idx]) >= minThickness;
+  };
+
+  for (let x = 0; x < width - 1; x++) {
+    for (let z = 0; z < depth - 1; z++) {
+      const active = isActive(x, z) || isActive(x + 1, z) || isActive(x, z + 1) || isActive(x + 1, z + 1);
+      if (!active) continue;
+
+      const posX = x * cellSize - halfSize;
+      const posZ = z * cellSize - halfSize;
+      const nextX = (x + 1) * cellSize - halfSize;
+      const nextZ = (z + 1) * cellSize - halfSize;
+
+      // Calculate indices for 1D arrays
+      const i00 = z * width + x;
+      const i10 = z * width + (x + 1);
+      const i01 = (z + 1) * width + x;
+      const i11 = (z + 1) * width + (x + 1);
+
+      // Top Vertices
+      const t00 = getVertexIndex(posX, heightsTop[i00], posZ, x / width, z / depth, colorsArr[i00 * 3], colorsArr[i00 * 3 + 1], colorsArr[i00 * 3 + 2]);
+      const t10 = getVertexIndex(nextX, heightsTop[i10], posZ, (x + 1) / width, z / depth, colorsArr[i10 * 3], colorsArr[i10 * 3 + 1], colorsArr[i10 * 3 + 2]);
+      const t01 = getVertexIndex(posX, heightsTop[i01], nextZ, x / width, (z + 1) / depth, colorsArr[i01 * 3], colorsArr[i01 * 3 + 1], colorsArr[i01 * 3 + 2]);
+      const t11 = getVertexIndex(nextX, heightsTop[i11], nextZ, (x + 1) / width, (z + 1) / depth, colorsArr[i11 * 3], colorsArr[i11 * 3 + 1], colorsArr[i11 * 3 + 2]);
+
+      // Bottom Vertices (Ceiling)
+      // We can use the same colors as top, or dim them. Let's use the same.
+      const b00 = getVertexIndex(posX, heightsBottom[i00], posZ, x / width, z / depth, colorsArr[i00 * 3], colorsArr[i00 * 3 + 1], colorsArr[i00 * 3 + 2]);
+      const b10 = getVertexIndex(nextX, heightsBottom[i10], posZ, (x + 1) / width, z / depth, colorsArr[i10 * 3], colorsArr[i10 * 3 + 1], colorsArr[i10 * 3 + 2]);
+      const b01 = getVertexIndex(posX, heightsBottom[i01], nextZ, x / width, (z + 1) / depth, colorsArr[i01 * 3], colorsArr[i01 * 3 + 1], colorsArr[i01 * 3 + 2]);
+      const b11 = getVertexIndex(nextX, heightsBottom[i11], nextZ, (x + 1) / width, (z + 1) / depth, colorsArr[i11 * 3], colorsArr[i11 * 3 + 1], colorsArr[i11 * 3 + 2]);
+
+      // Top Face (+Y normal)
+      addQuad(t00, t01, t11, t10);
+
+      // Bottom Face (-Y normal, CCW)
+      addQuad(b00, b10, b11, b01);
+
+      // Side Walls
+      if (x === 0 || !isActive(x - 1, z)) addQuad(b00, b01, t01, t00); // Left (-X)
+      if (x === width - 2 || !isActive(x + 1, z)) addQuad(b10, t10, t11, b11); // Right (+X)
+      if (z === 0 || !isActive(x, z - 1)) addQuad(b00, t00, t10, b10); // Back (-Z)
+      if (z === depth - 2 || !isActive(x, z + 1)) addQuad(b01, b11, t11, t01); // Front (+Z)
+    }
+  }
+
+  return {
+    positions: new Float32Array(positions),
+    indices: new Uint16Array(indices),
+    uvs: new Float32Array(uvs),
+    colors: new Float32Array(colors),
+  };
+}
 
 export default function Terrain() {
   const meshRef = useRef();
-  const geomRef = useRef();
   const { 
     mode, brushSize, brushIntensity, selectedColor, selectedAsset, selectedDecalImage,
-    heights, colors, updateHeights, updateColors, addAsset, addDecal, addWaterSource,
-    csgOperations, addCsgOperation,
-    isCameraMode, saveHistory, isPlaying, spawnPoint
+    heightsTop, heightsBottom, colors, updateHeightsTop, updateHeightsBottom, updateColors, addAsset, addDecal, addWaterSource,
+    isCameraMode, saveHistory, isPlaying
   } = useMapStore();
   
   const { camera, gl, raycaster: r3fRaycaster } = useThree();
@@ -22,186 +106,22 @@ export default function Terrain() {
   const [pointerNormal, setPointerNormal] = useState(new THREE.Vector3(0, 1, 0));
   const brushMeshRef = useRef();
   
-  const [csgGeometry, setCsgGeometry] = useState(null);
-
-  // Initialize Geometry
-  useEffect(() => {
-    if (geomRef.current) {
-      geomRef.current.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-      
-      const pos = geomRef.current.attributes.position;
-      for (let i = 0; i < VERTEX_COUNT; i++) {
-        pos.setZ(i, heights[i]);
-      }
-      geomRef.current.computeVertexNormals();
-      pos.needsUpdate = true;
-    }
-  }, []);
-
-  // Update Geometry on state change
-  useEffect(() => {
-    if (!geomRef.current) return;
-    
-    const pos = geomRef.current.attributes.position;
-    let posChanged = false;
-    for (let i = 0; i < VERTEX_COUNT; i++) {
-      if (pos.getZ(i) !== heights[i]) {
-        pos.setZ(i, heights[i]);
-        posChanged = true;
-      }
-    }
-    if (posChanged) {
-      geomRef.current.computeVertexNormals();
-      pos.needsUpdate = true;
-    }
-
-    const col = geomRef.current.attributes.color;
-    let colChanged = false;
-    for (let i = 0; i < colors.length; i++) {
-      if (col.array[i] !== colors[i]) {
-        col.array[i] = colors[i];
-        colChanged = true;
-      }
-    }
-    if (colChanged) {
-      col.needsUpdate = true;
-    }
-  }, [heights, colors]);
-
-  const bspCache = useRef({
-    heightsRef: null,
-    operationsLength: 0,
-    bsp: null
-  });
-
-  // Compute CSG when operations or heights change
-  useEffect(() => {
-    if (!geomRef.current) return;
-    
-    if (csgOperations.length === 0) {
-      if (csgGeometry) {
-        csgGeometry.dispose();
-        setCsgGeometry(null);
-      }
-      bspCache.current = { heightsRef: null, operationsLength: 0, bsp: null };
-      return;
-    }
-
-    try {
-      let bsp;
-      let startIdx = 0;
-
-      // Check if we can reuse the cached BSP
-      if (
-        bspCache.current.heightsRef === heights &&
-        bspCache.current.bsp &&
-        csgOperations.length >= bspCache.current.operationsLength
-      ) {
-        bsp = bspCache.current.bsp;
-        startIdx = bspCache.current.operationsLength;
-      } else {
-        const baseMesh = new THREE.Mesh(geomRef.current, new THREE.MeshStandardMaterial());
-        baseMesh.rotation.set(-Math.PI / 2, 0, 0);
-        baseMesh.updateMatrixWorld();
-        bsp = CSG.fromMesh(baseMesh);
-      }
-
-      // Only process new operations
-      if (startIdx < csgOperations.length) {
-        const sphereGeo = new THREE.SphereGeometry(1, 16, 16);
-        const sphereColors = new Float32Array(sphereGeo.attributes.position.count * 3).fill(1);
-        sphereGeo.setAttribute('color', new THREE.BufferAttribute(sphereColors, 3));
-        const sphereMesh = new THREE.Mesh(sphereGeo, new THREE.MeshStandardMaterial());
-
-        const cylGeo = new THREE.CylinderGeometry(1, 1, 1, 16);
-        cylGeo.rotateX(Math.PI / 2);
-        const cylColors = new Float32Array(cylGeo.attributes.position.count * 3).fill(1);
-        cylGeo.setAttribute('color', new THREE.BufferAttribute(cylColors, 3));
-        const cylMesh = new THREE.Mesh(cylGeo, new THREE.MeshStandardMaterial());
-
-        for (let i = startIdx; i < csgOperations.length; i++) {
-          const op = csgOperations[i];
-          const opColor = op.color || [0.6, 0.6, 0.6];
-          
-          if (op.shape === 'sphere') {
-            for(let j=0; j<sphereColors.length; j+=3) {
-              sphereColors[j] = opColor[0]; sphereColors[j+1] = opColor[1]; sphereColors[j+2] = opColor[2];
-            }
-            sphereGeo.attributes.color.needsUpdate = true;
-
-            sphereMesh.position.set(...op.position);
-            sphereMesh.scale.set(op.radius, op.radius, op.radius);
-            sphereMesh.updateMatrixWorld();
-            const opBsp = CSG.fromMesh(sphereMesh);
-            bsp = bsp.subtract(opBsp);
-          } else if (op.shape === 'capsule') {
-            const start = new THREE.Vector3(...op.start);
-            const end = new THREE.Vector3(...op.end);
-            const dist = start.distanceTo(end);
-
-            for(let j=0; j<cylColors.length; j+=3) {
-              cylColors[j] = opColor[0]; cylColors[j+1] = opColor[1]; cylColors[j+2] = opColor[2];
-            }
-            cylGeo.attributes.color.needsUpdate = true;
-
-            cylMesh.position.copy(start).lerp(end, 0.5);
-            cylMesh.scale.set(op.radius, op.radius, dist);
-            cylMesh.lookAt(end);
-            cylMesh.updateMatrixWorld();
-            bsp = bsp.subtract(CSG.fromMesh(cylMesh));
-
-            for(let j=0; j<sphereColors.length; j+=3) {
-              sphereColors[j] = opColor[0]; sphereColors[j+1] = opColor[1]; sphereColors[j+2] = opColor[2];
-            }
-            sphereGeo.attributes.color.needsUpdate = true;
-
-            sphereMesh.position.copy(end);
-            sphereMesh.scale.set(op.radius, op.radius, op.radius);
-            sphereMesh.updateMatrixWorld();
-            bsp = bsp.subtract(CSG.fromMesh(sphereMesh));
-          }
-        }
-
-        // Update cache
-        bspCache.current = {
-          heightsRef: heights,
-          operationsLength: csgOperations.length,
-          bsp: bsp
-        };
-      }
-
-      const baseMeshDummy = new THREE.Mesh(geomRef.current, new THREE.MeshStandardMaterial());
-      baseMeshDummy.rotation.set(-Math.PI / 2, 0, 0);
-      baseMeshDummy.updateMatrixWorld();
-      
-      const finalMesh = CSG.toMesh(bsp, baseMeshDummy.matrixWorld, baseMeshDummy.material);
-      
-      // Fix UVs so alphaMap correctly maps over the whole terrain including new cave walls
-      const posAttr = finalMesh.geometry.attributes.position;
-      const uvAttr = finalMesh.geometry.attributes.uv;
-      for (let i = 0; i < posAttr.count; i++) {
-        // Local coordinates: plane is on XY from -25 to +25.
-        const x = posAttr.getX(i);
-        const y = posAttr.getY(i);
-        uvAttr.setXY(i, (x + 25) / 50, (y + 25) / 50);
-      }
-      uvAttr.needsUpdate = true;
-      
-      // Ensure vertex colors are smooth
-      finalMesh.geometry.computeVertexNormals();
-
-      setCsgGeometry(finalMesh.geometry);
-    } catch (e) {
-      console.error('CSG Computation failed:', e);
-    }
-  }, [heights, csgOperations]); // Note: recomputes when heights change too, to keep holes in place
+  // Mesh Geometry Generation
+  const geometry = useMemo(() => {
+    const data = generateDualMesh(heightsTop, heightsBottom, colors, GRID_SIZE, 50 / GRID_SIZE);
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(data.positions, 3));
+    geo.setAttribute('uv', new THREE.BufferAttribute(data.uvs, 2));
+    geo.setAttribute('color', new THREE.BufferAttribute(data.colors, 3));
+    geo.setIndex(new THREE.BufferAttribute(data.indices, 1));
+    geo.computeVertexNormals();
+    return geo;
+  }, [heightsTop, heightsBottom, colors]);
 
   useFrame(() => {
-    const targetMesh = csgGeometry ? csgMeshRef.current : meshRef.current;
-    
     if (isPlaying && document.pointerLockElement === gl.domElement) {
       r3fRaycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-      const intersects = r3fRaycaster.intersectObject(targetMesh);
+      const intersects = r3fRaycaster.intersectObject(meshRef.current);
       
       if (intersects.length > 0 && brushMeshRef.current) {
         brushMeshRef.current.visible = (mode === 'sculpt' || mode === 'dig' || mode === 'carve' || mode === 'flatten' || mode === 'paint');
@@ -226,11 +146,6 @@ export default function Terrain() {
   });
 
   const applyBrush = (point, isShift) => {
-    if (!geomRef.current) return;
-    const pos = geomRef.current.attributes.position;
-    
-    // Find closest vertex
-    // Plane is size 50x50 centered at 0,0. Range -25 to 25.
     const halfSize = 25;
     const segSize = 50 / GRID_SIZE;
     
@@ -242,14 +157,20 @@ export default function Terrain() {
 
     if (xIdx < 0 || xIdx > GRID_SIZE || yIdx < 0 || yIdx > GRID_SIZE) return;
 
-    let modified = false;
-    const newHeights = new Float32Array(heights);
+    let modifiedTop = false;
+    let modifiedBottom = false;
+    let modifiedColors = false;
+
+    const newHeightsTop = new Float32Array(heightsTop);
+    const newHeightsBottom = new Float32Array(heightsBottom);
     const newColors = new Float32Array(colors);
+    
     const targetColor = new THREE.Color(selectedColor);
     const centerIdx = yIdx * (GRID_SIZE + 1) + xIdx;
-    const centerHeight = heights[centerIdx];
+    
+    const centerHeightTop = heightsTop[centerIdx];
+    const minThickness = 0.1;
 
-    // Apply brush in radius
     for (let i = -brushSize; i <= brushSize; i++) {
       for (let j = -brushSize; j <= brushSize; j++) {
         if (i*i + j*j > brushSize*brushSize) continue;
@@ -258,36 +179,43 @@ export default function Terrain() {
         const cy = yIdx + j;
         if (cx < 0 || cx > GRID_SIZE || cy < 0 || cy > GRID_SIZE) continue;
         
-        // Also ensure affected vertex is within circular map bounds
         const worldX = cx * segSize - halfSize;
         const worldZ = cy * segSize - halfSize;
         if (worldX * worldX + worldZ * worldZ > halfSize * halfSize) continue;
         
         const idx = cy * (GRID_SIZE + 1) + cx;
-        const targetHeight = heights[idx];
+        const targetHeightTop = heightsTop[idx];
         
-        // Use 3D distance for paint to prevent coloring steep cliffs unintentionally
         const dx = i;
         const dz = j;
-        const dy = (targetHeight - centerHeight) / segSize;
+        const dy = (targetHeightTop - centerHeightTop) / segSize;
         const dist3D = Math.sqrt(dx*dx + dy*dy + dz*dz);
         const dist = mode === 'paint' ? dist3D : Math.sqrt(dx*dx + dz*dz);
         
-        // Smooth falloff (Cosine squared)
         const normalizedDist = dist / (brushSize + 1);
-        if (normalizedDist > 1) continue; // Skip if outside 3D radius
+        if (normalizedDist > 1) continue; 
         
         const falloff = Math.pow(Math.cos(normalizedDist * Math.PI / 2), 2);
         
         if (mode === 'sculpt' || mode === 'dig') {
           const isDigging = mode === 'dig' || isShift;
           const delta = brushIntensity * falloff * (isDigging ? -1 : 1);
-          newHeights[idx] += delta;
-          modified = true;
+          newHeightsTop[idx] += delta;
+          // Clamp to not go below bottom
+          newHeightsTop[idx] = Math.max(newHeightsTop[idx], newHeightsBottom[idx] + minThickness);
+          modifiedTop = true;
+        } else if (mode === 'carve') {
+          const isDigging = isShift; // Carve normally raises bottom, shift lowers bottom
+          const delta = brushIntensity * falloff * (isDigging ? -1 : 1);
+          newHeightsBottom[idx] += delta;
+          // Clamp to not go above top
+          newHeightsBottom[idx] = Math.min(newHeightsBottom[idx], newHeightsTop[idx] - minThickness);
+          modifiedBottom = true;
         } else if (mode === 'flatten') {
-          const heightDiff = centerHeight - targetHeight;
-          newHeights[idx] += heightDiff * falloff * (brushIntensity * 0.1);
-          modified = true;
+          const heightDiff = centerHeightTop - targetHeightTop;
+          newHeightsTop[idx] += heightDiff * falloff * (brushIntensity * 0.1);
+          newHeightsTop[idx] = Math.max(newHeightsTop[idx], newHeightsBottom[idx] + minThickness);
+          modifiedTop = true;
         } else if (mode === 'paint') {
           const r = idx * 3;
           const g = idx * 3 + 1;
@@ -299,15 +227,14 @@ export default function Terrain() {
           newColors[r] = currentColor.r;
           newColors[g] = currentColor.g;
           newColors[b] = currentColor.b;
-          modified = true;
+          modifiedColors = true;
         }
       }
     }
 
-    if (modified) {
-      if (mode === 'sculpt' || mode === 'dig' || mode === 'flatten') updateHeights(newHeights);
-      if (mode === 'paint') updateColors(newColors);
-    }
+    if (modifiedTop) updateHeightsTop(newHeightsTop);
+    if (modifiedBottom) updateHeightsBottom(newHeightsBottom);
+    if (modifiedColors) updateColors(newColors);
   };
 
   const handlePointerDown = (e) => {
@@ -319,36 +246,17 @@ export default function Terrain() {
     
     if (isPlaying && document.pointerLockElement === gl.domElement) {
        r3fRaycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-       const targetMesh = csgGeometry ? csgMeshRef.current : meshRef.current;
-       const intersects = r3fRaycaster.intersectObject(targetMesh);
+       const intersects = r3fRaycaster.intersectObject(meshRef.current);
        if (intersects.length > 0) {
          targetPoint = intersects[0].point;
        } else {
-         return; // clicked sky
+         return;
        }
     }
 
-    if (mode === 'sculpt' || mode === 'dig' || mode === 'flatten' || mode === 'paint') {
-      saveHistory(); // Save state before stroke
-      applyBrush(targetPoint, e.button === 2 || e.shiftKey); // right click or shift for inverted sculpt
-    } else if (mode === 'carve') {
-      saveHistory();
-      
-      const cx = Math.max(0, Math.min(GRID_SIZE, Math.round((targetPoint.x + 25) / (50 / GRID_SIZE))));
-      const cz = Math.max(0, Math.min(GRID_SIZE, Math.round((targetPoint.z + 25) / (50 / GRID_SIZE))));
-      const idx = cz * (GRID_SIZE + 1) + cx;
-      const r = colors[idx * 3] || 0.6;
-      const g = colors[idx * 3 + 1] || 0.6;
-      const b = colors[idx * 3 + 2] || 0.6;
-
-      addCsgOperation({
-        id: crypto.randomUUID(),
-        type: 'subtract',
-        shape: 'sphere',
-        position: [targetPoint.x, targetPoint.y, targetPoint.z],
-        radius: brushSize * 0.5,
-        color: [r, g, b]
-      });
+    if (mode === 'sculpt' || mode === 'dig' || mode === 'carve' || mode === 'flatten' || mode === 'paint') {
+      saveHistory(); 
+      applyBrush(targetPoint, e.button === 2 || e.shiftKey); 
     } else if (mode === 'water') {
       addWaterSource(targetPoint.x, targetPoint.z);
     } else if (mode === 'asset') {
@@ -376,7 +284,7 @@ export default function Terrain() {
         id: crypto.randomUUID(),
         url: selectedDecalImage,
         position: [targetPoint.x, targetPoint.y, targetPoint.z],
-        scale: [brushSize * 2, brushSize * 2, brushSize * 2] // Arbitrary scaling based on brush
+        scale: [brushSize * 2, brushSize * 2, brushSize * 2] 
       });
     } else if (mode === 'boundary' || mode === 'zone') {
       const { setBoundaryDrawing } = useMapStore.getState();
@@ -404,7 +312,6 @@ export default function Terrain() {
 
   const handlePointerMove = (e) => {
     if (!isPlaying || document.pointerLockElement !== gl.domElement) {
-      // Update pointer position for brush cursor in normal mode
       if (mode === 'sculpt' || mode === 'dig' || mode === 'carve' || mode === 'flatten' || mode === 'paint') {
         setPointerPos(e.point);
         if (e.face && e.object) {
@@ -429,207 +336,38 @@ export default function Terrain() {
        }
     }
 
-    if (mode === 'sculpt' || mode === 'dig' || mode === 'flatten' || mode === 'paint') {
+    if (mode === 'sculpt' || mode === 'dig' || mode === 'carve' || mode === 'flatten' || mode === 'paint') {
       e.stopPropagation();
       applyBrush(targetPoint, e.buttons === 2 || e.shiftKey);
-    } else if (mode === 'carve') {
-      e.stopPropagation();
-      const { csgOperations, addCsgOperation } = useMapStore.getState();
-      const lastOp = csgOperations[csgOperations.length - 1];
-      let shouldAdd = true;
-      if (lastOp) {
-        const lastPos = lastOp.end || lastOp.position;
-        const dx = targetPoint.x - lastPos[0];
-        const dy = targetPoint.y - lastPos[1];
-        const dz = targetPoint.z - lastPos[2];
-        const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
-        // Only add segment if moved more than a minimum distance
-        if (dist < 0.25) {
-          shouldAdd = false;
-        }
-      }
-      if (shouldAdd) {
-        const cx = Math.max(0, Math.min(GRID_SIZE, Math.round((targetPoint.x + 25) / (50 / GRID_SIZE))));
-        const cz = Math.max(0, Math.min(GRID_SIZE, Math.round((targetPoint.z + 25) / (50 / GRID_SIZE))));
-        const idx = cz * (GRID_SIZE + 1) + cx;
-        const r = colors[idx * 3] || 0.6;
-        const g = colors[idx * 3 + 1] || 0.6;
-        const b = colors[idx * 3 + 2] || 0.6;
-
-        addCsgOperation({
-          id: crypto.randomUUID(),
-          type: 'subtract',
-          shape: 'capsule',
-          start: lastOp ? (lastOp.end || lastOp.position) : [targetPoint.x, targetPoint.y, targetPoint.z],
-          end: [targetPoint.x, targetPoint.y, targetPoint.z],
-          radius: brushSize * 0.5,
-          color: [r, g, b]
-        });
-      }
-    } else if (mode === 'boundary' || mode === 'zone') {
-      const { boundaryDrawing, setBoundaryDrawing } = useMapStore.getState();
-      if (boundaryDrawing) {
-        const lastPoint = boundaryDrawing.points[boundaryDrawing.points.length - 1];
-        const dx = targetPoint.x - lastPoint[0];
-        const dz = targetPoint.z - lastPoint[1];
-        if (Math.sqrt(dx*dx + dz*dz) > 0.5) { // Add point every 0.5 units
-          setBoundaryDrawing({ ...boundaryDrawing, points: [...boundaryDrawing.points, [targetPoint.x, targetPoint.z]] });
-        }
-      }
-    } else if (mode === 'drawPath') {
-      e.stopPropagation();
-      const { selectedAssetId, assets, updateAsset } = useMapStore.getState();
-      if (selectedAssetId) {
-        const asset = assets.find(a => a.id === selectedAssetId);
-        if (asset) {
-          const pts = asset.pathPoints || [];
-          const lastPt = pts[pts.length - 1];
-          if (!lastPt || Math.hypot(targetPoint.x - lastPt.x, targetPoint.z - lastPt.z) > 0.5) {
-            updateAsset(selectedAssetId, { pathPoints: [...pts, { x: targetPoint.x, y: targetPoint.y, z: targetPoint.z }] });
-          }
-        }
-      }
     }
   };
 
-  const handlePointerUp = (e) => {
+  const handlePointerUp = () => {
     setIsPointerDown(false);
-    
-    if (mode === 'boundary' || mode === 'zone') {
-      const { boundaryDrawing, setBoundaryDrawing, addBoundary } = useMapStore.getState();
-      if (boundaryDrawing) {
-        if (boundaryDrawing.points.length > 1) {
-          addBoundary({
-            id: crypto.randomUUID(),
-            isZone: boundaryDrawing.isZone,
-            points: boundaryDrawing.points,
-            condition: boundaryDrawing.isZone 
-              ? { eventType: 'bubble', message: '' } 
-              : { itemType: 'rock', amount: 3 }
-          });
-        }
-        setBoundaryDrawing(null);
-      }
-    }
   };
-
-  const handlePointerOut = (e) => {
-    if ((mode === 'boundary' || mode === 'zone') && useMapStore.getState().boundaryDrawing) {
-      handlePointerUp(e);
-    }
-    setIsPointerDown(false);
-    setPointerPos(null);
-  };
-
-  // Create circular alpha map
-  const alphaMap = useState(() => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 512;
-    canvas.height = 512;
-    const ctx = canvas.getContext('2d');
-    
-    // Fill black (transparent)
-    ctx.fillStyle = 'black';
-    ctx.fillRect(0, 0, 512, 512);
-    
-    // Draw white circle (opaque)
-    ctx.beginPath();
-    ctx.arc(256, 256, 256, 0, Math.PI * 2);
-    ctx.fillStyle = 'white';
-    ctx.fill();
-    
-    return new THREE.CanvasTexture(canvas);
-  })[0];
-
-  const csgMeshRef = useRef();
 
   return (
     <group>
-      {/* Base Terrain */}
-      <mesh 
+      <mesh
         ref={meshRef}
-        name="terrainMesh"
-        rotation={[-Math.PI / 2, 0, 0]} 
-        receiveShadow 
-        castShadow
+        geometry={geometry}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
-        onPointerOut={handlePointerOut}
-        onContextMenu={(e) => {
-          if (e.nativeEvent) e.nativeEvent.preventDefault();
-        }}
-        visible={!csgGeometry} // Hide base mesh if CSG is active
+        onPointerLeave={handlePointerUp}
       >
-        <planeGeometry 
-          ref={geomRef}
-          args={[50, 50, GRID_SIZE, GRID_SIZE]} 
-        />
         <meshStandardMaterial 
           vertexColors 
           roughness={0.8}
           side={THREE.DoubleSide}
-          alphaMap={alphaMap}
-          transparent={true}
-          alphaTest={0.5}
         />
       </mesh>
-
-      {/* CSG Result Mesh */}
-      {csgGeometry && (
-        <mesh
-          ref={csgMeshRef}
-          name="terrainMesh"
-          rotation={[-Math.PI / 2, 0, 0]}
-          geometry={csgGeometry}
-          receiveShadow
-          castShadow
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerOut={handlePointerOut}
-          onContextMenu={(e) => {
-            if (e.nativeEvent) e.nativeEvent.preventDefault();
-          }}
-        >
-          <meshStandardMaterial 
-            vertexColors 
-            roughness={0.8}
-            side={THREE.DoubleSide}
-            alphaMap={alphaMap}
-            transparent={true}
-            alphaTest={0.5}
-          />
-        </mesh>
-      )}
       
-      {/* Brush Cursor Indicator */}
-      <mesh 
-        ref={brushMeshRef}
-        pointerEvents="none"
-        visible={false}
-      >
-        <ringGeometry args={[brushSize - 0.2, brushSize, 32]} />
-        <meshBasicMaterial color={mode === 'paint' ? selectedColor : (mode === 'flatten' ? '#f59e0b' : (mode === 'dig' ? '#ef4444' : '#ffffff'))} transparent opacity={0.5} side={THREE.DoubleSide} />
+      {/* Brush cursor */}
+      <mesh ref={brushMeshRef} visible={false}>
+        <ringGeometry args={[brushSize * 0.8, brushSize, 32]} />
+        <meshBasicMaterial color="#ffffff" transparent opacity={0.5} side={THREE.DoubleSide} />
       </mesh>
-      
-      {/* Spawn Point Marker */}
-      {!isPlaying && spawnPoint && (
-        <group position={[spawnPoint.x, 0.1, spawnPoint.z]}>
-          <mesh rotation={[-Math.PI / 2, 0, 0]}>
-            <ringGeometry args={[0, 1.5, 32]} />
-            <meshBasicMaterial color="#ef4444" transparent opacity={0.6} side={THREE.DoubleSide} />
-          </mesh>
-          <mesh position={[0, 1.5, 0]}>
-            <cylinderGeometry args={[0.1, 0.1, 3]} />
-            <meshBasicMaterial color="#ef4444" />
-          </mesh>
-          <mesh position={[0.5, 2.5, 0]}>
-            <boxGeometry args={[1, 0.6, 0.1]} />
-            <meshBasicMaterial color="#ef4444" />
-          </mesh>
-        </group>
-      )}
     </group>
   );
 }

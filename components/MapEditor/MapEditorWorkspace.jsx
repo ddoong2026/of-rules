@@ -7,7 +7,7 @@ import EditorCanvas from './EditorCanvas';
 import EditorUI from './EditorUI';
 
 export default function MapEditorWorkspace() {
-  const { currentMapId, mapName, setMapName, heights, colors, assets, decals, boundaries, spawnPoint, loadMap, resetMap } = useMapStore();
+  const { currentMapId, mapName, setMapName, heightsTop, heightsBottom, colors, assets, decals, boundaries, spawnPoint, loadMap, resetMap } = useMapStore();
   const [mapList, setMapList] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -90,12 +90,16 @@ export default function MapEditorWorkspace() {
     setIsSaving(true);
     
     // Convert Float32Array to standard Arrays for JSONB storage
-    const heightsArray = Array.from(heights);
+    const heightsTopArray = Array.from(heightsTop);
+    const heightsBottomArray = Array.from(heightsBottom);
     const colorsArray = Array.from(colors);
 
     const mapData = {
       name: mapName,
-      heights: heightsArray,
+      heights: {
+        top: heightsTopArray,
+        bottom: heightsBottomArray
+      },
       colors: colorsArray,
       assets: assets,
       decals: decals,

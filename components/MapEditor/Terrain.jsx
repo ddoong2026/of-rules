@@ -305,9 +305,9 @@ export default function Terrain() {
           newHeightsWater[idx] += delta;
           modifiedWater = true;
         } else if (mode === 'resetWater') {
-          const targetWaterHeight = 0; // Set strictly to 0
+          const targetWaterHeight = -0.2; // Set strictly to -0.2
           const heightDiff = newHeightsWater[idx] - targetWaterHeight;
-          newHeightsWater[idx] -= heightDiff * falloff * (brushIntensity * 0.5); // Faster reset to 0
+          newHeightsWater[idx] -= heightDiff * falloff * (brushIntensity * 0.5); // Faster reset to -0.2
           modifiedWater = true;
         } else if (mode === 'dig') {
           const delta = brushIntensity * falloff * (isDigging ? -1 : 1);

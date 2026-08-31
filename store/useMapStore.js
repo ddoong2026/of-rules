@@ -132,6 +132,12 @@ const useMapStore = create((set, get) => ({
     // Parse Water
     if (mapData.heights && !Array.isArray(mapData.heights) && mapData.heights.water !== undefined) {
       heightsWater = new Float32Array(mapData.heights.water);
+      // Migrate legacy water heights from 0 or -0.01 to -0.2
+      for (let i = 0; i < heightsWater.length; i++) {
+        if (Math.abs(heightsWater[i]) < 0.02 || Math.abs(heightsWater[i] - (-0.01)) < 0.02) {
+          heightsWater[i] = -0.2;
+        }
+      }
     } else {
       heightsWater = new Float32Array(VERTEX_COUNT).fill(-0.2);
     }

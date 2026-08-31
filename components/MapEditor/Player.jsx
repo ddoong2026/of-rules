@@ -667,7 +667,7 @@ export default function Player() {
     const idealCameraPos = targetLookAt.clone().add(currentOffset);
     
     // Prevent camera from clipping through the terrain
-    const camGroundHeight = getTerrainHeightRaycast(idealCameraPos.x, idealCameraPos.y, idealCameraPos.z);
+    const camGroundHeight = getWalkableHeight(idealCameraPos.x, idealCameraPos.y, idealCameraPos.z);
     if (idealCameraPos.y < camGroundHeight + 0.5) {
       idealCameraPos.y = camGroundHeight + 0.5;
     }

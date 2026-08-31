@@ -61,7 +61,23 @@ function generate4LayerMesh(heightsBase, heightsBottom, heightsTop, heightsWater
       const t10 = getVertexIndex(topData, nextX, heightsTop[i10], posZ, (x + 1) / width, z / depth, colorsArr[i10*3], colorsArr[i10*3+1], colorsArr[i10*3+2]);
       const t01 = getVertexIndex(topData, posX, heightsTop[i01], nextZ, x / width, (z + 1) / depth, colorsArr[i01*3], colorsArr[i01*3+1], colorsArr[i01*3+2]);
       const t11 = getVertexIndex(topData, nextX, heightsTop[i11], nextZ, (x + 1) / width, (z + 1) / depth, colorsArr[i11*3], colorsArr[i11*3+1], colorsArr[i11*3+2]);
-      addQuad(topData, t00, t01, t11, t10); // +Y Face
+      
+      const top00 = heightsTop[i00], base00 = heightsBase[i00], bot00 = heightsBottom[i00];
+      const top10 = heightsTop[i10], base10 = heightsBase[i10], bot10 = heightsBottom[i10];
+      const top01 = heightsTop[i01], base01 = heightsBase[i01], bot01 = heightsBottom[i01];
+      const top11 = heightsTop[i11], base11 = heightsBase[i11], bot11 = heightsBottom[i11];
+
+      // A vertex is inside a cave if Bottom is raised above Base
+      const hasCave = (bot00 > base00 + 0.1) || (bot10 > base10 + 0.1) || (bot01 > base01 + 0.1) || (bot11 > base11 + 0.1);
+      // A vertex is outside the mountain if Top is at or below Base
+      const isOutside = (top00 <= base00 + 0.1) || (top10 <= base10 + 0.1) || (top01 <= base01 + 0.1) || (top11 <= base11 + 0.1);
+      
+      // If the quad spans from a cave to the outside world, omit the Top mesh to create a cave entrance hole
+      const isCaveEntrance = hasCave && isOutside;
+
+      if (!isCaveEntrance) {
+        addQuad(topData, t00, t01, t11, t10); // +Y Face
+      }
 
       // 2. Ceiling Vertices (Layer 1)
       const b00 = getVertexIndex(bottomData, posX, heightsBottom[i00], posZ, x / width, z / depth, colorsArr[i00*3], colorsArr[i00*3+1], colorsArr[i00*3+2]);

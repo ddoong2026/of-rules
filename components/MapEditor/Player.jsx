@@ -285,7 +285,7 @@ export default function Player() {
       group.current.position.set(spawnX, Math.max(2, terrainH + 2), spawnZ);
       hasSpawned.current = true;
     }
-  }, [heights]);
+  }, [heightsTop]);
 
   const currentVelocity = useRef(new THREE.Vector3());
   const smoothedPlayerPos = useRef(new THREE.Vector3());

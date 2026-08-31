@@ -5,7 +5,7 @@ import { useThree, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import useMapStore, { GRID_SIZE, VERTEX_COUNT } from '@/store/useMapStore';
 
-function generateDualMesh(heightsTop, heightsBottom, colorsArr, gridSize, cellSize, minThickness = 0.1) {
+function generate3LayerMesh(heightsBase, heightsBottom, heightsTop, colorsArr, gridSize, cellSize) {
   const width = gridSize + 1;
   const depth = gridSize + 1;
   const halfSize = (gridSize * cellSize) / 2;
@@ -18,8 +18,8 @@ function generateDualMesh(heightsTop, heightsBottom, colorsArr, gridSize, cellSi
   const vertexIndexMap = new Map();
   let indexCounter = 0;
 
-  const getVertexIndex = (x, y, z, u, v, r, g, b) => {
-    const key = `${x.toFixed(3)},${y.toFixed(3)},${z.toFixed(3)}`;
+  const getVertexIndex = (x, y, z, u, v, r, g, b, layer) => {
+    const key = `${layer},${x.toFixed(3)},${y.toFixed(3)},${z.toFixed(3)}`;
     if (vertexIndexMap.has(key)) {
       return vertexIndexMap.get(key);
     }
@@ -35,52 +35,50 @@ function generateDualMesh(heightsTop, heightsBottom, colorsArr, gridSize, cellSi
     indices.push(v0, v2, v3);
   };
 
-  const isActive = (xIdx, zIdx) => {
-    if (xIdx < 0 || xIdx >= width || zIdx < 0 || zIdx >= depth) return false;
-    const idx = zIdx * width + xIdx;
-    return (heightsTop[idx] - heightsBottom[idx]) >= minThickness;
-  };
-
   for (let x = 0; x < width - 1; x++) {
     for (let z = 0; z < depth - 1; z++) {
-      const active = isActive(x, z) || isActive(x + 1, z) || isActive(x, z + 1) || isActive(x + 1, z + 1);
-      if (!active) continue;
-
       const posX = x * cellSize - halfSize;
       const posZ = z * cellSize - halfSize;
       const nextX = (x + 1) * cellSize - halfSize;
       const nextZ = (z + 1) * cellSize - halfSize;
 
-      // Calculate indices for 1D arrays
       const i00 = z * width + x;
       const i10 = z * width + (x + 1);
       const i01 = (z + 1) * width + x;
       const i11 = (z + 1) * width + (x + 1);
 
-      // Top Vertices
-      const t00 = getVertexIndex(posX, heightsTop[i00], posZ, x / width, z / depth, colorsArr[i00 * 3], colorsArr[i00 * 3 + 1], colorsArr[i00 * 3 + 2]);
-      const t10 = getVertexIndex(nextX, heightsTop[i10], posZ, (x + 1) / width, z / depth, colorsArr[i10 * 3], colorsArr[i10 * 3 + 1], colorsArr[i10 * 3 + 2]);
-      const t01 = getVertexIndex(posX, heightsTop[i01], nextZ, x / width, (z + 1) / depth, colorsArr[i01 * 3], colorsArr[i01 * 3 + 1], colorsArr[i01 * 3 + 2]);
-      const t11 = getVertexIndex(nextX, heightsTop[i11], nextZ, (x + 1) / width, (z + 1) / depth, colorsArr[i11 * 3], colorsArr[i11 * 3 + 1], colorsArr[i11 * 3 + 2]);
+      // Top Vertices (Layer 0)
+      const t00 = getVertexIndex(posX, heightsTop[i00], posZ, x / width, z / depth, colorsArr[i00*3], colorsArr[i00*3+1], colorsArr[i00*3+2], 0);
+      const t10 = getVertexIndex(nextX, heightsTop[i10], posZ, (x + 1) / width, z / depth, colorsArr[i10*3], colorsArr[i10*3+1], colorsArr[i10*3+2], 0);
+      const t01 = getVertexIndex(posX, heightsTop[i01], nextZ, x / width, (z + 1) / depth, colorsArr[i01*3], colorsArr[i01*3+1], colorsArr[i01*3+2], 0);
+      const t11 = getVertexIndex(nextX, heightsTop[i11], nextZ, (x + 1) / width, (z + 1) / depth, colorsArr[i11*3], colorsArr[i11*3+1], colorsArr[i11*3+2], 0);
 
-      // Bottom Vertices (Ceiling)
-      // We can use the same colors as top, or dim them. Let's use the same.
-      const b00 = getVertexIndex(posX, heightsBottom[i00], posZ, x / width, z / depth, colorsArr[i00 * 3], colorsArr[i00 * 3 + 1], colorsArr[i00 * 3 + 2]);
-      const b10 = getVertexIndex(nextX, heightsBottom[i10], posZ, (x + 1) / width, z / depth, colorsArr[i10 * 3], colorsArr[i10 * 3 + 1], colorsArr[i10 * 3 + 2]);
-      const b01 = getVertexIndex(posX, heightsBottom[i01], nextZ, x / width, (z + 1) / depth, colorsArr[i01 * 3], colorsArr[i01 * 3 + 1], colorsArr[i01 * 3 + 2]);
-      const b11 = getVertexIndex(nextX, heightsBottom[i11], nextZ, (x + 1) / width, (z + 1) / depth, colorsArr[i11 * 3], colorsArr[i11 * 3 + 1], colorsArr[i11 * 3 + 2]);
-
-      // Top Face (+Y normal)
+      // Top Face (+Y)
       addQuad(t00, t01, t11, t10);
 
-      // Bottom Face (-Y normal, CCW)
-      addQuad(b00, b10, b11, b01);
+      const hasCave = (heightsBottom[i00] - heightsBase[i00] > 0.01) ||
+                      (heightsBottom[i10] - heightsBase[i10] > 0.01) ||
+                      (heightsBottom[i01] - heightsBase[i01] > 0.01) ||
+                      (heightsBottom[i11] - heightsBase[i11] > 0.01);
 
-      // Side Walls
-      if (x === 0 || !isActive(x - 1, z)) addQuad(b00, b01, t01, t00); // Left (-X)
-      if (x === width - 2 || !isActive(x + 1, z)) addQuad(b10, t10, t11, b11); // Right (+X)
-      if (z === 0 || !isActive(x, z - 1)) addQuad(b00, t00, t10, b10); // Back (-Z)
-      if (z === depth - 2 || !isActive(x, z + 1)) addQuad(b01, b11, t11, t01); // Front (+Z)
+      if (hasCave) {
+        // Ceiling Vertices (Layer 1)
+        const b00 = getVertexIndex(posX, heightsBottom[i00], posZ, x / width, z / depth, colorsArr[i00*3], colorsArr[i00*3+1], colorsArr[i00*3+2], 1);
+        const b10 = getVertexIndex(nextX, heightsBottom[i10], posZ, (x + 1) / width, z / depth, colorsArr[i10*3], colorsArr[i10*3+1], colorsArr[i10*3+2], 1);
+        const b01 = getVertexIndex(posX, heightsBottom[i01], nextZ, x / width, (z + 1) / depth, colorsArr[i01*3], colorsArr[i01*3+1], colorsArr[i01*3+2], 1);
+        const b11 = getVertexIndex(nextX, heightsBottom[i11], nextZ, (x + 1) / width, (z + 1) / depth, colorsArr[i11*3], colorsArr[i11*3+1], colorsArr[i11*3+2], 1);
+
+        // Ground Vertices (Layer 2)
+        const g00 = getVertexIndex(posX, heightsBase[i00], posZ, x / width, z / depth, colorsArr[i00*3], colorsArr[i00*3+1], colorsArr[i00*3+2], 2);
+        const g10 = getVertexIndex(nextX, heightsBase[i10], posZ, (x + 1) / width, z / depth, colorsArr[i10*3], colorsArr[i10*3+1], colorsArr[i10*3+2], 2);
+        const g01 = getVertexIndex(posX, heightsBase[i01], nextZ, x / width, (z + 1) / depth, colorsArr[i01*3], colorsArr[i01*3+1], colorsArr[i01*3+2], 2);
+        const g11 = getVertexIndex(nextX, heightsBase[i11], nextZ, (x + 1) / width, (z + 1) / depth, colorsArr[i11*3], colorsArr[i11*3+1], colorsArr[i11*3+2], 2);
+
+        // Ceiling Face (-Y, CCW)
+        addQuad(b00, b10, b11, b01);
+        // Ground Face (+Y)
+        addQuad(g00, g01, g11, g10);
+      }
     }
   }
 
@@ -96,7 +94,9 @@ export default function Terrain() {
   const meshRef = useRef();
   const { 
     mode, brushSize, brushIntensity, selectedColor, selectedAsset, selectedDecalImage,
-    heightsTop, heightsBottom, colors, updateHeightsTop, updateHeightsBottom, updateColors, addAsset, addDecal, addWaterSource,
+    heightsBase, heightsTop, heightsBottom, colors, 
+    updateHeightsBase, updateHeightsTop, updateHeightsBottom, updateColors, 
+    addAsset, addDecal, addWaterSource,
     isCameraMode, saveHistory, isPlaying
   } = useMapStore();
   
@@ -108,7 +108,7 @@ export default function Terrain() {
   
   // Mesh Geometry Generation
   const geometry = useMemo(() => {
-    const data = generateDualMesh(heightsTop, heightsBottom, colors, GRID_SIZE, 50 / GRID_SIZE);
+    const data = generate3LayerMesh(heightsBase, heightsBottom, heightsTop, colors, GRID_SIZE, 50 / GRID_SIZE);
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(data.positions, 3));
     geo.setAttribute('uv', new THREE.BufferAttribute(data.uvs, 2));
@@ -116,7 +116,9 @@ export default function Terrain() {
     geo.setIndex(new THREE.BufferAttribute(data.indices, 1));
     geo.computeVertexNormals();
     return geo;
-  }, [heightsTop, heightsBottom, colors]);
+  }, [heightsBase, heightsTop, heightsBottom, colors]);
+
+  const isBrushMode = ['sculptBase', 'sculptTop', 'dig', 'carve', 'flatten', 'paint'].includes(mode);
 
   useFrame(() => {
     if (isPlaying && document.pointerLockElement === gl.domElement) {
@@ -124,11 +126,9 @@ export default function Terrain() {
       const intersects = r3fRaycaster.intersectObject(meshRef.current);
       
       if (intersects.length > 0 && brushMeshRef.current) {
-        brushMeshRef.current.visible = (mode === 'sculpt' || mode === 'dig' || mode === 'carve' || mode === 'flatten' || mode === 'paint');
-        
+        brushMeshRef.current.visible = isBrushMode;
         const pt = intersects[0].point;
         const norm = intersects[0].face.normal.clone().transformDirection(meshRef.current.matrixWorld).normalize();
-        
         brushMeshRef.current.position.set(pt.x + norm.x * 0.1, pt.y + norm.y * 0.1, pt.z + norm.z * 0.1);
         brushMeshRef.current.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), norm);
       } else if (brushMeshRef.current) {
@@ -136,7 +136,7 @@ export default function Terrain() {
       }
     } else {
        if (brushMeshRef.current) {
-         brushMeshRef.current.visible = !!pointerPos && !isCameraMode && (mode === 'sculpt' || mode === 'dig' || mode === 'carve' || mode === 'flatten' || mode === 'paint');
+         brushMeshRef.current.visible = !!pointerPos && !isCameraMode && isBrushMode;
          if (pointerPos) {
            brushMeshRef.current.position.set(pointerPos.x + pointerNormal.x * 0.1, pointerPos.y + pointerNormal.y * 0.1, pointerPos.z + pointerNormal.z * 0.1);
            brushMeshRef.current.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), pointerNormal);
@@ -157,10 +157,12 @@ export default function Terrain() {
 
     if (xIdx < 0 || xIdx > GRID_SIZE || yIdx < 0 || yIdx > GRID_SIZE) return;
 
+    let modifiedBase = false;
     let modifiedTop = false;
     let modifiedBottom = false;
     let modifiedColors = false;
 
+    const newHeightsBase = new Float32Array(heightsBase);
     const newHeightsTop = new Float32Array(heightsTop);
     const newHeightsBottom = new Float32Array(heightsBottom);
     const newColors = new Float32Array(colors);
@@ -169,7 +171,6 @@ export default function Terrain() {
     const centerIdx = yIdx * (GRID_SIZE + 1) + xIdx;
     
     const centerHeightTop = heightsTop[centerIdx];
-    const minThickness = 0.1;
 
     for (let i = -brushSize; i <= brushSize; i++) {
       for (let j = -brushSize; j <= brushSize; j++) {
@@ -197,25 +198,52 @@ export default function Terrain() {
         
         const falloff = Math.pow(Math.cos(normalizedDist * Math.PI / 2), 2);
         
-        if (mode === 'sculpt' || mode === 'dig') {
-          const isDigging = mode === 'dig' || isShift;
+        const isDigging = isShift; // Shift reverses operation
+
+        if (mode === 'sculptBase') {
+          const delta = brushIntensity * falloff * (isDigging ? -1 : 1);
+          newHeightsBase[idx] += delta;
+          if (newHeightsBase[idx] > newHeightsBottom[idx]) newHeightsBottom[idx] = newHeightsBase[idx];
+          if (newHeightsBottom[idx] > newHeightsTop[idx]) newHeightsTop[idx] = newHeightsBottom[idx];
+          modifiedBase = true;
+          modifiedBottom = true;
+          modifiedTop = true;
+        } else if (mode === 'sculptTop') {
           const delta = brushIntensity * falloff * (isDigging ? -1 : 1);
           newHeightsTop[idx] += delta;
-          // Clamp to not go below bottom
-          newHeightsTop[idx] = Math.max(newHeightsTop[idx], newHeightsBottom[idx] + minThickness);
+          if (newHeightsTop[idx] < newHeightsBottom[idx]) newHeightsBottom[idx] = newHeightsTop[idx];
+          if (newHeightsBottom[idx] < newHeightsBase[idx]) newHeightsBase[idx] = newHeightsBottom[idx];
           modifiedTop = true;
+          modifiedBottom = true;
+          modifiedBase = true;
+        } else if (mode === 'dig') {
+          // Dig lowers all 3 layers simultaneously
+          const delta = brushIntensity * falloff * (isDigging ? -1 : 1); // Shift raises them
+          newHeightsTop[idx] -= delta;
+          newHeightsBottom[idx] -= delta;
+          newHeightsBase[idx] -= delta;
+          
+          // Enforce constraints
+          if (newHeightsBottom[idx] > newHeightsTop[idx]) newHeightsBottom[idx] = newHeightsTop[idx];
+          if (newHeightsBase[idx] > newHeightsBottom[idx]) newHeightsBase[idx] = newHeightsBottom[idx];
+          
+          modifiedTop = true;
+          modifiedBottom = true;
+          modifiedBase = true;
         } else if (mode === 'carve') {
-          const isDigging = isShift; // Carve normally raises bottom, shift lowers bottom
           const delta = brushIntensity * falloff * (isDigging ? -1 : 1);
           newHeightsBottom[idx] += delta;
-          // Clamp to not go above top
-          newHeightsBottom[idx] = Math.min(newHeightsBottom[idx], newHeightsTop[idx] - minThickness);
+          if (newHeightsBottom[idx] > newHeightsTop[idx]) newHeightsBottom[idx] = newHeightsTop[idx];
+          if (newHeightsBottom[idx] < newHeightsBase[idx]) newHeightsBottom[idx] = newHeightsBase[idx];
           modifiedBottom = true;
         } else if (mode === 'flatten') {
           const heightDiff = centerHeightTop - targetHeightTop;
           newHeightsTop[idx] += heightDiff * falloff * (brushIntensity * 0.1);
-          newHeightsTop[idx] = Math.max(newHeightsTop[idx], newHeightsBottom[idx] + minThickness);
+          if (newHeightsTop[idx] < newHeightsBottom[idx]) newHeightsBottom[idx] = newHeightsTop[idx];
+          if (newHeightsBottom[idx] < newHeightsBase[idx]) newHeightsBase[idx] = newHeightsBottom[idx];
           modifiedTop = true;
+          modifiedBottom = true;
+          modifiedBase = true;
         } else if (mode === 'paint') {
           const r = idx * 3;
           const g = idx * 3 + 1;
@@ -232,6 +260,7 @@ export default function Terrain() {
       }
     }
 
+    if (modifiedBase) updateHeightsBase(newHeightsBase);
     if (modifiedTop) updateHeightsTop(newHeightsTop);
     if (modifiedBottom) updateHeightsBottom(newHeightsBottom);
     if (modifiedColors) updateColors(newColors);
@@ -254,7 +283,7 @@ export default function Terrain() {
        }
     }
 
-    if (mode === 'sculpt' || mode === 'dig' || mode === 'carve' || mode === 'flatten' || mode === 'paint') {
+    if (isBrushMode) {
       saveHistory(); 
       applyBrush(targetPoint, e.button === 2 || e.shiftKey); 
     } else if (mode === 'water') {
@@ -312,7 +341,7 @@ export default function Terrain() {
 
   const handlePointerMove = (e) => {
     if (!isPlaying || document.pointerLockElement !== gl.domElement) {
-      if (mode === 'sculpt' || mode === 'dig' || mode === 'carve' || mode === 'flatten' || mode === 'paint') {
+      if (isBrushMode) {
         setPointerPos(e.point);
         if (e.face && e.object) {
           const worldNormal = e.face.normal.clone().transformDirection(e.object.matrixWorld).normalize();
@@ -336,7 +365,7 @@ export default function Terrain() {
        }
     }
 
-    if (mode === 'sculpt' || mode === 'dig' || mode === 'carve' || mode === 'flatten' || mode === 'paint') {
+    if (isBrushMode) {
       e.stopPropagation();
       applyBrush(targetPoint, e.buttons === 2 || e.shiftKey);
     }
@@ -349,6 +378,7 @@ export default function Terrain() {
   return (
     <group>
       <mesh
+        name="terrainMesh"
         ref={meshRef}
         geometry={geometry}
         onPointerDown={handlePointerDown}

@@ -116,7 +116,6 @@ export default function EditorUI({ onSave, isSaving }) {
           <ModeButton current={mode} id="sculptBase" label="🌱 지면 융기" onClick={() => setMode('sculptBase')} />
           <ModeButton current={mode} id="sculptTop" label="⛰️ 산 융기" onClick={() => setMode('sculptTop')} />
           <ModeButton current={mode} id="sculptWater" label="💧 물 융기" onClick={() => setMode('sculptWater')} />
-          <ModeButton current={mode} id="dig" label="⛏️ 파내기 (세로)" onClick={() => setMode('dig')} />
           <ModeButton current={mode} id="sculptBottom" label="🦇 동굴 레이어 융기" onClick={() => setMode('sculptBottom')} />
           <ModeButton current={mode} id="flatten" label="🚜 평지 만들기" onClick={() => setMode('flatten')} />
           <ModeButton current={mode} id="paint" label="🖌️ 색칠하기" onClick={() => setMode('paint')} />
@@ -132,13 +131,16 @@ export default function EditorUI({ onSave, isSaving }) {
       </div>
 
       {/* Brush Settings (Sculpt, Dig, Carve, Flatten & Paint) */}
-      {(mode === 'sculptBase' || mode === 'sculptTop' || mode === 'sculptBottom' || mode === 'sculptWater' || mode === 'dig' || mode === 'flatten' || mode === 'paint') && (
+      {(mode === 'sculptBase' || mode === 'sculptTop' || mode === 'sculptBottom' || mode === 'sculptWater' || mode === 'flatten' || mode === 'paint') && (
         <div style={{ background: '#f3f4f6', padding: '1rem', borderRadius: '6px' }}>
           <h4 style={{ margin: '0 0 0.5rem 0', color: '#4b5563' }}>브러시 설정</h4>
           <div style={{ marginBottom: '1rem' }}>
             <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '0.2rem' }}>크기: {brushSize}</label>
             <input type="range" min="1" max="10" value={brushSize} onChange={(e) => setBrushSize(parseInt(e.target.value))} style={{ width: '100%' }} />
+            <div style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '0.5rem' }}>
+            * Ctrl 키 + 클릭&드래그: 아래로 파내기
           </div>
+        </div>
           <div>
             <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '0.2rem' }}>강도: {brushIntensity}</label>
             <input type="range" min="0.1" max="5" step="0.1" value={brushIntensity} onChange={(e) => setBrushIntensity(parseFloat(e.target.value))} style={{ width: '100%' }} />

@@ -132,13 +132,13 @@ export default function Terrain() {
     return generate4LayerMesh(heightsBase, heightsBottom, heightsTop, heightsWater, colors, GRID_SIZE, 50 / GRID_SIZE);
   }, [heightsBase, heightsTop, heightsBottom, heightsWater, colors]);
 
-  const isBrushMode = ['sculptBase', 'sculptTop', 'sculptWater', 'dig', 'carve', 'flatten', 'paint'].includes(mode);
+  const isBrushMode = ['sculptBase', 'sculptTop', 'sculptBottom', 'sculptWater', 'flatten', 'paint'].includes(mode);
 
   const getOpacities = () => {
     if (mode === 'sculptBase') return { base: 1, bottom: 0.2, top: 0.2, water: 0.2 };
     if (mode === 'sculptTop') return { base: 0.2, bottom: 0.2, top: 1, water: 0.2 };
     if (mode === 'sculptWater') return { base: 0.2, bottom: 0.2, top: 0.2, water: 1 };
-    if (mode === 'carve') return { base: 0.2, bottom: 1, top: 0.2, water: 0.2 };
+    if (mode === 'sculptBottom') return { base: 0.2, bottom: 1, top: 0.2, water: 0.2 };
     return { base: 1, bottom: 1, top: 1, water: 0.6 };
   };
 
@@ -149,7 +149,7 @@ export default function Terrain() {
     if (mode === 'sculptBase' && meshBaseRef.current) active = [meshBaseRef.current];
     else if (mode === 'sculptTop' && meshTopRef.current) active = [meshTopRef.current];
     else if (mode === 'sculptWater' && meshWaterRef.current) active = [meshWaterRef.current];
-    else if (mode === 'carve' && meshBottomRef.current) active = [meshBottomRef.current];
+    else if (mode === 'sculptBottom' && meshBottomRef.current) active = [meshBottomRef.current];
     else if (groupRef.current) active = groupRef.current.children;
     return active.length > 0 ? active : (groupRef.current ? groupRef.current.children : []);
   };
@@ -233,47 +233,43 @@ export default function Terrain() {
         
         const falloff = Math.pow(Math.cos(normalizedDist * Math.PI / 2), 2);
         
-        const isDigging = isShift; // Shift reverses operation
+        const isDigging = isShift; // Passed from e.ctrlKey
 
         if (mode === 'sculptBase') {
           const delta = brushIntensity * falloff * (isDigging ? -1 : 1);
           newHeightsBase[idx] += delta;
-          if (newHeightsBase[idx] > newHeightsBottom[idx]) newHeightsBottom[idx] = newHeightsBase[idx];
-          if (newHeightsBottom[idx] > newHeightsTop[idx]) newHeightsTop[idx] = newHeightsBottom[idx];
+          if (!isDigging) { // Raising Base
+            if (newHeightsBase[idx] > newHeightsBottom[idx]) newHeightsBottom[idx] = newHeightsBase[idx];
+            if (newHeightsBottom[idx] > newHeightsTop[idx]) newHeightsTop[idx] = newHeightsBottom[idx];
+          }
           modifiedBase = true;
           modifiedBottom = true;
           modifiedTop = true;
         } else if (mode === 'sculptTop') {
           const delta = brushIntensity * falloff * (isDigging ? -1 : 1);
           newHeightsTop[idx] += delta;
-          if (newHeightsTop[idx] < newHeightsBottom[idx]) newHeightsBottom[idx] = newHeightsTop[idx];
-          if (newHeightsBottom[idx] < newHeightsBase[idx]) newHeightsBase[idx] = newHeightsBottom[idx];
+          if (isDigging) { // Lowering Top
+            if (newHeightsTop[idx] < newHeightsBottom[idx]) newHeightsBottom[idx] = newHeightsTop[idx];
+            if (newHeightsBottom[idx] < newHeightsBase[idx]) newHeightsBase[idx] = newHeightsBottom[idx];
+          }
           modifiedTop = true;
           modifiedBottom = true;
+          modifiedBase = true;
+        } else if (mode === 'sculptBottom') {
+          const delta = brushIntensity * falloff * (isDigging ? -1 : 1);
+          newHeightsBottom[idx] += delta;
+          if (!isDigging) { // Raising Bottom
+            if (newHeightsBottom[idx] > newHeightsTop[idx]) newHeightsTop[idx] = newHeightsBottom[idx];
+          } else { // Lowering Bottom
+            if (newHeightsBottom[idx] < newHeightsBase[idx]) newHeightsBase[idx] = newHeightsBottom[idx];
+          }
+          modifiedBottom = true;
+          modifiedTop = true;
           modifiedBase = true;
         } else if (mode === 'sculptWater') {
           const delta = brushIntensity * falloff * (isDigging ? -1 : 1);
           newHeightsWater[idx] += delta;
           modifiedWater = true;
-        } else if (mode === 'dig') {
-          // Dig lowers Base, Bottom, Top. Water stays unaffected to expose it!
-          const delta = brushIntensity * falloff * (isDigging ? -1 : 1); 
-          newHeightsTop[idx] -= delta;
-          newHeightsBottom[idx] -= delta;
-          newHeightsBase[idx] -= delta;
-          
-          if (newHeightsBottom[idx] > newHeightsTop[idx]) newHeightsBottom[idx] = newHeightsTop[idx];
-          if (newHeightsBase[idx] > newHeightsBottom[idx]) newHeightsBase[idx] = newHeightsBottom[idx];
-          
-          modifiedTop = true;
-          modifiedBottom = true;
-          modifiedBase = true;
-        } else if (mode === 'carve') {
-          const delta = brushIntensity * falloff * (isDigging ? -1 : 1);
-          newHeightsBottom[idx] += delta;
-          if (newHeightsBottom[idx] > newHeightsTop[idx]) newHeightsBottom[idx] = newHeightsTop[idx];
-          if (newHeightsBottom[idx] < newHeightsBase[idx]) newHeightsBottom[idx] = newHeightsBase[idx];
-          modifiedBottom = true;
         } else if (mode === 'flatten') {
           const heightDiff = centerHeightTop - targetHeightTop;
           newHeightsTop[idx] += heightDiff * falloff * (brushIntensity * 0.1);
@@ -324,7 +320,7 @@ export default function Terrain() {
 
     if (isBrushMode) {
       saveHistory(); 
-      applyBrush(targetPoint, e.button === 2 || e.shiftKey); 
+      applyBrush(targetPoint, e.button === 2 || e.ctrlKey); 
     } else if (mode === 'water') {
       addWaterSource(targetPoint.x, targetPoint.z);
     } else if (mode === 'asset') {
@@ -335,8 +331,9 @@ export default function Terrain() {
         caveman3: '원시인 3',
         caveman4: '원시인 4'
       };
+      const safeId = (window.crypto && window.crypto.randomUUID) ? window.crypto.randomUUID() : Math.random().toString(36).substring(2);
       addAsset({
-        id: crypto.randomUUID(),
+        id: safeId,
         type: selectedAsset,
         position: [targetPoint.x, targetPoint.y, targetPoint.z],
         ...(isNPC ? {
@@ -348,15 +345,28 @@ export default function Terrain() {
         } : {})
       });
     } else if (mode === 'decal' && selectedDecalImage) {
+      const safeId = (window.crypto && window.crypto.randomUUID) ? window.crypto.randomUUID() : Math.random().toString(36).substring(2);
       addDecal({
-        id: crypto.randomUUID(),
+        id: safeId,
         url: selectedDecalImage,
         position: [targetPoint.x, targetPoint.y, targetPoint.z],
         scale: [brushSize * 2, brushSize * 2, brushSize * 2] 
       });
     } else if (mode === 'boundary' || mode === 'zone') {
-      const { setBoundaryDrawing } = useMapStore.getState();
-      setBoundaryDrawing({ points: [[targetPoint.x, targetPoint.z]], isZone: mode === 'zone' });
+      const { boundaryDrawing, setBoundaryDrawing, addBoundary } = useMapStore.getState();
+      if (!boundaryDrawing || !boundaryDrawing.points || boundaryDrawing.points.length === 0) {
+        setBoundaryDrawing({ points: [[targetPoint.x, targetPoint.z]], isZone: mode === 'zone' });
+      } else {
+        const safeId = (window.crypto && window.crypto.randomUUID) ? window.crypto.randomUUID() : Math.random().toString(36).substring(2);
+        const newPoints = [boundaryDrawing.points[0], [targetPoint.x, targetPoint.z]];
+        addBoundary({
+          id: safeId,
+          points: newPoints,
+          isZone: mode === 'zone',
+          label: mode === 'zone' ? '이벤트 구역' : '새 경계선'
+        });
+        setBoundaryDrawing(null);
+      }
     } else if (mode === 'spawn') {
       const { setSpawnPoint } = useMapStore.getState();
       setSpawnPoint({ x: targetPoint.x, z: targetPoint.z });
@@ -414,7 +424,17 @@ export default function Terrain() {
 
     if (isBrushMode && targetPoint) {
       e.stopPropagation();
-      applyBrush(targetPoint, e.buttons === 2 || e.shiftKey);
+      applyBrush(targetPoint, e.buttons === 2 || e.ctrlKey);
+    } else if ((mode === 'boundary' || mode === 'zone') && targetPoint) {
+      const { boundaryDrawing, setBoundaryDrawing } = useMapStore.getState();
+      if (boundaryDrawing && boundaryDrawing.points && boundaryDrawing.points.length > 0) {
+        // Keep all confirmed points, just update the preview (last) point
+        const confirmedPoints = boundaryDrawing.points.slice(0, 1); // For simple line, always keep just the 1st point and preview the 2nd
+        setBoundaryDrawing({ 
+          points: [...confirmedPoints, [targetPoint.x, targetPoint.z]], 
+          isZone: boundaryDrawing.isZone 
+        });
+      }
     }
   };
 

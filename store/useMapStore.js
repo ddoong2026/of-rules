@@ -90,21 +90,35 @@ const useMapStore = create((set, get) => ({
   loadMap: (mapData) => {
     // Parse jsonb arrays back to typed arrays
     let heightsBase, heightsTop, heightsBottom, heightsWater;
-    if (mapData.heights && !Array.isArray(mapData.heights) && mapData.heights.base !== undefined) {
-      // New 3-Layer format (or 4-Layer)
-      heightsBase = new Float32Array(mapData.heights.base);
+    
+    // Parse Top
+    if (mapData.heights && !Array.isArray(mapData.heights) && mapData.heights.top !== undefined) {
       heightsTop = new Float32Array(mapData.heights.top);
-      heightsBottom = new Float32Array(mapData.heights.bottom);
-      heightsWater = mapData.heights.water ? new Float32Array(mapData.heights.water) : new Float32Array(VERTEX_COUNT).fill(0);
+    } else if (Array.isArray(mapData.heights)) {
+      heightsTop = new Float32Array(mapData.heights);
     } else {
-      // Old single-layer format (or dual format with no base)
-      const oldHeights = new Float32Array(
-        mapData.heights?.top || mapData.heights || VERTEX_COUNT
-      );
-      heightsBase = new Float32Array(oldHeights);
-      heightsBottom = new Float32Array(oldHeights);
-      heightsTop = new Float32Array(oldHeights);
-      heightsWater = new Float32Array(oldHeights);
+      heightsTop = new Float32Array(VERTEX_COUNT).fill(10);
+    }
+    
+    // Parse Bottom
+    if (mapData.heights && !Array.isArray(mapData.heights) && mapData.heights.bottom !== undefined) {
+      heightsBottom = new Float32Array(mapData.heights.bottom);
+    } else {
+      heightsBottom = new Float32Array(heightsTop); // Fallback to Top
+    }
+    
+    // Parse Base
+    if (mapData.heights && !Array.isArray(mapData.heights) && mapData.heights.base !== undefined) {
+      heightsBase = new Float32Array(mapData.heights.base);
+    } else {
+      heightsBase = new Float32Array(heightsBottom); // Fallback to Bottom
+    }
+    
+    // Parse Water
+    if (mapData.heights && !Array.isArray(mapData.heights) && mapData.heights.water !== undefined) {
+      heightsWater = new Float32Array(mapData.heights.water);
+    } else {
+      heightsWater = new Float32Array(heightsBase); // Fallback to Base
     }
     
     const colors = new Float32Array(mapData.colors || VERTEX_COUNT * 3);

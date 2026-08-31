@@ -472,7 +472,7 @@ export default function Terrain() {
             transparent={true}
             opacity={oWater}
             depthWrite={oWater === 1}
-            polygonOffset={true} polygonOffsetFactor={-2} polygonOffsetUnits={-2}
+            polygonOffset={true} polygonOffsetFactor={2} polygonOffsetUnits={2}
           />
         </mesh>
       </group>

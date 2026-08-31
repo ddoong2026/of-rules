@@ -40,7 +40,8 @@ export default function EditorUI({ onSave, isSaving }) {
     undo, history,
     sunTime, setSunTime,
     isPlaying, setIsPlaying,
-    selectedBoundaryId
+    selectedBoundaryId,
+    resetWaterToZero
   } = useMapStore();
 
   const fileInputRef = useRef(null);
@@ -145,6 +146,23 @@ export default function EditorUI({ onSave, isSaving }) {
             <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '0.2rem' }}>강도: {brushIntensity}</label>
             <input type="range" min="0.1" max="5" step="0.1" value={brushIntensity} onChange={(e) => setBrushIntensity(parseFloat(e.target.value))} style={{ width: '100%' }} />
           </div>
+          </div>
+          {mode === 'sculptWater' && (
+            <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #d1d5db' }}>
+              <button 
+                onClick={() => {
+                  if(confirm('물 레이어의 전체 높이를 0으로 맞추시겠습니까?')) {
+                    resetWaterToZero();
+                  }
+                }}
+                style={{
+                  width: '100%', padding: '0.5rem', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold'
+                }}
+              >
+                🌊 물 레이어 높이 전체 0으로 맞추기
+              </button>
+            </div>
+          )}
         </div>
       )}
 

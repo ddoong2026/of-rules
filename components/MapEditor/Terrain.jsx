@@ -239,33 +239,25 @@ export default function Terrain() {
           const delta = brushIntensity * falloff * (isDigging ? -1 : 1);
           newHeightsBase[idx] += delta;
           if (!isDigging) { // Raising Base
-            if (newHeightsBase[idx] > newHeightsBottom[idx]) newHeightsBottom[idx] = newHeightsBase[idx];
-            if (newHeightsBottom[idx] > newHeightsTop[idx]) newHeightsTop[idx] = newHeightsBottom[idx];
+            if (newHeightsBase[idx] > newHeightsBottom[idx]) newHeightsBase[idx] = newHeightsBottom[idx];
           }
           modifiedBase = true;
-          modifiedBottom = true;
-          modifiedTop = true;
         } else if (mode === 'sculptTop') {
           const delta = brushIntensity * falloff * (isDigging ? -1 : 1);
           newHeightsTop[idx] += delta;
           if (isDigging) { // Lowering Top
-            if (newHeightsTop[idx] < newHeightsBottom[idx]) newHeightsBottom[idx] = newHeightsTop[idx];
-            if (newHeightsBottom[idx] < newHeightsBase[idx]) newHeightsBase[idx] = newHeightsBottom[idx];
+            if (newHeightsTop[idx] < newHeightsBottom[idx]) newHeightsTop[idx] = newHeightsBottom[idx];
           }
           modifiedTop = true;
-          modifiedBottom = true;
-          modifiedBase = true;
         } else if (mode === 'sculptBottom') {
           const delta = brushIntensity * falloff * (isDigging ? -1 : 1);
           newHeightsBottom[idx] += delta;
           if (!isDigging) { // Raising Bottom
-            if (newHeightsBottom[idx] > newHeightsTop[idx]) newHeightsTop[idx] = newHeightsBottom[idx];
+            if (newHeightsBottom[idx] > newHeightsTop[idx]) newHeightsBottom[idx] = newHeightsTop[idx];
           } else { // Lowering Bottom
-            if (newHeightsBottom[idx] < newHeightsBase[idx]) newHeightsBase[idx] = newHeightsBottom[idx];
+            if (newHeightsBottom[idx] < newHeightsBase[idx]) newHeightsBottom[idx] = newHeightsBase[idx];
           }
           modifiedBottom = true;
-          modifiedTop = true;
-          modifiedBase = true;
         } else if (mode === 'sculptWater') {
           const delta = brushIntensity * falloff * (isDigging ? -1 : 1);
           newHeightsWater[idx] += delta;

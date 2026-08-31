@@ -176,6 +176,10 @@ const useMapStore = create((set, get) => ({
   updateHeightsBottom: (newHeights) => set({ heightsBottom: newHeights }),
   updateHeightsWater: (newHeights) => set({ heightsWater: newHeights }),
   updateColors: (newColors) => set({ colors: newColors }),
+  resetWaterToZero: () => set((state) => {
+    state.saveHistory();
+    return { heightsWater: new Float32Array(VERTEX_COUNT).fill(0) };
+  }),
   
   addAsset: (asset) => set((state) => ({ assets: [...state.assets, asset] })),
   removeAsset: (id) => set((state) => ({ assets: state.assets.filter(a => a.id !== id), selectedAssetId: state.selectedAssetId === id ? null : state.selectedAssetId })),

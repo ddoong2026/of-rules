@@ -257,9 +257,9 @@ export default function Terrain() {
         
         let falloff = Math.pow(Math.cos(normalizedDist * Math.PI / 2), 2);
         
-        // 동굴 브러쉬는 뾰족하지 않고 입구를 쉽게 통과하도록 평평하게 만듭니다.
+        // 둥그스름한 표면을 원하신다는 요청에 따라, 동굴 천장이 자연스러운 반구형(돔) 모양이 되도록 수학 공식을 변경합니다.
         if (mode === 'sculptBottom') {
-          falloff = normalizedDist < 0.6 ? 1.0 : Math.pow(Math.cos(((normalizedDist - 0.6) / 0.4) * Math.PI / 2), 2);
+          falloff = Math.sqrt(1 - normalizedDist * normalizedDist);
         }
         
         const isDigging = isShift; // Passed from e.ctrlKey

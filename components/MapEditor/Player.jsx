@@ -220,8 +220,8 @@ export default function Player() {
       return topH;
     }
     
-    // 2. 동굴 안에 있는 경우 (입구의 경사 때문에 천장이 낮아도 진입할 수 있도록 조건 완화)
-    if (y >= baseH - 1.5 && bottomH >= baseH + 0.1) {
+    // 2. 동굴 안에 있는 경우 (동굴 레이어가 지면보다 조금이라도 높으면 진입 허용)
+    if (bottomH > baseH) {
       return baseH;
     }
     

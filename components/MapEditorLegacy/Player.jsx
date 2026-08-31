@@ -37,10 +37,7 @@ export default function Player() {
   const { scene, animations } = useGLTF('/models/charactor2.glb');
   const { actions } = useAnimations(animations, group);
   const { camera, scene: glScene } = useThree();
-  const heightsTop = useMapStore((state) => state.heightsTop);
-  const heightsWater = useMapStore((state) => state.heightsWater);
-  const heightsBottom = useMapStore((state) => state.heightsBottom);
-  const heightsBase = useMapStore((state) => state.heightsBase);
+  const heights = useMapStore((state) => state.heights);
   const assets = useMapStore((state) => state.assets);
 
   const [keys, setKeys] = useState({ w: false, a: false, s: false, d: false, shift: false, space: false, control: false });
@@ -173,9 +170,8 @@ export default function Player() {
 
   const physicsRaycaster = useMemo(() => new THREE.Raycaster(), []);
 
-  // Generic mathematical height at (x, z) for a given layer array
-  const getLayerHeight = (heightsArray, x, z) => {
-    if (!heightsArray) return 0;
+  // Get mathematical terrain height at (x, z)
+  const getTerrainHeight = (x, z) => {
     const halfSize = 25;
     const segSize = 50 / GRID_SIZE;
     
@@ -195,10 +191,10 @@ export default function Player() {
     const tx = gridX - x0;
     const tz = gridZ - z0;
 
-    const h00 = heightsArray[z0 * (GRID_SIZE + 1) + x0] || 0;
-    const h10 = heightsArray[z0 * (GRID_SIZE + 1) + x1] || 0;
-    const h01 = heightsArray[z1 * (GRID_SIZE + 1) + x0] || 0;
-    const h11 = heightsArray[z1 * (GRID_SIZE + 1) + x1] || 0;
+    const h00 = heights[z0 * (GRID_SIZE + 1) + x0] || 0;
+    const h10 = heights[z0 * (GRID_SIZE + 1) + x1] || 0;
+    const h01 = heights[z1 * (GRID_SIZE + 1) + x0] || 0;
+    const h11 = heights[z1 * (GRID_SIZE + 1) + x1] || 0;
 
     // Bilinear interpolation
     const h0 = h00 * (1 - tx) + h10 * tx;
@@ -206,62 +202,54 @@ export default function Player() {
     return h0 * (1 - tz) + h1 * tz;
   };
 
-  const getTerrainHeight = (x, z) => getLayerHeight(heightsTop, x, z);
+  const terrainMeshRef = useRef(null);
 
-  const getWalkableHeight = (x, y, z) => {
-    const topH = getLayerHeight(heightsTop, x, z);
-    const bottomH = getLayerHeight(heightsBottom, x, z);
-    const baseH = getLayerHeight(heightsBase, x, z);
-
-    // Player's feet are at roughly `y`. Determine which layer they are standing on.
-    
-    // 1. 산 위나 평지에 있는 경우
-    // 이 검사는 아래에서 isCaveEntrance 검사 이후에 수행됩니다.
-    // Terrain.jsx의 렌더링 로직과 동일하게 타일 4꼭지점을 검사하여 시각적 구멍과 물리적 구멍을 완벽히 일치시킵니다.
-    const gridX = (x + 25) / (50 / GRID_SIZE);
-    const gridZ = (z + 25) / (50 / GRID_SIZE);
-    const x0 = Math.floor(gridX);
-    const x1 = Math.min(GRID_SIZE, x0 + 1);
-    const z0 = Math.floor(gridZ);
-    const z1 = Math.min(GRID_SIZE, z0 + 1);
-
-    const i00 = z0 * (GRID_SIZE + 1) + x0;
-    const i10 = z0 * (GRID_SIZE + 1) + x1;
-    const i01 = z1 * (GRID_SIZE + 1) + x0;
-    const i11 = z1 * (GRID_SIZE + 1) + x1;
-
-    const hasCaveTile = (heightsBottom[i00] > heightsBase[i00] + 0.1) || 
-                        (heightsBottom[i10] > heightsBase[i10] + 0.1) || 
-                        (heightsBottom[i01] > heightsBase[i01] + 0.1) || 
-                        (heightsBottom[i11] > heightsBase[i11] + 0.1);
-                        
-    const isOutsideTile = (heightsTop[i00] <= heightsBase[i00] + 0.1) || 
-                          (heightsTop[i10] <= heightsBase[i10] + 0.1) || 
-                          (heightsTop[i01] <= heightsBase[i01] + 0.1) || 
-                          (heightsTop[i11] <= heightsBase[i11] + 0.1);
-                          
-    const isCaveEntrance = hasCaveTile && isOutsideTile;
-
-    // 1. 동굴 입구 타일인 경우 (Top 렌더링이 생략된 구멍)
-    // 시각적으로 뚫려있으므로 무조건 Base를 밟습니다. Top은 투명벽이 됩니다.
-    if (isCaveEntrance) {
-      return baseH;
+  const getTerrainHeightRaycast = (x, y, z) => {
+    // 1. Check if we are near any cave. If not, fallback to fast 2D lookup.
+    const { csgOperations } = useMapStore.getState();
+    let isNearCave = false;
+    if (csgOperations.length > 0) {
+      for (const op of csgOperations) {
+        if (op.shape === 'sphere') {
+          const dx = x - op.position[0];
+          const dz = z - op.position[2];
+          if (dx*dx + dz*dz < (op.radius + 3)**2) {
+            isNearCave = true; break;
+          }
+        } else if (op.shape === 'capsule') {
+          const minX = Math.min(op.start[0], op.end[0]) - op.radius - 3;
+          const maxX = Math.max(op.start[0], op.end[0]) + op.radius + 3;
+          const minZ = Math.min(op.start[2], op.end[2]) - op.radius - 3;
+          const maxZ = Math.max(op.start[2], op.end[2]) + op.radius + 3;
+          if (x >= minX && x <= maxX && z >= minZ && z <= maxZ) {
+            isNearCave = true; break;
+          }
+        }
+      }
     }
 
-    // 2. 산 위나 평지에 있는 경우
-    // y 좌표가 Top 표면 근처이거나 그 이상일 때 (지붕 위를 걸을 때)
-    if (y >= topH - 1.5) {
-      return topH;
+    if (!isNearCave) return getTerrainHeight(x, z);
+
+    // 2. Cache terrain mesh to avoid slow glScene.traverse every frame
+    if (!terrainMeshRef.current || !terrainMeshRef.current.visible) {
+      let found = null;
+      glScene.traverse((child) => {
+        if (child.name === 'terrainMesh' && child.visible) {
+          found = child;
+        }
+      });
+      terrainMeshRef.current = found;
     }
     
-    // 3. 동굴 안쪽에 있는 경우 (입구를 통과한 후)
-    // 지붕(Top)보다 아래에 있고, 동굴(Bottom)이 파여있는 경우
-    if (bottomH > baseH) {
-      return baseH;
-    }
+    if (!terrainMeshRef.current) return getTerrainHeight(x, z);
     
-    // 4. 꽉 막힌 산 내부이거나 동굴이 없는 곳 (충돌을 위해 제일 높은 층 반환)
-    return topH;
+    // Cast ray from slightly above the player's current y position
+    physicsRaycaster.set(new THREE.Vector3(x, y + 1.5, z), new THREE.Vector3(0, -1, 0));
+    const intersects = physicsRaycaster.intersectObject(terrainMeshRef.current);
+    if (intersects.length > 0) {
+      return intersects[0].point.y;
+    }
+    return getTerrainHeight(x, z);
   };
 
   const hasSpawned = useRef(false);
@@ -283,18 +271,15 @@ export default function Player() {
     if (group.current && !hasSpawned.current) {
       const spawnPoint = useMapStore.getState().spawnPoint;
       let spawnX = 0;
-      let spawnY = null;
       let spawnZ = 0;
       let found = false;
 
       if (spawnPoint) {
         if (Array.isArray(spawnPoint)) {
           spawnX = spawnPoint[0] || 0;
-          spawnY = spawnPoint[1] !== undefined ? spawnPoint[1] : null;
           spawnZ = spawnPoint[2] || 0;
         } else {
           spawnX = spawnPoint.x || 0;
-          spawnY = spawnPoint.y !== undefined ? spawnPoint.y : null;
           spawnZ = spawnPoint.z || 0;
         }
         found = true;
@@ -317,17 +302,12 @@ export default function Player() {
         }
       }
 
-      // If the user specified a precise Y coordinate when clicking (like inside a cave),
-      // use that Y to find the exact walkable height (which layer they clicked on).
-      // If not, assume they are falling from the sky (Y=100) and land on the topmost layer.
-      const searchY = spawnY !== null ? spawnY : 100;
-      const terrainH = getWalkableHeight(spawnX, searchY, spawnZ);
-      
+      const terrainH = getTerrainHeightRaycast(spawnX, 100, spawnZ);
       // Spawn slightly above the ground (at least height 2) so they fall naturally
       group.current.position.set(spawnX, Math.max(2, terrainH + 2), spawnZ);
       hasSpawned.current = true;
     }
-  }, [heightsTop]);
+  }, [heights]);
 
   const currentVelocity = useRef(new THREE.Vector3());
   const smoothedPlayerPos = useRef(new THREE.Vector3());
@@ -385,7 +365,7 @@ export default function Player() {
     // Lock character's visual rotation directly to camera's yaw (fixed behind head)
     group.current.rotation.y = yaw.current;
 
-    const currentTerrainHeight = getWalkableHeight(group.current.position.x, group.current.position.y, group.current.position.z);
+    const currentTerrainHeight = getTerrainHeightRaycast(group.current.position.x, group.current.position.y, group.current.position.z);
     
     // Apply movement with slope restriction on XZ
     let nextX = group.current.position.x + currentVelocity.current.x * delta;
@@ -393,7 +373,7 @@ export default function Player() {
     
     const dist = Math.sqrt((nextX - group.current.position.x)**2 + (nextZ - group.current.position.z)**2);
     let canMoveXZ = true;
-    const nextTerrainHeight = getWalkableHeight(nextX, group.current.position.y, nextZ);
+    const nextTerrainHeight = getTerrainHeightRaycast(nextX, group.current.position.y, nextZ);
     
     if (dist > 0.0001) {
       const slope = (nextTerrainHeight - currentTerrainHeight) / dist;
@@ -406,12 +386,8 @@ export default function Player() {
       }
     }
 
-    // Block deep water entry based on mathematical depth
-    const waterHeight = getLayerHeight(heightsWater, nextX, nextZ);
-    const waterDepth = waterHeight - nextTerrainHeight;
-    
-    // User requested: Block movement if water depth > 0.4 (knee deep)
-    if (waterDepth > 0.4) {
+    // Block water entry (Invisible Wall at water's edge)
+    if (nextTerrainHeight < -0.3) {
       canMoveXZ = false;
       currentVelocity.current.x = 0;
       currentVelocity.current.z = 0;
@@ -559,7 +535,6 @@ export default function Player() {
                   }
                 }
               }
-            }
           }
         }
       }
@@ -577,7 +552,7 @@ export default function Player() {
     group.current.position.y += currentVelocity.current.y * delta;
 
     // Ground Collision & Jumping
-    const currentGroundHeight = getWalkableHeight(group.current.position.x, group.current.position.y, group.current.position.z);
+    const currentGroundHeight = getTerrainHeightRaycast(group.current.position.x, group.current.position.y, group.current.position.z);
     const distToGround = group.current.position.y - currentGroundHeight;
     
     // Character is grounded if exactly on/below ground, OR very close while falling/running (prevents flying off slopes)
@@ -720,7 +695,7 @@ export default function Player() {
     const idealCameraPos = targetLookAt.clone().add(currentOffset);
     
     // Prevent camera from clipping through the terrain
-    const camGroundHeight = getWalkableHeight(idealCameraPos.x, idealCameraPos.y, idealCameraPos.z);
+    const camGroundHeight = getTerrainHeightRaycast(idealCameraPos.x, idealCameraPos.y, idealCameraPos.z);
     if (idealCameraPos.y < camGroundHeight + 0.5) {
       idealCameraPos.y = camGroundHeight + 0.5;
     }

@@ -7,6 +7,7 @@ import ActivityLogsTab from '@/components/Teacher/ActivityLogsTab';
 import EconomyAdminTab from '@/components/Teacher/EconomyAdminTab';
 import dynamic from 'next/dynamic';
 const MapEditorWorkspace = dynamic(() => import('@/components/MapEditor/MapEditorWorkspace'), { ssr: false });
+const MapEditorLegacyWorkspace = dynamic(() => import('@/components/MapEditorLegacy/MapEditorWorkspace'), { ssr: false });
 const VoxelEditorWorkspace = dynamic(() => import('@/components/VoxelEditor/VoxelEditorWorkspace'), { ssr: false });
 import styles from './teacher.module.css';
 
@@ -557,10 +558,17 @@ export default function TeacherDashboard() {
             <div style={{ padding: '1rem', background: '#f3f4f6', borderBottom: '1px solid #d1d5db', display: 'flex', gap: '1rem' }}>
               <button 
                 className="glass-button"
+                style={{ background: editorType === 'heightmap_legacy' ? 'var(--primary)' : 'white', color: editorType === 'heightmap_legacy' ? 'white' : 'black' }}
+                onClick={() => setEditorType('heightmap_legacy')}
+              >
+                🗺️ 기본 지형 (이전 버전)
+              </button>
+              <button 
+                className="glass-button"
                 style={{ background: editorType === 'heightmap' ? 'var(--primary)' : 'white', color: editorType === 'heightmap' ? 'white' : 'black' }}
                 onClick={() => setEditorType('heightmap')}
               >
-                🗺️ 둥근 지형 에디터 (기존)
+                ⛰️ 4중 레이어 지형 (동굴 기능)
               </button>
               <button 
                 className="glass-button"
@@ -570,7 +578,9 @@ export default function TeacherDashboard() {
                 🧱 복셀 에디터 (마인크래프트형)
               </button>
             </div>
-            {editorType === 'heightmap' ? <MapEditorWorkspace /> : <VoxelEditorWorkspace />}
+            {editorType === 'heightmap_legacy' && <MapEditorLegacyWorkspace />}
+            {editorType === 'heightmap' && <MapEditorWorkspace />}
+            {editorType === 'voxel' && <VoxelEditorWorkspace />}
           </div>
         )}
       </div>

@@ -36,6 +36,8 @@ const useMapStore = create((set, get) => ({
   boundaryDrawing: null, // { start: [x,z], current: [x,z] }
   spawnPoint: null, // { x, z }
   
+  heights: new Float32Array(VERTEX_COUNT).fill(0), // Legacy single-layer heights
+
   // Fluid Data (Dynamic Water)
   waterSources: [], // { x, z, amount }
 
@@ -61,12 +63,21 @@ const useMapStore = create((set, get) => ({
   setSpawnPoint: (pt) => set({ spawnPoint: pt }),
   setTransformMode: (mode) => set({ transformMode: mode }),
   
+  // Update functions
+  updateHeightsBase: (h) => set({ heightsBase: h }),
+  updateHeightsTop: (h) => set({ heightsTop: h }),
+  updateHeightsBottom: (h) => set({ heightsBottom: h }),
+  updateHeightsWater: (h) => set({ heightsWater: h }),
+  updateColors: (c) => set({ colors: c }),
+  updateHeights: (h) => set({ heights: h }), // Legacy update
+
   saveHistory: () => set((state) => {
     const newHistory = [...state.history, { 
       heightsBase: new Float32Array(state.heightsBase),
       heightsTop: new Float32Array(state.heightsTop), 
       heightsBottom: new Float32Array(state.heightsBottom), 
       heightsWater: new Float32Array(state.heightsWater),
+      heights: new Float32Array(state.heights), // Legacy
       colors: new Float32Array(state.colors) 
     }];
     if (newHistory.length > 20) newHistory.shift(); // Keep max 20 states
@@ -82,6 +93,7 @@ const useMapStore = create((set, get) => ({
       heightsTop: previousState.heightsTop, 
       heightsBottom: previousState.heightsBottom, 
       heightsWater: previousState.heightsWater,
+      heights: previousState.heights, // Legacy
       colors: previousState.colors, 
       history: newHistory 
     };
@@ -89,52 +101,44 @@ const useMapStore = create((set, get) => ({
   
   loadMap: (mapData) => {
     // Parse jsonb arrays back to typed arrays
-    let heightsBase, heightsTop, heightsBottom, heightsWater;
+    let heightsBase, heightsTop, heightsBottom, heightsWater, heightsLegacy;
     
-    // Parse Top
+    // Parse Top / Legacy Heights
     if (mapData.heights && !Array.isArray(mapData.heights) && mapData.heights.top !== undefined) {
       heightsTop = new Float32Array(mapData.heights.top);
+      heightsLegacy = new Float32Array(mapData.heights.top); // sync for legacy
     } else if (Array.isArray(mapData.heights)) {
       heightsTop = new Float32Array(mapData.heights);
+      heightsLegacy = new Float32Array(mapData.heights); // sync for legacy
     } else {
       heightsTop = new Float32Array(VERTEX_COUNT).fill(10);
+      heightsLegacy = new Float32Array(VERTEX_COUNT).fill(10);
     }
-    
-    // Parse Bottom
-    if (mapData.heights && !Array.isArray(mapData.heights) && mapData.heights.bottom !== undefined) {
-      heightsBottom = new Float32Array(mapData.heights.bottom);
-    } else {
-      heightsBottom = new Float32Array(heightsTop); // Fallback to Top
-    }
-    
+
     // Parse Base
     if (mapData.heights && !Array.isArray(mapData.heights) && mapData.heights.base !== undefined) {
       heightsBase = new Float32Array(mapData.heights.base);
     } else {
-      heightsBase = new Float32Array(heightsBottom); // Fallback to Bottom
+      heightsBase = new Float32Array(heightsTop); // Fallback to Top heights
     }
-    
+
+    // Parse Bottom (Cave Ceiling)
+    if (mapData.heights && !Array.isArray(mapData.heights) && mapData.heights.bottom !== undefined) {
+      heightsBottom = new Float32Array(mapData.heights.bottom);
+    } else {
+      heightsBottom = new Float32Array(heightsBase); // Fallback to Base heights (no cave)
+    }
+
     // Parse Water
     if (mapData.heights && !Array.isArray(mapData.heights) && mapData.heights.water !== undefined) {
       heightsWater = new Float32Array(mapData.heights.water);
     } else {
-      heightsWater = new Float32Array(heightsBase).map(h => h - 0.01); // 땅보다 0.01 낮게 초기화
+      heightsWater = new Float32Array(VERTEX_COUNT).fill(-0.01);
     }
     
-    const colors = new Float32Array(mapData.colors || VERTEX_COUNT * 3);
-    
-    if (!mapData.colors || mapData.colors.length === 0) {
-      // Default to green if no colors
-      for(let i=0; i<VERTEX_COUNT*3; i+=3) {
-        colors[i] = 0.24; // R
-        colors[i+1] = 0.55; // G
-        colors[i+2] = 0.25; // B
-      }
-    }
-
     set({
       currentMapId: mapData.id,
-      mapName: mapData.name || '새 맵',
+      mapName: mapData.name,
       heightsBase,
       heightsTop,
       heightsBottom,
@@ -161,6 +165,7 @@ const useMapStore = create((set, get) => ({
       heightsTop: new Float32Array(VERTEX_COUNT).fill(0),
       heightsBottom: new Float32Array(VERTEX_COUNT).fill(0),
       heightsWater: new Float32Array(VERTEX_COUNT).fill(-0.01), // 땅(0)보다 0.01 낮게 설정
+      heights: new Float32Array(VERTEX_COUNT).fill(0), // Legacy
       colors,
       assets: [],
       decals: [],

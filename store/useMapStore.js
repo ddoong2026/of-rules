@@ -104,7 +104,7 @@ const useMapStore = create((set, get) => ({
       heightsBase = new Float32Array(oldHeights);
       heightsBottom = new Float32Array(oldHeights);
       heightsTop = new Float32Array(oldHeights);
-      heightsWater = new Float32Array(VERTEX_COUNT).fill(0);
+      heightsWater = new Float32Array(oldHeights);
     }
     
     const colors = new Float32Array(mapData.colors || VERTEX_COUNT * 3);
@@ -143,10 +143,10 @@ const useMapStore = create((set, get) => ({
     set({
       currentMapId: null,
       mapName: '새 맵',
-      heightsBase: new Float32Array(VERTEX_COUNT).fill(0),
+      heightsBase: new Float32Array(VERTEX_COUNT).fill(10),
       heightsTop: new Float32Array(VERTEX_COUNT).fill(10),
-      heightsBottom: new Float32Array(VERTEX_COUNT).fill(0),
-      heightsWater: new Float32Array(VERTEX_COUNT).fill(0),
+      heightsBottom: new Float32Array(VERTEX_COUNT).fill(10),
+      heightsWater: new Float32Array(VERTEX_COUNT).fill(10),
       colors,
       assets: [],
       decals: [],

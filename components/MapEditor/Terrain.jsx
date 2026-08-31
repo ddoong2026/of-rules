@@ -56,53 +56,33 @@ function generate4LayerMesh(heightsBase, heightsBottom, heightsTop, heightsWater
       const i01 = (z + 1) * width + x;
       const i11 = (z + 1) * width + (x + 1);
 
-      // Top Vertices (Layer 0)
+      // 1. Top Vertices (Layer 0)
       const t00 = getVertexIndex(topData, posX, heightsTop[i00], posZ, x / width, z / depth, colorsArr[i00*3], colorsArr[i00*3+1], colorsArr[i00*3+2]);
       const t10 = getVertexIndex(topData, nextX, heightsTop[i10], posZ, (x + 1) / width, z / depth, colorsArr[i10*3], colorsArr[i10*3+1], colorsArr[i10*3+2]);
       const t01 = getVertexIndex(topData, posX, heightsTop[i01], nextZ, x / width, (z + 1) / depth, colorsArr[i01*3], colorsArr[i01*3+1], colorsArr[i01*3+2]);
       const t11 = getVertexIndex(topData, nextX, heightsTop[i11], nextZ, (x + 1) / width, (z + 1) / depth, colorsArr[i11*3], colorsArr[i11*3+1], colorsArr[i11*3+2]);
+      addQuad(topData, t00, t01, t11, t10); // +Y Face
 
-      // Top Face (+Y)
-      addQuad(topData, t00, t01, t11, t10);
+      // 2. Ceiling Vertices (Layer 1)
+      const b00 = getVertexIndex(bottomData, posX, heightsBottom[i00], posZ, x / width, z / depth, colorsArr[i00*3], colorsArr[i00*3+1], colorsArr[i00*3+2]);
+      const b10 = getVertexIndex(bottomData, nextX, heightsBottom[i10], posZ, (x + 1) / width, z / depth, colorsArr[i10*3], colorsArr[i10*3+1], colorsArr[i10*3+2]);
+      const b01 = getVertexIndex(bottomData, posX, heightsBottom[i01], nextZ, x / width, (z + 1) / depth, colorsArr[i01*3], colorsArr[i01*3+1], colorsArr[i01*3+2]);
+      const b11 = getVertexIndex(bottomData, nextX, heightsBottom[i11], nextZ, (x + 1) / width, (z + 1) / depth, colorsArr[i11*3], colorsArr[i11*3+1], colorsArr[i11*3+2]);
+      addQuad(bottomData, b00, b10, b11, b01); // -Y Face (CCW)
 
-      const hasCave = (heightsBottom[i00] - heightsBase[i00] > 0.01) ||
-                      (heightsBottom[i10] - heightsBase[i10] > 0.01) ||
-                      (heightsBottom[i01] - heightsBase[i01] > 0.01) ||
-                      (heightsBottom[i11] - heightsBase[i11] > 0.01);
+      // 3. Ground Vertices (Layer 2)
+      const g00 = getVertexIndex(baseData, posX, heightsBase[i00], posZ, x / width, z / depth, colorsArr[i00*3], colorsArr[i00*3+1], colorsArr[i00*3+2]);
+      const g10 = getVertexIndex(baseData, nextX, heightsBase[i10], posZ, (x + 1) / width, z / depth, colorsArr[i10*3], colorsArr[i10*3+1], colorsArr[i10*3+2]);
+      const g01 = getVertexIndex(baseData, posX, heightsBase[i01], nextZ, x / width, (z + 1) / depth, colorsArr[i01*3], colorsArr[i01*3+1], colorsArr[i01*3+2]);
+      const g11 = getVertexIndex(baseData, nextX, heightsBase[i11], nextZ, (x + 1) / width, (z + 1) / depth, colorsArr[i11*3], colorsArr[i11*3+1], colorsArr[i11*3+2]);
+      addQuad(baseData, g00, g01, g11, g10); // +Y Face
 
-      if (hasCave) {
-        // Ceiling Vertices (Layer 1)
-        const b00 = getVertexIndex(bottomData, posX, heightsBottom[i00], posZ, x / width, z / depth, colorsArr[i00*3], colorsArr[i00*3+1], colorsArr[i00*3+2]);
-        const b10 = getVertexIndex(bottomData, nextX, heightsBottom[i10], posZ, (x + 1) / width, z / depth, colorsArr[i10*3], colorsArr[i10*3+1], colorsArr[i10*3+2]);
-        const b01 = getVertexIndex(bottomData, posX, heightsBottom[i01], nextZ, x / width, (z + 1) / depth, colorsArr[i01*3], colorsArr[i01*3+1], colorsArr[i01*3+2]);
-        const b11 = getVertexIndex(bottomData, nextX, heightsBottom[i11], nextZ, (x + 1) / width, (z + 1) / depth, colorsArr[i11*3], colorsArr[i11*3+1], colorsArr[i11*3+2]);
-
-        // Ground Vertices (Layer 2)
-        const g00 = getVertexIndex(baseData, posX, heightsBase[i00], posZ, x / width, z / depth, colorsArr[i00*3], colorsArr[i00*3+1], colorsArr[i00*3+2]);
-        const g10 = getVertexIndex(baseData, nextX, heightsBase[i10], posZ, (x + 1) / width, z / depth, colorsArr[i10*3], colorsArr[i10*3+1], colorsArr[i10*3+2]);
-        const g01 = getVertexIndex(baseData, posX, heightsBase[i01], nextZ, x / width, (z + 1) / depth, colorsArr[i01*3], colorsArr[i01*3+1], colorsArr[i01*3+2]);
-        const g11 = getVertexIndex(baseData, nextX, heightsBase[i11], nextZ, (x + 1) / width, (z + 1) / depth, colorsArr[i11*3], colorsArr[i11*3+1], colorsArr[i11*3+2]);
-
-        // Ceiling Face (-Y, CCW)
-        addQuad(bottomData, b00, b10, b11, b01);
-        // Ground Face (+Y)
-        addQuad(baseData, g00, g01, g11, g10);
-      }
-      
-      const hasWater = (heightsWater[i00] >= heightsBase[i00] - 0.1) ||
-                       (heightsWater[i10] >= heightsBase[i10] - 0.1) ||
-                       (heightsWater[i01] >= heightsBase[i01] - 0.1) ||
-                       (heightsWater[i11] >= heightsBase[i11] - 0.1);
-      if (hasWater) {
-        // Water Vertices (Layer 3) - Use white vertex color, tint via material
-        const w00 = getVertexIndex(waterData, posX, heightsWater[i00], posZ, x / width, z / depth, 1, 1, 1);
-        const w10 = getVertexIndex(waterData, nextX, heightsWater[i10], posZ, (x + 1) / width, z / depth, 1, 1, 1);
-        const w01 = getVertexIndex(waterData, posX, heightsWater[i01], nextZ, x / width, (z + 1) / depth, 1, 1, 1);
-        const w11 = getVertexIndex(waterData, nextX, heightsWater[i11], nextZ, (x + 1) / width, (z + 1) / depth, 1, 1, 1);
-        
-        // Water Face (+Y)
-        addQuad(waterData, w00, w01, w11, w10);
-      }
+      // 4. Water Vertices (Layer 3)
+      const w00 = getVertexIndex(waterData, posX, heightsWater[i00], posZ, x / width, z / depth, 1, 1, 1);
+      const w10 = getVertexIndex(waterData, nextX, heightsWater[i10], posZ, (x + 1) / width, z / depth, 1, 1, 1);
+      const w01 = getVertexIndex(waterData, posX, heightsWater[i01], nextZ, x / width, (z + 1) / depth, 1, 1, 1);
+      const w11 = getVertexIndex(waterData, nextX, heightsWater[i11], nextZ, (x + 1) / width, (z + 1) / depth, 1, 1, 1);
+      addQuad(waterData, w00, w01, w11, w10); // +Y Face
     }
   }
 
@@ -458,6 +438,7 @@ export default function Terrain() {
             transparent={oTop < 1}
             opacity={oTop}
             depthWrite={oTop === 1}
+            polygonOffset={true} polygonOffsetFactor={-1} polygonOffsetUnits={-1}
           />
         </mesh>
         <mesh ref={meshBottomRef} geometry={geometries.bottomGeo}>
@@ -468,6 +449,7 @@ export default function Terrain() {
             transparent={oBottom < 1}
             opacity={oBottom}
             depthWrite={oBottom === 1}
+            polygonOffset={true} polygonOffsetFactor={0} polygonOffsetUnits={0}
           />
         </mesh>
         <mesh ref={meshBaseRef} geometry={geometries.baseGeo}>
@@ -478,6 +460,7 @@ export default function Terrain() {
             transparent={oBase < 1}
             opacity={oBase}
             depthWrite={oBase === 1}
+            polygonOffset={true} polygonOffsetFactor={1} polygonOffsetUnits={1}
           />
         </mesh>
         <mesh ref={meshWaterRef} geometry={geometries.waterGeo}>
@@ -489,6 +472,7 @@ export default function Terrain() {
             transparent={true}
             opacity={oWater}
             depthWrite={oWater === 1}
+            polygonOffset={true} polygonOffsetFactor={-2} polygonOffsetUnits={-2}
           />
         </mesh>
       </group>

@@ -133,7 +133,7 @@ const useMapStore = create((set, get) => ({
     if (mapData.heights && !Array.isArray(mapData.heights) && mapData.heights.water !== undefined) {
       heightsWater = new Float32Array(mapData.heights.water);
     } else {
-      heightsWater = new Float32Array(VERTEX_COUNT).fill(-0.01);
+      heightsWater = new Float32Array(VERTEX_COUNT).fill(-0.2);
     }
     
     // Parse Colors
@@ -175,7 +175,7 @@ const useMapStore = create((set, get) => ({
       heightsBase: new Float32Array(VERTEX_COUNT).fill(0),
       heightsTop: new Float32Array(VERTEX_COUNT).fill(0),
       heightsBottom: new Float32Array(VERTEX_COUNT).fill(0),
-      heightsWater: new Float32Array(VERTEX_COUNT).fill(-0.01), // 땅(0)보다 0.01 낮게 설정
+      heightsWater: new Float32Array(VERTEX_COUNT).fill(-0.2), // 땅(0)보다 0.2 낮게 설정
       heights: new Float32Array(VERTEX_COUNT).fill(0), // Legacy
       colors,
       assets: [],

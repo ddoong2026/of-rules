@@ -146,7 +146,6 @@ export default function EditorUI({ onSave, isSaving }) {
             <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '0.2rem' }}>강도: {brushIntensity}</label>
             <input type="range" min="0.1" max="5" step="0.1" value={brushIntensity} onChange={(e) => setBrushIntensity(parseFloat(e.target.value))} style={{ width: '100%' }} />
           </div>
-          </div>
           {mode === 'sculptWater' && (
             <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #d1d5db' }}>
               <button 

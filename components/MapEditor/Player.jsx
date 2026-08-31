@@ -220,8 +220,31 @@ export default function Player() {
       return topH;
     }
     
-    // 2. 동굴 안에 있는 경우 (동굴 레이어가 지면보다 조금이라도 높으면 진입 허용)
-    if (bottomH > baseH) {
+    // 2. 동굴 안에 있는 경우 (동굴 레이어가 지면보다 조금이라도 높거나, 시각적으로 뚫린 타일에 서있는 경우 진입 허용)
+    // Terrain.jsx의 렌더링 로직과 동일하게 타일 4꼭지점을 검사하여 시각적 구멍과 물리적 구멍을 완벽히 일치시킵니다.
+    const gridX = (x + 25) / (50 / GRID_SIZE);
+    const gridZ = (z + 25) / (50 / GRID_SIZE);
+    const x0 = Math.floor(gridX);
+    const x1 = Math.min(GRID_SIZE, x0 + 1);
+    const z0 = Math.floor(gridZ);
+    const z1 = Math.min(GRID_SIZE, z0 + 1);
+
+    const i00 = z0 * (GRID_SIZE + 1) + x0;
+    const i10 = z0 * (GRID_SIZE + 1) + x1;
+    const i01 = z1 * (GRID_SIZE + 1) + x0;
+    const i11 = z1 * (GRID_SIZE + 1) + x1;
+
+    const hasCaveTile = (heightsBottom[i00] > heightsBase[i00] + 0.1) || 
+                        (heightsBottom[i10] > heightsBase[i10] + 0.1) || 
+                        (heightsBottom[i01] > heightsBase[i01] + 0.1) || 
+                        (heightsBottom[i11] > heightsBase[i11] + 0.1);
+                        
+    const isOutsideTile = (heightsTop[i00] <= heightsBase[i00] + 0.1) || 
+                          (heightsTop[i10] <= heightsBase[i10] + 0.1) || 
+                          (heightsTop[i01] <= heightsBase[i01] + 0.1) || 
+                          (heightsTop[i11] <= heightsBase[i11] + 0.1);
+
+    if (bottomH > baseH || (hasCaveTile && isOutsideTile)) {
       return baseH;
     }
     

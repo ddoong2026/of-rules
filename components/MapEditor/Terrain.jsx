@@ -152,7 +152,7 @@ export default function Terrain() {
     return generate4LayerMesh(heightsBase, heightsBottom, heightsTop, heightsWater, colors, GRID_SIZE, 50 / GRID_SIZE);
   }, [heightsBase, heightsTop, heightsBottom, heightsWater, colors]);
 
-  const isBrushMode = ['sculptBase', 'sculptTop', 'sculptBottom', 'sculptWater', 'resetWater', 'flatten', 'paint'].includes(mode);
+  const isBrushMode = ['sculptBase', 'sculptTop', 'sculptBottom', 'sculptWater', 'resetWater', 'flatten', 'paint', 'dig'].includes(mode);
   
   const getOpacities = () => {
     if (mode === 'sculptBase') return { base: 1, bottom: 0.2, top: 0.2, water: 0.2 };

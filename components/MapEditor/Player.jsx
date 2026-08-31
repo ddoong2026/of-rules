@@ -214,9 +214,19 @@ export default function Player() {
     const baseH = getLayerHeight(heightsBase, x, z);
 
     // Player's feet are at roughly `y`. Determine which layer they are standing on.
-    if (y >= topH - 1.5) return topH;
-    if (y >= bottomH - 1.5) return bottomH;
-    return baseH;
+    
+    // 1. 산 위나 평지에 있는 경우
+    if (y >= topH - 1.5) {
+      return topH;
+    }
+    
+    // 2. 동굴 안에 있는 경우 (머리 위 공간이 1.5 이상 확보되어야 들어갈 수 있음)
+    if (y >= baseH - 1.5 && bottomH >= baseH + 1.5) {
+      return baseH;
+    }
+    
+    // 3. 꽉 막힌 산 내부이거나 동굴 천장이 너무 낮은 경우 (충돌을 위해 제일 높은 층 반환)
+    return topH;
   };
 
   const hasSpawned = useRef(false);

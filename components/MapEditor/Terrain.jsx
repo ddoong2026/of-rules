@@ -84,7 +84,11 @@ function generate4LayerMesh(heightsBase, heightsBottom, heightsTop, heightsWater
       const b10 = getVertexIndex(bottomData, nextX, heightsBottom[i10], posZ, (x + 1) / width, z / depth, colorsArr[i10*3], colorsArr[i10*3+1], colorsArr[i10*3+2]);
       const b01 = getVertexIndex(bottomData, posX, heightsBottom[i01], nextZ, x / width, (z + 1) / depth, colorsArr[i01*3], colorsArr[i01*3+1], colorsArr[i01*3+2]);
       const b11 = getVertexIndex(bottomData, nextX, heightsBottom[i11], nextZ, (x + 1) / width, (z + 1) / depth, colorsArr[i11*3], colorsArr[i11*3+1], colorsArr[i11*3+2]);
-      addQuad(bottomData, b00, b10, b11, b01); // -Y Face (CCW)
+      
+      // Only render cave ceiling if it's not an entrance and there is actually a cave
+      if (!isCaveEntrance && hasCave) {
+        addQuad(bottomData, b00, b10, b11, b01); // -Y Face (CCW)
+      }
 
       // 3. Ground Vertices (Layer 2)
       const g00 = getVertexIndex(baseData, posX, heightsBase[i00], posZ, x / width, z / depth, colorsArr[i00*3], colorsArr[i00*3+1], colorsArr[i00*3+2]);
@@ -251,7 +255,12 @@ export default function Terrain() {
         const normalizedDist = dist / (brushSize + 1);
         if (normalizedDist > 1) continue; 
         
-        const falloff = Math.pow(Math.cos(normalizedDist * Math.PI / 2), 2);
+        let falloff = Math.pow(Math.cos(normalizedDist * Math.PI / 2), 2);
+        
+        // 동굴 브러쉬는 뾰족하지 않고 입구를 쉽게 통과하도록 평평하게 만듭니다.
+        if (mode === 'sculptBottom') {
+          falloff = normalizedDist < 0.6 ? 1.0 : Math.pow(Math.cos(((normalizedDist - 0.6) / 0.4) * Math.PI / 2), 2);
+        }
         
         const isDigging = isShift; // Passed from e.ctrlKey
         const isFlattening = isAlt; // Passed from e.altKey

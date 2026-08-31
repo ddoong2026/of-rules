@@ -132,12 +132,13 @@ export default function Terrain() {
     return generate4LayerMesh(heightsBase, heightsBottom, heightsTop, heightsWater, colors, GRID_SIZE, 50 / GRID_SIZE);
   }, [heightsBase, heightsTop, heightsBottom, heightsWater, colors]);
 
-  const isBrushMode = ['sculptBase', 'sculptTop', 'sculptBottom', 'sculptWater', 'flatten', 'paint'].includes(mode);
-
+  const isBrushMode = ['sculptBase', 'sculptTop', 'sculptBottom', 'sculptWater', 'resetWater', 'flatten', 'paint'].includes(mode);
+  
   const getOpacities = () => {
     if (mode === 'sculptBase') return { base: 1, bottom: 0.2, top: 0.2, water: 0.2 };
     if (mode === 'sculptTop') return { base: 0.2, bottom: 0.2, top: 1, water: 0.2 };
     if (mode === 'sculptWater') return { base: 0.2, bottom: 0.2, top: 0.2, water: 1 };
+    if (mode === 'resetWater') return { base: 0.5, bottom: 0.5, top: 0.8, water: 1 }; // See terrain and water clearly
     if (mode === 'sculptBottom') return { base: 0.2, bottom: 1, top: 0.2, water: 0.2 };
     return { base: 1, bottom: 1, top: 1, water: 0.6 };
   };
@@ -149,6 +150,7 @@ export default function Terrain() {
     if (mode === 'sculptBase' && meshBaseRef.current) active = [meshBaseRef.current];
     else if (mode === 'sculptTop' && meshTopRef.current) active = [meshTopRef.current];
     else if (mode === 'sculptWater' && meshWaterRef.current) active = [meshWaterRef.current];
+    else if (mode === 'resetWater' && meshWaterRef.current) active = [meshWaterRef.current];
     else if (mode === 'sculptBottom' && meshBottomRef.current) active = [meshBottomRef.current];
     else if (groupRef.current) active = groupRef.current.children;
     return active.length > 0 ? active : (groupRef.current ? groupRef.current.children : []);
@@ -261,6 +263,11 @@ export default function Terrain() {
         } else if (mode === 'sculptWater') {
           const delta = brushIntensity * falloff * (isDigging ? -1 : 1);
           newHeightsWater[idx] += delta;
+          modifiedWater = true;
+        } else if (mode === 'resetWater') {
+          const targetWaterHeight = newHeightsTop[idx] - 0.01;
+          const heightDiff = newHeightsWater[idx] - targetWaterHeight;
+          newHeightsWater[idx] -= heightDiff * falloff * (brushIntensity * 0.5); // Faster reset to Top layer
           modifiedWater = true;
         } else if (mode === 'flatten') {
           const heightDiff = centerHeightTop - targetHeightTop;

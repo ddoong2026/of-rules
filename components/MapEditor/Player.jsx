@@ -38,6 +38,7 @@ export default function Player() {
   const { actions } = useAnimations(animations, group);
   const { camera, scene: glScene } = useThree();
   const heightsTop = useMapStore((state) => state.heightsTop);
+  const heightsWater = useMapStore((state) => state.heightsWater);
   const assets = useMapStore((state) => state.assets);
 
   const [keys, setKeys] = useState({ w: false, a: false, s: false, d: false, shift: false, space: false, control: false });
@@ -170,8 +171,9 @@ export default function Player() {
 
   const physicsRaycaster = useMemo(() => new THREE.Raycaster(), []);
 
-  // Get mathematical terrain height at (x, z)
-  const getTerrainHeight = (x, z) => {
+  // Generic mathematical height at (x, z) for a given layer array
+  const getLayerHeight = (heightsArray, x, z) => {
+    if (!heightsArray) return 0;
     const halfSize = 25;
     const segSize = 50 / GRID_SIZE;
     
@@ -191,16 +193,18 @@ export default function Player() {
     const tx = gridX - x0;
     const tz = gridZ - z0;
 
-    const h00 = heightsTop[z0 * (GRID_SIZE + 1) + x0] || 0;
-    const h10 = heightsTop[z0 * (GRID_SIZE + 1) + x1] || 0;
-    const h01 = heightsTop[z1 * (GRID_SIZE + 1) + x0] || 0;
-    const h11 = heightsTop[z1 * (GRID_SIZE + 1) + x1] || 0;
+    const h00 = heightsArray[z0 * (GRID_SIZE + 1) + x0] || 0;
+    const h10 = heightsArray[z0 * (GRID_SIZE + 1) + x1] || 0;
+    const h01 = heightsArray[z1 * (GRID_SIZE + 1) + x0] || 0;
+    const h11 = heightsArray[z1 * (GRID_SIZE + 1) + x1] || 0;
 
     // Bilinear interpolation
     const h0 = h00 * (1 - tx) + h10 * tx;
     const h1 = h01 * (1 - tx) + h11 * tx;
     return h0 * (1 - tz) + h1 * tz;
   };
+
+  const getTerrainHeight = (x, z) => getLayerHeight(heightsTop, x, z);
 
   const terrainGroupRef = useRef(null);
 
@@ -363,8 +367,12 @@ export default function Player() {
       }
     }
 
-    // Block water entry (Invisible Wall at water's edge)
-    if (nextTerrainHeight < -0.3) {
+    // Block deep water entry based on mathematical depth
+    const waterHeight = getLayerHeight(heightsWater, nextX, nextZ);
+    const waterDepth = waterHeight - nextTerrainHeight;
+    
+    // User requested: Block movement if water depth > 0.4 (knee deep)
+    if (waterDepth > 0.4) {
       canMoveXZ = false;
       currentVelocity.current.x = 0;
       currentVelocity.current.z = 0;

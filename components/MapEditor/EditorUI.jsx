@@ -117,6 +117,7 @@ export default function EditorUI({ onSave, isSaving }) {
           <ModeButton current={mode} id="sculptBase" label="🌱 지면 융기" onClick={() => setMode('sculptBase')} />
           <ModeButton current={mode} id="sculptTop" label="⛰️ 산 융기" onClick={() => setMode('sculptTop')} />
           <ModeButton current={mode} id="sculptWater" label="💧 물 융기" onClick={() => setMode('sculptWater')} />
+          <ModeButton current={mode} id="resetWater" label="🧽 물 지우기" onClick={() => setMode('resetWater')} />
           <ModeButton current={mode} id="sculptBottom" label="🦇 동굴 레이어 융기" onClick={() => setMode('sculptBottom')} />
           <ModeButton current={mode} id="flatten" label="🚜 평지 만들기" onClick={() => setMode('flatten')} />
           <ModeButton current={mode} id="paint" label="🖌️ 색칠하기" onClick={() => setMode('paint')} />
@@ -131,8 +132,8 @@ export default function EditorUI({ onSave, isSaving }) {
         </div>
       </div>
 
-      {/* Brush Settings (Sculpt, Dig, Carve, Flatten & Paint) */}
-      {(mode === 'sculptBase' || mode === 'sculptTop' || mode === 'sculptBottom' || mode === 'sculptWater' || mode === 'flatten' || mode === 'paint') && (
+      {/* Brush Settings (Sculpt, Dig, Carve, Flatten, Paint & ResetWater) */}
+      {(mode === 'sculptBase' || mode === 'sculptTop' || mode === 'sculptBottom' || mode === 'sculptWater' || mode === 'resetWater' || mode === 'flatten' || mode === 'paint') && (
         <div style={{ background: '#f3f4f6', padding: '1rem', borderRadius: '6px' }}>
           <h4 style={{ margin: '0 0 0.5rem 0', color: '#4b5563' }}>브러시 설정</h4>
           <div style={{ marginBottom: '1rem' }}>
@@ -146,22 +147,6 @@ export default function EditorUI({ onSave, isSaving }) {
             <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '0.2rem' }}>강도: {brushIntensity}</label>
             <input type="range" min="0.1" max="5" step="0.1" value={brushIntensity} onChange={(e) => setBrushIntensity(parseFloat(e.target.value))} style={{ width: '100%' }} />
           </div>
-          {mode === 'sculptWater' && (
-            <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #d1d5db' }}>
-              <button 
-                onClick={() => {
-                  if(confirm('물 레이어의 전체 높이를 0으로 맞추시겠습니까?')) {
-                    resetWaterToZero();
-                  }
-                }}
-                style={{
-                  width: '100%', padding: '0.5rem', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold'
-                }}
-              >
-                🌊 물 레이어 높이 전체 0으로 맞추기
-              </button>
-            </div>
-          )}
         </div>
       )}
 

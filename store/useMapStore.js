@@ -25,9 +25,9 @@ const useMapStore = create((set, get) => ({
   currentMapId: null,
   mapName: '새 맵',
   heightsBase: new Float32Array(VERTEX_COUNT).fill(0),
-  heightsTop: new Float32Array(VERTEX_COUNT).fill(10), // 기본 높이 10
+  heightsTop: new Float32Array(VERTEX_COUNT).fill(0), // 기본 높이 0
   heightsBottom: new Float32Array(VERTEX_COUNT).fill(0),
-  heightsWater: new Float32Array(VERTEX_COUNT).fill(0),
+  heightsWater: new Float32Array(VERTEX_COUNT).fill(-0.01),
   colors: new Float32Array(VERTEX_COUNT * 3).fill(1), // initialized to white or grass
   assets: [], // { id, type, position: [x,y,z] }
   decals: [], // { id, url, position: [x,y,z], scale: [x,y,z] }
@@ -157,10 +157,10 @@ const useMapStore = create((set, get) => ({
     set({
       currentMapId: null,
       mapName: '새 맵',
-      heightsBase: new Float32Array(VERTEX_COUNT).fill(10),
-      heightsTop: new Float32Array(VERTEX_COUNT).fill(10),
-      heightsBottom: new Float32Array(VERTEX_COUNT).fill(10),
-      heightsWater: new Float32Array(VERTEX_COUNT).fill(9.99), // 땅(10)보다 0.01 낮게 설정
+      heightsBase: new Float32Array(VERTEX_COUNT).fill(0),
+      heightsTop: new Float32Array(VERTEX_COUNT).fill(0),
+      heightsBottom: new Float32Array(VERTEX_COUNT).fill(0),
+      heightsWater: new Float32Array(VERTEX_COUNT).fill(-0.01), // 땅(0)보다 0.01 낮게 설정
       colors,
       assets: [],
       decals: [],

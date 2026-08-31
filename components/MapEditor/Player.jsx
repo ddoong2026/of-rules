@@ -39,6 +39,8 @@ export default function Player() {
   const { camera, scene: glScene } = useThree();
   const heightsTop = useMapStore((state) => state.heightsTop);
   const heightsWater = useMapStore((state) => state.heightsWater);
+  const heightsBottom = useMapStore((state) => state.heightsBottom);
+  const heightsBase = useMapStore((state) => state.heightsBase);
   const assets = useMapStore((state) => state.assets);
 
   const [keys, setKeys] = useState({ w: false, a: false, s: false, d: false, shift: false, space: false, control: false });
@@ -206,31 +208,15 @@ export default function Player() {
 
   const getTerrainHeight = (x, z) => getLayerHeight(heightsTop, x, z);
 
-  const terrainGroupRef = useRef(null);
+  const getWalkableHeight = (x, y, z) => {
+    const topH = getLayerHeight(heightsTop, x, z);
+    const bottomH = getLayerHeight(heightsBottom, x, z);
+    const baseH = getLayerHeight(heightsBase, x, z);
 
-  const getTerrainHeightRaycast = (x, y, z) => {
-    if (!terrainGroupRef.current) {
-      let found = null;
-      glScene.traverse((child) => {
-        if (child.name === 'terrainGroup') {
-          found = child;
-        }
-      });
-      terrainGroupRef.current = found;
-    }
-    
-    if (!terrainGroupRef.current) return getTerrainHeight(x, z);
-    
-    physicsRaycaster.set(new THREE.Vector3(x, y + 1.5, z), new THREE.Vector3(0, -1, 0));
-    const intersects = physicsRaycaster.intersectObjects(terrainGroupRef.current.children);
-    if (intersects.length > 0) {
-      for (let i = 0; i < intersects.length; i++) {
-        if (intersects[i].face && intersects[i].face.normal.y > 0) {
-          return intersects[i].point.y;
-        }
-      }
-    }
-    return getTerrainHeight(x, z);
+    // Player's feet are at roughly `y`. Determine which layer they are standing on.
+    if (y >= topH - 1.5) return topH;
+    if (y >= bottomH - 1.5) return bottomH;
+    return baseH;
   };
 
   const hasSpawned = useRef(false);
@@ -283,7 +269,7 @@ export default function Player() {
         }
       }
 
-      const terrainH = getTerrainHeightRaycast(spawnX, 100, spawnZ);
+      const terrainH = getWalkableHeight(spawnX, 100, spawnZ);
       // Spawn slightly above the ground (at least height 2) so they fall naturally
       group.current.position.set(spawnX, Math.max(2, terrainH + 2), spawnZ);
       hasSpawned.current = true;
@@ -346,7 +332,7 @@ export default function Player() {
     // Lock character's visual rotation directly to camera's yaw (fixed behind head)
     group.current.rotation.y = yaw.current;
 
-    const currentTerrainHeight = getTerrainHeightRaycast(group.current.position.x, group.current.position.y, group.current.position.z);
+    const currentTerrainHeight = getWalkableHeight(group.current.position.x, group.current.position.y, group.current.position.z);
     
     // Apply movement with slope restriction on XZ
     let nextX = group.current.position.x + currentVelocity.current.x * delta;
@@ -354,7 +340,7 @@ export default function Player() {
     
     const dist = Math.sqrt((nextX - group.current.position.x)**2 + (nextZ - group.current.position.z)**2);
     let canMoveXZ = true;
-    const nextTerrainHeight = getTerrainHeightRaycast(nextX, group.current.position.y, nextZ);
+    const nextTerrainHeight = getWalkableHeight(nextX, group.current.position.y, nextZ);
     
     if (dist > 0.0001) {
       const slope = (nextTerrainHeight - currentTerrainHeight) / dist;

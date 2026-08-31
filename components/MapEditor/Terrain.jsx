@@ -208,6 +208,8 @@ export default function Terrain() {
     const centerIdx = yIdx * (GRID_SIZE + 1) + xIdx;
     
     const centerHeightTop = heightsTop[centerIdx];
+    const centerHeightBase = heightsBase[centerIdx];
+    const centerHeightBottom = heightsBottom[centerIdx];
 
     for (let i = -brushSize; i <= brushSize; i++) {
       for (let j = -brushSize; j <= brushSize; j++) {
@@ -236,28 +238,41 @@ export default function Terrain() {
         const falloff = Math.pow(Math.cos(normalizedDist * Math.PI / 2), 2);
         
         const isDigging = isShift; // Passed from e.ctrlKey
+        const isFlattening = isAlt; // Passed from e.altKey
 
         if (mode === 'sculptBase') {
-          const delta = brushIntensity * falloff * (isDigging ? -1 : 1);
-          newHeightsBase[idx] += delta;
-          if (!isDigging) { // Raising Base
+          if (isFlattening) {
+            const heightDiff = centerHeightBase - newHeightsBase[idx];
+            newHeightsBase[idx] += heightDiff * falloff * (brushIntensity * 0.1);
             if (newHeightsBase[idx] > newHeightsBottom[idx]) newHeightsBase[idx] = newHeightsBottom[idx];
+          } else {
+            const delta = brushIntensity * falloff * (isDigging ? -1 : 1);
+            newHeightsBase[idx] += delta;
+            if (!isDigging && newHeightsBase[idx] > newHeightsBottom[idx]) newHeightsBase[idx] = newHeightsBottom[idx];
           }
           modifiedBase = true;
         } else if (mode === 'sculptTop') {
-          const delta = brushIntensity * falloff * (isDigging ? -1 : 1);
-          newHeightsTop[idx] += delta;
-          if (isDigging) { // Lowering Top
+          if (isFlattening) {
+            const heightDiff = centerHeightTop - newHeightsTop[idx];
+            newHeightsTop[idx] += heightDiff * falloff * (brushIntensity * 0.1);
             if (newHeightsTop[idx] < newHeightsBottom[idx]) newHeightsTop[idx] = newHeightsBottom[idx];
+          } else {
+            const delta = brushIntensity * falloff * (isDigging ? -1 : 1);
+            newHeightsTop[idx] += delta;
+            if (isDigging && newHeightsTop[idx] < newHeightsBottom[idx]) newHeightsTop[idx] = newHeightsBottom[idx];
           }
           modifiedTop = true;
         } else if (mode === 'sculptBottom') {
-          const delta = brushIntensity * falloff * (isDigging ? -1 : 1);
-          newHeightsBottom[idx] += delta;
-          if (!isDigging) { // Raising Bottom
+          if (isFlattening) {
+            const heightDiff = centerHeightBottom - newHeightsBottom[idx];
+            newHeightsBottom[idx] += heightDiff * falloff * (brushIntensity * 0.1);
             if (newHeightsBottom[idx] > newHeightsTop[idx]) newHeightsBottom[idx] = newHeightsTop[idx];
-          } else { // Lowering Bottom
             if (newHeightsBottom[idx] < newHeightsBase[idx]) newHeightsBottom[idx] = newHeightsBase[idx];
+          } else {
+            const delta = brushIntensity * falloff * (isDigging ? -1 : 1);
+            newHeightsBottom[idx] += delta;
+            if (!isDigging && newHeightsBottom[idx] > newHeightsTop[idx]) newHeightsBottom[idx] = newHeightsTop[idx];
+            if (isDigging && newHeightsBottom[idx] < newHeightsBase[idx]) newHeightsBottom[idx] = newHeightsBase[idx];
           }
           modifiedBottom = true;
         } else if (mode === 'sculptWater') {
@@ -265,12 +280,12 @@ export default function Terrain() {
           newHeightsWater[idx] += delta;
           modifiedWater = true;
         } else if (mode === 'resetWater') {
-          const targetWaterHeight = newHeightsTop[idx] - 0.01;
+          const targetWaterHeight = 0; // Set strictly to 0
           const heightDiff = newHeightsWater[idx] - targetWaterHeight;
-          newHeightsWater[idx] -= heightDiff * falloff * (brushIntensity * 0.5); // Faster reset to Top layer
+          newHeightsWater[idx] -= heightDiff * falloff * (brushIntensity * 0.5); // Faster reset to 0
           modifiedWater = true;
         } else if (mode === 'flatten') {
-          const heightDiff = centerHeightTop - targetHeightTop;
+          const heightDiff = centerHeightTop - newHeightsTop[idx];
           newHeightsTop[idx] += heightDiff * falloff * (brushIntensity * 0.1);
           if (newHeightsTop[idx] < newHeightsBottom[idx]) newHeightsBottom[idx] = newHeightsTop[idx];
           if (newHeightsBottom[idx] < newHeightsBase[idx]) newHeightsBase[idx] = newHeightsBottom[idx];
@@ -319,7 +334,7 @@ export default function Terrain() {
 
     if (isBrushMode) {
       saveHistory(); 
-      applyBrush(targetPoint, e.button === 2 || e.ctrlKey); 
+      applyBrush(targetPoint, e.button === 2 || e.ctrlKey, e.altKey); 
     } else if (mode === 'water') {
       addWaterSource(targetPoint.x, targetPoint.z);
     } else if (mode === 'asset') {
@@ -388,18 +403,33 @@ export default function Terrain() {
   };
 
   const handlePointerMove = (e) => {
+    let currentTarget = null;
+    let currentNormal = null;
+
     if (!isPlaying || document.pointerLockElement !== gl.domElement) {
-      if (isBrushMode) {
+      if (mode !== 'none') {
         const intersects = r3fRaycaster.intersectObjects(getActiveMeshes());
         if (intersects.length > 0) {
-           setPointerPos(intersects[0].point);
-           const worldNormal = intersects[0].face.normal.clone().transformDirection(intersects[0].object.matrixWorld).normalize();
-           setPointerNormal(worldNormal);
+           currentTarget = intersects[0].point;
+           currentNormal = intersects[0].face.normal.clone().transformDirection(intersects[0].object.matrixWorld).normalize();
+           setPointerPos(currentTarget);
+           setPointerNormal(currentNormal);
         } else {
            setPointerPos(null);
         }
       } else {
         setPointerPos(null);
+      }
+    }
+
+    if (!isPointerDown && !isCameraMode && (mode === 'boundary' || mode === 'zone') && currentTarget) {
+      const { boundaryDrawing, setBoundaryDrawing } = useMapStore.getState();
+      if (boundaryDrawing && boundaryDrawing.points && boundaryDrawing.points.length > 0) {
+        const confirmedPoints = boundaryDrawing.points.slice(0, 1);
+        setBoundaryDrawing({ 
+          points: [...confirmedPoints, [currentTarget.x, currentTarget.z]], 
+          isZone: boundaryDrawing.isZone 
+        });
       }
     }
 
@@ -415,15 +445,12 @@ export default function Terrain() {
          return;
        }
     } else {
-       const intersects = r3fRaycaster.intersectObjects(getActiveMeshes());
-       if (intersects.length > 0) {
-         targetPoint = intersects[0].point;
-       }
+       targetPoint = currentTarget || e.point;
     }
 
     if (isBrushMode && targetPoint) {
       e.stopPropagation();
-      applyBrush(targetPoint, e.buttons === 2 || e.ctrlKey);
+      applyBrush(targetPoint, e.buttons === 2 || e.ctrlKey, e.altKey);
     } else if ((mode === 'boundary' || mode === 'zone') && targetPoint) {
       const { boundaryDrawing, setBoundaryDrawing } = useMapStore.getState();
       if (boundaryDrawing && boundaryDrawing.points && boundaryDrawing.points.length > 0) {

@@ -265,23 +265,21 @@ export default function EconomyGridTab() {
               {selectedIds.size}명의 학생에게 {actionType === 'SEND' ? '돈을 보냅니다' : '돈을 받습니다(징수)'}
             </h3>
             
-            {role?.role !== 'TEACHER' && (
-              <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
-                  {actionType === 'SEND' ? '관련 법률 또는 명령' : '관련 명령'} <span style={{ color: 'red' }}>*</span>
-                </label>
-                <select 
-                  className="glass-input" 
-                  value={selectedReference} 
-                  onChange={(e) => setSelectedReference(e.target.value)} 
-                  style={{ width: '100%' }}
-                >
-                  <option value="">선택하세요</option>
-                  {actionType === 'SEND' && laws.map(l => <option key={`law-${l.id}`} value={l.title}>[법률] {l.title}</option>)}
-                  {decrees.map(d => <option key={`decree-${d.id}`} value={d.title}>[명령] {d.title}</option>)}
-                </select>
-              </div>
-            )}
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+                {actionType === 'SEND' ? '관련 법률 또는 명령' : '관련 명령'} {role?.role !== 'TEACHER' && <span style={{ color: 'red' }}>*</span>}
+              </label>
+              <select 
+                className="glass-input" 
+                value={selectedReference} 
+                onChange={(e) => setSelectedReference(e.target.value)} 
+                style={{ width: '100%' }}
+              >
+                <option value="">{role?.role === 'TEACHER' ? '선택 안 함 (선택 사항)' : '선택하세요'}</option>
+                {actionType === 'SEND' && laws.map(l => <option key={`law-${l.id}`} value={l.title}>[법률] {l.title}</option>)}
+                {decrees.map(d => <option key={`decree-${d.id}`} value={d.title}>[명령] {d.title}</option>)}
+              </select>
+            </div>
             
             <div style={{ marginBottom: '1rem' }}>
               <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>

@@ -13,11 +13,37 @@ export default function NPCDialogueUI() {
   const [activeAsset, setActiveAsset] = useState(null);
   const [currentStep, setCurrentStep] = useState(0);
   const [mathAnswer, setMathAnswer] = useState('');
+  const [randomMathParams, setRandomMathParams] = useState({});
 
   useEffect(() => {
     const handleInteract = (e) => {
       if (isPlaying) {
-        setActiveAsset(e.detail.asset);
+        const asset = e.detail.asset;
+        const newRandomParams = {};
+        if (asset.quests) {
+          asset.quests.forEach((q, idx) => {
+            if (q.type === 'RANDOM_MATH') {
+              const types = ['CEIL', 'FLOOR', 'ROUND'];
+              const type = types[Math.floor(Math.random() * types.length)];
+              const unitOptions = [10, 100, 1000];
+              const unit = unitOptions[Math.floor(Math.random() * unitOptions.length)];
+              let target = 0;
+              if (unit === 10) target = Math.floor(Math.random() * 900) + 100;
+              else if (unit === 100) target = Math.floor(Math.random() * 9000) + 1000;
+              else target = Math.floor(Math.random() * 90000) + 10000;
+              
+              const obj = q.mathObject || '물건';
+              let title = '';
+              if (type === 'CEIL') title = `제가 구한 ${obj}의 수는 ${target}개입니다. 이 ${obj}을(를) ${unit}개 단위로 포장해서 남김없이 모두 담으려면, 필요한 공간을 올림하여 ${unit}의 자리까지 나타내면 총 몇 개 분량일까요?`;
+              else if (type === 'FLOOR') title = `제가 구한 ${obj}의 수는 ${target}개입니다. 이 ${obj}을(를) ${unit}개 단위로 묶어서 팔려고 합니다. 낱개는 팔 수 없다고 할 때, 최대로 팔 수 있는 ${obj}의 총 개수를 버림하여 ${unit}의 자리까지 나타내면 얼마일까요?`;
+              else if (type === 'ROUND') title = `제가 구한 ${obj}의 수는 ${target}개입니다. 이 ${obj}의 개수를 기록장에 대략적으로 적어야 하는데, 반올림하여 ${unit}의 자리까지 나타내면 얼마일까요?`;
+              
+              newRandomParams[idx] = { type, unit, target, title };
+            }
+          });
+        }
+        setRandomMathParams(newRandomParams);
+        setActiveAsset(asset);
         setCurrentStep(0);
         setMathAnswer('');
         setActiveDialogue(true);
@@ -203,7 +229,10 @@ export default function NPCDialogueUI() {
             if (npcQuests.length === 0) return null;
 
             // Find current quest
-            const currentQuestIndex = npcQuests.findIndex(q => !completedQuests.includes(q.title));
+            const currentQuestIndex = npcQuests.findIndex((q, idx) => {
+              const questId = q.type === 'RANDOM_MATH' ? `random_math_${activeAsset.id}_${idx}` : q.title;
+              return !completedQuests.includes(questId);
+            });
             
             if (currentQuestIndex === -1) {
               return (
@@ -223,7 +252,17 @@ export default function NPCDialogueUI() {
             }
 
             const currentQuest = npcQuests[currentQuestIndex];
-            const isAccepted = activeQuests.find(q => q.assetId === activeAsset.id && q.title === currentQuest.title);
+            const questId = currentQuest.type === 'RANDOM_MATH' ? `random_math_${activeAsset.id}_${currentQuestIndex}` : currentQuest.title;
+            const isAccepted = activeQuests.find(q => q.assetId === activeAsset.id && (q.questId === questId || (!q.questId && q.title === currentQuest.title)));
+
+            let questToRender = currentQuest;
+            if (currentQuest.type === 'RANDOM_MATH') {
+              if (isAccepted) {
+                questToRender = { ...currentQuest, title: isAccepted.title };
+              } else if (randomMathParams[currentQuestIndex]) {
+                questToRender = { ...currentQuest, title: randomMathParams[currentQuestIndex].title };
+              }
+            }
 
             return (
               <div style={{
@@ -236,7 +275,7 @@ export default function NPCDialogueUI() {
                 <strong style={{ color: '#fef08a', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px', fontSize: '0.9rem' }}>
                   📜 <span>퀘스트 {npcQuests.length > 1 ? `(${currentQuestIndex + 1}/${npcQuests.length})` : ''}</span>
                 </strong>
-                <span style={{ color: '#ffffff', fontSize: '0.95rem' }}>{currentQuest.title}</span>
+                <span style={{ color: '#ffffff', fontSize: '0.95rem' }}>{questToRender.title}</span>
                 
                 {(() => {
                   if (!isAccepted) {
@@ -246,7 +285,12 @@ export default function NPCDialogueUI() {
                           e.stopPropagation();
                           acceptQuest({
                             assetId: activeAsset.id,
-                            title: currentQuest.title,
+                            questId: questId,
+                            title: questToRender.title,
+                            type: currentQuest.type === 'RANDOM_MATH' ? 'MATH' : currentQuest.type,
+                            mathType: currentQuest.type === 'RANDOM_MATH' ? randomMathParams[currentQuestIndex]?.type : currentQuest.mathType,
+                            mathTargetNumber: currentQuest.type === 'RANDOM_MATH' ? randomMathParams[currentQuestIndex]?.target : currentQuest.mathTargetNumber,
+                            mathUnit: currentQuest.type === 'RANDOM_MATH' ? randomMathParams[currentQuestIndex]?.unit : currentQuest.mathUnit,
                             requireItem: currentQuest.requireItem,
                             requireAmount: currentQuest.requireAmount || 1,
                             rewardItem: currentQuest.rewardItem,
@@ -312,7 +356,7 @@ export default function NPCDialogueUI() {
                       }
 
                       completeQuest(activeAsset.id);
-                      addCompletedQuest(isAccepted.title);
+                      addCompletedQuest(questId);
                       alert('퀘스트를 완료하고 보상을 받았습니다!');
                       closeDialogue();
                     };

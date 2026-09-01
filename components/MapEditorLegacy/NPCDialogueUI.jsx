@@ -182,123 +182,154 @@ export default function NPCDialogueUI() {
           </div>
           
           {/* Quest Area if present - Show only on the last step */}
-          {isLastStep && activeAsset.quest && (
-            <div style={{
-              background: 'linear-gradient(90deg, rgba(234, 179, 8, 0.15), rgba(234, 179, 8, 0.05))',
-              border: '1px solid #facc15',
-              borderLeft: '4px solid #facc15',
-              padding: '12px 16px',
-              borderRadius: '8px'
-            }}>
-              <strong style={{ color: '#fef08a', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px', fontSize: '0.9rem' }}>
-                📜 <span>퀘스트</span>
-              </strong>
-              <span style={{ color: '#ffffff', fontSize: '0.95rem' }}>{activeAsset.quest}</span>
-              
-              {(() => {
-                const isAccepted = activeQuests.find(q => q.assetId === activeAsset.id);
-                const isCompletedLocally = completedQuests.includes(activeAsset.quest);
+          {(() => {
+            if (!isLastStep) return null;
+            
+            // Normalize quests data
+            let npcQuests = activeAsset.quests || [];
+            if (npcQuests.length === 0 && activeAsset.quest) {
+              npcQuests = [{
+                title: activeAsset.quest,
+                requireItem: activeAsset.questRequireItem,
+                requireAmount: activeAsset.questRequireAmount || 1,
+                rewardItem: activeAsset.questRewardItem,
+                rewardAmount: activeAsset.questRewardAmount || 1,
+                consumeItem: activeAsset.questConsumeItem !== false
+              }];
+            }
+            
+            if (npcQuests.length === 0) return null;
+
+            // Find current quest
+            const currentQuestIndex = npcQuests.findIndex(q => !completedQuests.includes(q.title));
+            
+            if (currentQuestIndex === -1) {
+              return (
+                <div style={{
+                  background: 'linear-gradient(90deg, rgba(34, 197, 94, 0.15), rgba(34, 197, 94, 0.05))',
+                  border: '1px solid #22c55e',
+                  borderLeft: '4px solid #22c55e',
+                  padding: '12px 16px',
+                  borderRadius: '8px'
+                }}>
+                  <strong style={{ color: '#4ade80', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px', fontSize: '0.9rem' }}>
+                    📜 <span>퀘스트 완료</span>
+                  </strong>
+                  <span style={{ fontSize: '0.95rem', color: '#e2e8f0' }}>모든 퀘스트를 완료했습니다! 도와주셔서 감사합니다.</span>
+                </div>
+              );
+            }
+
+            const currentQuest = npcQuests[currentQuestIndex];
+            const isAccepted = activeQuests.find(q => q.assetId === activeAsset.id && q.title === currentQuest.title);
+
+            return (
+              <div style={{
+                background: 'linear-gradient(90deg, rgba(234, 179, 8, 0.15), rgba(234, 179, 8, 0.05))',
+                border: '1px solid #facc15',
+                borderLeft: '4px solid #facc15',
+                padding: '12px 16px',
+                borderRadius: '8px'
+              }}>
+                <strong style={{ color: '#fef08a', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px', fontSize: '0.9rem' }}>
+                  📜 <span>퀘스트 {npcQuests.length > 1 ? `(${currentQuestIndex + 1}/${npcQuests.length})` : ''}</span>
+                </strong>
+                <span style={{ color: '#ffffff', fontSize: '0.95rem' }}>{currentQuest.title}</span>
                 
-                if (isCompletedLocally) {
-                  return (
-                    <div style={{ marginTop: '10px' }}>
-                      <span style={{ fontSize: '0.85rem', color: '#4ade80' }}>✓ 이미 완료한 퀘스트입니다.</span>
-                    </div>
-                  );
-                }
-
-                if (!isAccepted) {
-                  return (
-                    <div style={{ marginTop: '10px' }}>
-                      <button onClick={(e) => {
-                        e.stopPropagation();
-                        acceptQuest({
-                          assetId: activeAsset.id,
-                          title: activeAsset.quest,
-                          requireItem: activeAsset.questRequireItem,
-                          requireAmount: activeAsset.questRequireAmount || 1,
-                          rewardItem: activeAsset.questRewardItem,
-                          rewardAmount: activeAsset.questRewardAmount || 1,
-                        });
-                        alert('퀘스트를 수락했습니다!');
-                        closeDialogue();
-                      }} style={{ padding: '6px 12px', background: '#eab308', color: 'black', fontWeight: 'bold', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-                        수락하기
-                      </button>
-                    </div>
-                  );
-                } else {
-                  // Check if player has required items
-                  let hasItems = false;
-                  if (!isAccepted.requireItem) {
-                    hasItems = true;
-                  } else {
-                    let total = 0;
-                    items.forEach(item => {
-                      if (item && item.type === isAccepted.requireItem) total += item.count;
-                    });
-                    if (total >= isAccepted.requireAmount) hasItems = true;
-                  }
-
-                  const handleComplete = async (e) => {
-                    e.stopPropagation();
-                    if (!hasItems) {
-                      alert('아이템이 부족합니다!');
-                      return;
-                    }
-                    
-                    // Consume items
-                    if (isAccepted.requireItem) {
-                      consumeItem(isAccepted.requireItem, isAccepted.requireAmount);
-                    }
-                    
-                    // Give rewards
-                    if (isAccepted.rewardItem) {
-                      if (isAccepted.rewardItem === 'money') {
-                        // Call transaction API if it's money
-                        if (user && role?.role !== 'GUEST_MATH') {
-                          await supabase.rpc('process_transaction', {
-                            p_user_id: user.id,
-                            p_amount: isAccepted.rewardAmount,
-                            p_description: `퀘스트 보상: ${isAccepted.title}`,
-                            p_type: 'ETC'
+                {(() => {
+                  if (!isAccepted) {
+                    return (
+                      <div style={{ marginTop: '10px' }}>
+                        <button onClick={(e) => {
+                          e.stopPropagation();
+                          acceptQuest({
+                            assetId: activeAsset.id,
+                            title: currentQuest.title,
+                            requireItem: currentQuest.requireItem,
+                            requireAmount: currentQuest.requireAmount || 1,
+                            rewardItem: currentQuest.rewardItem,
+                            rewardAmount: currentQuest.rewardAmount || 1,
+                            consumeItem: currentQuest.consumeItem !== false,
                           });
-                        }
-                      } else {
-                        addItem(isAccepted.rewardItem, isAccepted.rewardAmount);
+                          alert('퀘스트를 수락했습니다!');
+                          closeDialogue();
+                        }} style={{ padding: '6px 12px', background: '#eab308', color: 'black', fontWeight: 'bold', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                          수락하기
+                        </button>
+                      </div>
+                    );
+                  } else {
+                    // Check if player has required items
+                    let hasItems = false;
+                    if (!isAccepted.requireItem) {
+                      hasItems = true;
+                    } else {
+                      let total = 0;
+                      items.forEach(item => {
+                        if (item && item.type === isAccepted.requireItem) total += item.count;
+                      });
+                      if (total >= isAccepted.requireAmount) hasItems = true;
+                    }
+
+                    const handleComplete = async (e) => {
+                      e.stopPropagation();
+                      if (!hasItems) {
+                        alert('아이템이 부족합니다!');
+                        return;
                       }
-                    }
-                    
-                    // Log to activity_logs
-                    if (user && role?.role !== 'GUEST_MATH') {
-                      await supabase.from('activity_logs').insert([{
-                        user_id: user.id,
-                        action_type: 'QUEST_COMPLETED',
-                        description: `퀘스트 완료: ${isAccepted.title}`,
-                        details: { map_id: currentMapId, asset_id: activeAsset.id, title: isAccepted.title, reward: isAccepted.rewardItem }
-                      }]);
-                    }
+                      
+                      // Consume items
+                      if (isAccepted.requireItem && isAccepted.consumeItem !== false) {
+                        consumeItem(isAccepted.requireItem, isAccepted.requireAmount);
+                      }
+                      
+                      // Give rewards
+                      if (isAccepted.rewardItem) {
+                        if (isAccepted.rewardItem === 'money') {
+                          if (user && role?.role !== 'GUEST_MATH') {
+                            await supabase.rpc('process_transaction', {
+                              p_user_id: user.id,
+                              p_amount: isAccepted.rewardAmount,
+                              p_description: `퀘스트 보상: ${isAccepted.title}`,
+                              p_type: 'ETC'
+                            });
+                          }
+                        } else {
+                          addItem(isAccepted.rewardItem, isAccepted.rewardAmount);
+                        }
+                      }
+                      
+                      // Log to activity_logs
+                      if (user && role?.role !== 'GUEST_MATH') {
+                        await supabase.from('activity_logs').insert([{
+                          user_id: user.id,
+                          action_type: 'QUEST_COMPLETED',
+                          description: `퀘스트 완료: ${isAccepted.title}`,
+                          details: { map_id: currentMapId, asset_id: activeAsset.id, title: isAccepted.title, reward: isAccepted.rewardItem }
+                        }]);
+                      }
 
-                    completeQuest(activeAsset.id);
-                    addCompletedQuest(isAccepted.title);
-                    alert('퀘스트를 완료하고 보상을 받았습니다!');
-                    closeDialogue();
-                  };
+                      completeQuest(activeAsset.id);
+                      addCompletedQuest(isAccepted.title);
+                      alert('퀘스트를 완료하고 보상을 받았습니다!');
+                      closeDialogue();
+                    };
 
-                  return (
-                    <div style={{ marginTop: '10px' }}>
-                      <span style={{ fontSize: '0.85rem', color: hasItems ? '#4ade80' : '#f87171', marginRight: '10px' }}>
-                        상태: {hasItems ? '조건 달성!' : '진행 중...'}
-                      </span>
-                      <button onClick={handleComplete} disabled={!hasItems} style={{ padding: '6px 12px', background: hasItems ? '#22c55e' : '#64748b', color: 'white', fontWeight: 'bold', border: 'none', borderRadius: '4px', cursor: hasItems ? 'pointer' : 'not-allowed' }}>
-                        보상 받기
-                      </button>
-                    </div>
-                  );
-                }
-              })()}
-            </div>
-          )}
+                    return (
+                      <div style={{ marginTop: '10px' }}>
+                        <span style={{ fontSize: '0.85rem', color: hasItems ? '#4ade80' : '#f87171', marginRight: '10px' }}>
+                          상태: {hasItems ? '조건 달성!' : '진행 중...'}
+                        </span>
+                        <button onClick={handleComplete} disabled={!hasItems} style={{ padding: '6px 12px', background: hasItems ? '#22c55e' : '#64748b', color: 'white', fontWeight: 'bold', border: 'none', borderRadius: '4px', cursor: hasItems ? 'pointer' : 'not-allowed' }}>
+                          보상 받기
+                        </button>
+                      </div>
+                    );
+                  }
+                })()}
+              </div>
+            );
+          })()}
 
           {/* Footer Controls */}
           <div style={{

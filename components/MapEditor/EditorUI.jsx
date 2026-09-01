@@ -579,87 +579,138 @@ function PropertyEditor() {
             />
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-            <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>퀘스트 설명 (Quest Text)</label>
-            <textarea 
-              className="glass-input" 
-              value={asset.quest || ''} 
-              onChange={(e) => updateAsset(asset.id, { quest: e.target.value })}
-              placeholder="예: 촌장님을 위해 사과 3개를 가져다주세요!"
-              rows={2}
-              style={{ padding: '0.4rem', resize: 'vertical' }}
-            />
-          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', marginTop: '0.5rem', borderTop: '1px solid #d1d5db', paddingTop: '0.5rem' }}>
+            <label style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>퀘스트 목록 (순차 진행)</label>
+            
+            {(() => {
+              const quests = asset.quests || (asset.quest ? [{
+                title: asset.quest,
+                requireItem: asset.questRequireItem,
+                requireAmount: asset.questRequireAmount || 1,
+                rewardItem: asset.questRewardItem,
+                rewardAmount: asset.questRewardAmount || 1,
+                consumeItem: asset.questConsumeItem !== false
+              }] : []);
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-            <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>퀘스트 요구 아이템 (Require)</label>
-            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-              <select 
-                className="glass-input"
-                value={asset.questRequireItem || ''}
-                onChange={(e) => updateAsset(asset.id, { questRequireItem: e.target.value })}
-                style={{ padding: '0.4rem', flex: 1 }}
-              >
-                <option value="">(없음)</option>
-                <optgroup label="기본 채집 아이템">
-                  <option value="도토리">🌰 도토리</option>
-                  <option value="나뭇가지">🌿 나뭇가지</option>
-                  <option value="나무껍질">📜 나무껍질</option>
-                  <option value="나무뿌리">🌱 나무뿌리</option>
-                  <option value="rock">🪨 바위(돌)</option>
-                </optgroup>
-                <optgroup label="생성된 커스텀 아이템">
-                  {useMapStore.getState().customItems?.map(item => (
-                    <option key={item.id} value={item.id}>{item.icon} {item.name}</option>
-                  ))}
-                </optgroup>
-              </select>
-              <input 
-                type="number"
-                className="glass-input"
-                placeholder="수량"
-                value={asset.questRequireAmount || 1}
-                onChange={(e) => updateAsset(asset.id, { questRequireAmount: Number(e.target.value) })}
-                style={{ width: '60px', padding: '0.4rem' }}
-                min="1"
-              />
-            </div>
-          </div>
+              const updateQuests = (newQuests) => {
+                updateAsset(asset.id, { 
+                  quests: newQuests, 
+                  quest: null, questRequireItem: null, questRequireAmount: null, questRewardItem: null, questRewardAmount: null, questConsumeItem: null 
+                });
+              };
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-            <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>퀘스트 보상 아이템 (Reward)</label>
-            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-              <select 
-                className="glass-input"
-                value={asset.questRewardItem || ''}
-                onChange={(e) => updateAsset(asset.id, { questRewardItem: e.target.value })}
-                style={{ padding: '0.4rem', flex: 1 }}
-              >
-                <option value="">(없음)</option>
-                <option value="money">💰 돈 (기본 화폐)</option>
-                <optgroup label="기본 채집 아이템">
-                  <option value="도토리">🌰 도토리</option>
-                  <option value="나뭇가지">🌿 나뭇가지</option>
-                  <option value="나무껍질">📜 나무껍질</option>
-                  <option value="나무뿌리">🌱 나무뿌리</option>
-                  <option value="rock">🪨 바위(돌)</option>
-                </optgroup>
-                <optgroup label="생성된 커스텀 아이템">
-                  {useMapStore.getState().customItems?.map(item => (
-                    <option key={item.id} value={item.id}>{item.icon} {item.name}</option>
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {quests.map((q, i) => (
+                    <div key={i} style={{ background: 'rgba(255,255,255,0.5)', padding: '0.5rem', borderRadius: '4px', border: '1px solid #cbd5e1' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem' }}>
+                        <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>퀘스트 {i + 1}</span>
+                        <button onClick={() => {
+                          const newQ = [...quests]; newQ.splice(i, 1); updateQuests(newQ);
+                        }} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.8rem' }}>✖ 삭제</button>
+                      </div>
+                      
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                        <textarea 
+                          className="glass-input" 
+                          value={q.title || ''} 
+                          onChange={(e) => { const newQ = [...quests]; newQ[i].title = e.target.value; updateQuests(newQ); }}
+                          placeholder="예: 촌장님을 위해 사과 3개를 가져다주세요!"
+                          rows={2}
+                          style={{ padding: '0.4rem', resize: 'vertical' }}
+                        />
+                        
+                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                          <select 
+                            className="glass-input"
+                            value={q.requireItem || ''}
+                            onChange={(e) => { const newQ = [...quests]; newQ[i].requireItem = e.target.value; updateQuests(newQ); }}
+                            style={{ padding: '0.4rem', flex: 1 }}
+                          >
+                            <option value="">(요구 아이템 없음)</option>
+                            <optgroup label="기본 채집 아이템">
+                              <option value="도토리">🌰 도토리</option>
+                              <option value="나뭇가지">🌿 나뭇가지</option>
+                              <option value="나무껍질">📜 나무껍질</option>
+                              <option value="나무뿌리">🌱 나무뿌리</option>
+                              <option value="rock">🪨 바위(돌)</option>
+                            </optgroup>
+                            <optgroup label="생성된 커스텀 아이템">
+                              {useMapStore.getState().customItems?.map(item => (
+                                <option key={item.id} value={item.id}>{item.icon} {item.name}</option>
+                              ))}
+                            </optgroup>
+                          </select>
+                          <input 
+                            type="number"
+                            className="glass-input"
+                            placeholder="수량"
+                            value={q.requireAmount || 1}
+                            onChange={(e) => { const newQ = [...quests]; newQ[i].requireAmount = Number(e.target.value); updateQuests(newQ); }}
+                            style={{ width: '60px', padding: '0.4rem' }}
+                            min="1"
+                          />
+                        </div>
+
+                        {q.requireItem && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <input 
+                              type="checkbox" 
+                              id={`consumeItem_${asset.id}_${i}`}
+                              checked={q.consumeItem !== false} 
+                              onChange={(e) => { const newQ = [...quests]; newQ[i].consumeItem = e.target.checked; updateQuests(newQ); }}
+                            />
+                            <label htmlFor={`consumeItem_${asset.id}_${i}`} style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>완료 시 아이템 가져가기 (소모)</label>
+                          </div>
+                        )}
+
+                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                          <select 
+                            className="glass-input"
+                            value={q.rewardItem || ''}
+                            onChange={(e) => { const newQ = [...quests]; newQ[i].rewardItem = e.target.value; updateQuests(newQ); }}
+                            style={{ padding: '0.4rem', flex: 1 }}
+                          >
+                            <option value="">(보상 없음)</option>
+                            <option value="money">💰 돈 (기본 화폐)</option>
+                            <optgroup label="기본 채집 아이템">
+                              <option value="도토리">🌰 도토리</option>
+                              <option value="나뭇가지">🌿 나뭇가지</option>
+                              <option value="나무껍질">📜 나무껍질</option>
+                              <option value="나무뿌리">🌱 나무뿌리</option>
+                              <option value="rock">🪨 바위(돌)</option>
+                            </optgroup>
+                            <optgroup label="생성된 커스텀 아이템">
+                              {useMapStore.getState().customItems?.map(item => (
+                                <option key={item.id} value={item.id}>{item.icon} {item.name}</option>
+                              ))}
+                            </optgroup>
+                          </select>
+                          <input 
+                            type="number"
+                            className="glass-input"
+                            placeholder="수량"
+                            value={q.rewardAmount || 1}
+                            onChange={(e) => { const newQ = [...quests]; newQ[i].rewardAmount = Number(e.target.value); updateQuests(newQ); }}
+                            style={{ width: '60px', padding: '0.4rem' }}
+                            min="1"
+                          />
+                        </div>
+                      </div>
+                    </div>
                   ))}
-                </optgroup>
-              </select>
-              <input 
-                type="number"
-                className="glass-input"
-                placeholder="수량"
-                value={asset.questRewardAmount || 1}
-                onChange={(e) => updateAsset(asset.id, { questRewardAmount: Number(e.target.value) })}
-                style={{ width: '60px', padding: '0.4rem' }}
-                min="1"
-              />
-            </div>
+                  
+                  <button 
+                    onClick={() => {
+                      updateQuests([...quests, { title: '', requireAmount: 1, rewardAmount: 1, consumeItem: true }]);
+                    }}
+                    style={{ padding: '0.5rem', background: '#e2e8f0', color: '#334155', border: '1px dashed #94a3b8', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                  >
+                    + 퀘스트 추가
+                  </button>
+                </div>
+              );
+            })()}
           </div>
         </>
       )}

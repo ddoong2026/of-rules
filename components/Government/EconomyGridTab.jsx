@@ -16,6 +16,11 @@ export default function EconomyGridTab() {
   const [amount, setAmount] = useState('');
   const [reason, setReason] = useState('');
   
+  // Reference state
+  const [laws, setLaws] = useState([]);
+  const [decrees, setDecrees] = useState([]);
+  const [selectedReference, setSelectedReference] = useState('');
+  
   // Options for Teacher
   const [sourceType, setSourceType] = useState('TREASURY'); // 'PERSONAL', 'TREASURY', 'NONE'
   const [isProcessing, setIsProcessing] = useState(false);
@@ -26,8 +31,19 @@ export default function EconomyGridTab() {
   const hasAuth = isTeacherOrPres || isEconomyAdmin;
 
   useEffect(() => {
-    if (hasAuth) fetchStudents();
+    if (hasAuth) {
+      fetchStudents();
+      fetchReferences();
+    }
   }, [hasAuth]);
+
+  const fetchReferences = async () => {
+    const { data: lawsData } = await supabase.from('laws').select('id, title').eq('status', 'PASSED');
+    if (lawsData) setLaws(lawsData);
+    
+    const { data: decreesData } = await supabase.from('decrees').select('id, title').neq('status', 'DRAFT');
+    if (decreesData) setDecrees(decreesData);
+  };
 
   const fetchStudents = async () => {
     const { data } = await supabase
@@ -81,8 +97,10 @@ export default function EconomyGridTab() {
     if (selectedIds.size === 0) return alert('학생을 먼저 선택해주세요.');
     setActionType(type);
     
-    if (type === 'RECEIVE') setReason('벌금/과태료');
-    else setReason('월급/지원금');
+    if (type === 'RECEIVE') setReason('');
+    else setReason('');
+    
+    setSelectedReference('');
     
     setSourceType('TREASURY'); // Default to treasury
     setIsModalOpen(true);
@@ -90,9 +108,21 @@ export default function EconomyGridTab() {
 
   const handleSubmit = async () => {
     if (!amount || isNaN(amount) || amount <= 0) return alert('올바른 금액을 입력하세요.');
-    if (!reason) return alert('사유를 입력하세요.');
+    
+    if (role?.role !== 'TEACHER') {
+      if (!selectedReference) {
+        return alert(actionType === 'SEND' ? '관련 법률 또는 명령을 선택하세요.' : '관련 명령을 선택하세요.');
+      }
+      if (!reason.trim()) {
+        return alert('사유를 입력하세요.');
+      }
+    }
     
     const parsedAmount = parseInt(amount, 10);
+    const finalReason = selectedReference 
+      ? `[${selectedReference}] ${reason}`.trim() 
+      : (reason || (actionType === 'SEND' ? '지급' : '징수'));
+      
     setIsProcessing(true);
 
     try {
@@ -108,7 +138,7 @@ export default function EconomyGridTab() {
           }
           // Deduct from teacher's personal balance
           await supabase.rpc('process_transaction', {
-            p_user_id: user.id, p_amount: -totalCost, p_description: `다중 송금: ${reason} (${selectedIds.size}명)`, p_type: 'ETC', p_actor_id: user.id
+            p_user_id: user.id, p_amount: -totalCost, p_description: `다중 송금: ${finalReason} (${selectedIds.size}명)`, p_type: 'ETC', p_actor_id: user.id
           });
         } else if (sourceType === 'TREASURY' || (!isTeacherOrPres && isEconomyAdmin)) {
           // Both admin student and teacher selecting TREASURY will deduct from treasury
@@ -122,7 +152,7 @@ export default function EconomyGridTab() {
         if (isTeacherOrPres && sourceType === 'PERSONAL') {
           // Add to teacher's personal balance
           await supabase.rpc('process_transaction', {
-            p_user_id: user.id, p_amount: totalCost, p_description: `다중 징수: ${reason} (${selectedIds.size}명)`, p_type: 'ETC', p_actor_id: user.id
+            p_user_id: user.id, p_amount: totalCost, p_description: `다중 징수: ${finalReason} (${selectedIds.size}명)`, p_type: 'ETC', p_actor_id: user.id
           });
         } else if (sourceType === 'TREASURY' || (!isTeacherOrPres && isEconomyAdmin)) {
           // Both admin student and teacher selecting TREASURY will add to treasury
@@ -134,7 +164,7 @@ export default function EconomyGridTab() {
       // 3. Process each student via process_treasury_transaction
       for (const studentId of Array.from(selectedIds)) {
         const txAmount = actionType === 'SEND' ? parsedAmount : -parsedAmount;
-        const txType = actionType === 'RECEIVE' ? 'FINE' : (reason.includes('월급') ? 'SALARY' : 'ETC');
+        const txType = actionType === 'RECEIVE' ? 'FINE' : (finalReason.includes('월급') ? 'SALARY' : 'ETC');
         
         // We only change treasury once per batch, or divide it per student.
         // It's safer to pass the treasuryChange / selectedIds.size per student so it adds up correctly
@@ -146,7 +176,7 @@ export default function EconomyGridTab() {
           p_user_id: studentId,
           p_amount: txAmount,
           p_treasury_change: perStudentTreasuryChange,
-          p_description: reason,
+          p_description: finalReason,
           p_type: txType,
           p_actor_id: user.id
         });
@@ -235,9 +265,29 @@ export default function EconomyGridTab() {
               {selectedIds.size}명의 학생에게 {actionType === 'SEND' ? '돈을 보냅니다' : '돈을 받습니다(징수)'}
             </h3>
             
+            {role?.role !== 'TEACHER' && (
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+                  {actionType === 'SEND' ? '관련 법률 또는 명령' : '관련 명령'} <span style={{ color: 'red' }}>*</span>
+                </label>
+                <select 
+                  className="glass-input" 
+                  value={selectedReference} 
+                  onChange={(e) => setSelectedReference(e.target.value)} 
+                  style={{ width: '100%' }}
+                >
+                  <option value="">선택하세요</option>
+                  {actionType === 'SEND' && laws.map(l => <option key={`law-${l.id}`} value={l.title}>[법률] {l.title}</option>)}
+                  {decrees.map(d => <option key={`decree-${d.id}`} value={d.title}>[명령] {d.title}</option>)}
+                </select>
+              </div>
+            )}
+            
             <div style={{ marginBottom: '1rem' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>사유</label>
-              <input type="text" className="glass-input" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="예: 벌금, 월급 등" style={{ width: '100%' }} />
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+                사유 {role?.role !== 'TEACHER' && <span style={{ color: 'red' }}>*</span>}
+              </label>
+              <input type="text" className="glass-input" value={reason} onChange={(e) => setReason(e.target.value)} placeholder={role?.role === 'TEACHER' ? '선택 사항' : '예: 벌금, 월급 등'} style={{ width: '100%' }} />
             </div>
             
             <div style={{ marginBottom: '1rem' }}>

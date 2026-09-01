@@ -3,22 +3,24 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/components/AuthProvider';
+import DecreeForm from './DecreeForm';
 import styles from './GovernmentTabs.module.css';
-import { CheckCircle, XCircle, Trash2, Search } from 'lucide-react';
+import { CheckCircle, XCircle, Trash2, Search, Edit2 } from 'lucide-react';
 
 export default function DecreesTab() {
   const [decrees, setDecrees] = useState([]);
   const [expandedDecreeId, setExpandedDecreeId] = useState(null);
   const [filterDept, setFilterDept] = useState('전체');
   const [searchTerm, setSearchTerm] = useState('');
+  const [editingDecree, setEditingDecree] = useState(null);
   const { user, role } = useAuth();
 
   const fetchDecrees = async () => {
     const { data, error } = await supabase
       .from('decrees')
       .select(`
-        id, law_id, department, title, content, status, created_at,
-        laws (title),
+        id, law_id, department, title, content, status, created_at, minister_id,
+        laws (id, title, content, target_department),
         users:minister_id (name)
       `)
       .order('created_at', { ascending: false });
@@ -110,7 +112,21 @@ export default function DecreesTab() {
         </div>
       </div>
 
-      <div className={styles.list}>
+      {editingDecree ? (
+        <div style={{ marginTop: '2rem' }}>
+          <DecreeForm 
+            law={editingDecree.laws} 
+            onSuccess={() => {
+              setEditingDecree(null);
+              fetchDecrees();
+            }} 
+            onCancel={() => setEditingDecree(null)} 
+            initialData={editingDecree}
+            editDecreeId={editingDecree.id}
+          />
+        </div>
+      ) : (
+        <div className={styles.list}>
         {filteredDecrees.length === 0 ? (
           <p className={styles.empty}>
             {searchTerm ? '검색 결과가 없습니다.' : '해당하는 명령이 없습니다.'}
@@ -155,15 +171,24 @@ export default function DecreesTab() {
                     </button>
                   )}
                   
-                  {(role?.role === 'TEACHER' || (['MINISTER', 'ASSEMBLY'].includes(role?.role) && role?.department === decree.department && decree.status === 'DRAFT')) && (
-                    <button 
-                      className={styles.actionBtn} 
-                      onClick={() => handleDelete(decree.id)} 
-                      style={{color: '#b91c1c', border: '1px solid #fecaca', background: '#fef2f2'}}
-                      title="삭제/반려"
-                    >
-                      <Trash2 size={16} /> 반려(삭제)
-                    </button>
+                  {(role?.role === 'TEACHER' || decree.minister_id === user?.id) && (
+                    <>
+                      <button 
+                        className={styles.actionBtn} 
+                        onClick={() => setEditingDecree(decree)}
+                        style={{ color: 'var(--primary)', padding: '0.2rem 0.5rem', border: '1px solid #93c5fd', borderRadius: '4px', background: '#eff6ff', fontSize: '0.85rem' }}
+                      >
+                        수정
+                      </button>
+                      <button 
+                        className={styles.actionBtn} 
+                        onClick={() => handleDelete(decree.id)} 
+                        style={{color: '#b91c1c', border: '1px solid #fecaca', background: '#fef2f2'}}
+                        title="삭제/반려"
+                      >
+                        <Trash2 size={16} /> 삭제
+                      </button>
+                    </>
                   )}
                 </div>
               </div>
@@ -171,6 +196,7 @@ export default function DecreesTab() {
           ))
         )}
       </div>
+      )}
     </div>
   );
 }

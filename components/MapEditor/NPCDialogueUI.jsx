@@ -9,7 +9,7 @@ import { useAuth } from '@/components/AuthProvider';
 export default function NPCDialogueUI() {
   const { isPlaying, setActiveDialogue, currentMapId } = useMapStore();
   const { activeQuests, completedQuests, acceptQuest, completeQuest, addCompletedQuest, items, consumeItem, addItem } = useInventoryStore();
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const [activeAsset, setActiveAsset] = useState(null);
   const [currentStep, setCurrentStep] = useState(0);
   const [mathAnswer, setMathAnswer] = useState('');

@@ -100,8 +100,8 @@ export default function Player() {
         // 캐릭터의 정면 벡터 (X, Z 평면)
         const forward = new THREE.Vector3(0, 0, 1).applyEuler(new THREE.Euler(0, yaw.current, 0));
         
+        let bestScore = -Infinity;
         let closestAssetId = null;
-        let minDistance = 2.5; // 최대 채집 거리
         
         for (const asset of assets) {
           if (asset.minedAt) continue;
@@ -113,13 +113,17 @@ export default function Player() {
           const dz = assetZ - playerPos.z;
           const distance = Math.sqrt(dx*dx + dz*dz);
           
-          if (distance < minDistance) {
-            const dir = new THREE.Vector3(dx, 0, dz).normalize();
+          if (distance < 2.5) {
+            const dir = distance > 0.001 ? new THREE.Vector3(dx, 0, dz).normalize() : new THREE.Vector3(0,0,1);
             const dot = forward.dot(dir);
             
             if (dot > 0.3 || distance < 1.0) {
-              minDistance = distance;
-              closestAssetId = asset.id;
+              // 바라보는 방향(dot)을 우선시하고, 그 다음 거리를 고려
+              const score = (dot > 0.3 ? dot : 0) - (distance / 2.5);
+              if (score > bestScore) {
+                bestScore = score;
+                closestAssetId = asset.id;
+              }
             }
           }
         }
@@ -140,9 +144,12 @@ export default function Player() {
           }
 
           // 시작! (수학 채집 미니게임)
-          useMapStore.getState().setMineMiniGame(true, closestAssetId, targetAsset?.type);
-          if (document.pointerLockElement === canvas) {
-            document.exitPointerLock();
+          // 나무와 돌만 캘 수 있도록 제한
+          if (isTree || targetAsset?.type === 'rock') {
+            useMapStore.getState().setMineMiniGame(true, closestAssetId, targetAsset?.type);
+            if (document.pointerLockElement === canvas) {
+              document.exitPointerLock();
+            }
           }
         }
       }

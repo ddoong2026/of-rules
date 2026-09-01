@@ -611,11 +611,104 @@ function PropertyEditor() {
                       </div>
                       
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                        <select
+                          className="glass-input"
+                          value={q.type || 'COLLECT'}
+                          onChange={(e) => { const newQ = [...quests]; newQ[i].type = e.target.value; updateQuests(newQ); }}
+                          style={{ padding: '0.4rem' }}
+                        >
+                          <option value="COLLECT">수집 퀘스트 (아이템 모으기)</option>
+                          <option value="MATH">수학 퀘스트 (어림하기 문제)</option>
+                        </select>
+
+                        {q.type === 'MATH' && (
+                          <div style={{ padding: '0.5rem', background: 'rgba(59, 130, 246, 0.1)', borderRadius: '4px', border: '1px solid #93c5fd', marginTop: '0.3rem', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                              <label style={{ fontSize: '0.75rem', fontWeight: 'bold', width: '60px' }}>문제 상황</label>
+                              <select 
+                                className="glass-input"
+                                value={q.mathContext || 'BUY_BOX'}
+                                onChange={(e) => { const newQ = [...quests]; newQ[i].mathContext = e.target.value; updateQuests(newQ); }}
+                                style={{ flex: 1, padding: '0.3rem', fontSize: '0.8rem' }}
+                              >
+                                <option value="BUY_BOX">묶음 포장/구매 (올림)</option>
+                                <option value="USE_BUNDLE">묶음 판매/사용 (버림)</option>
+                                <option value="RECORD">통계 기록 (반올림)</option>
+                                <option value="MEASURE">측정값 (소수점 어림)</option>
+                              </select>
+                            </div>
+                            
+                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                              <label style={{ fontSize: '0.75rem', fontWeight: 'bold', width: '60px' }}>연산 방식</label>
+                              <select 
+                                className="glass-input"
+                                value={q.mathType || 'CEIL'}
+                                onChange={(e) => { const newQ = [...quests]; newQ[i].mathType = e.target.value; updateQuests(newQ); }}
+                                style={{ flex: 1, padding: '0.3rem', fontSize: '0.8rem' }}
+                              >
+                                <option value="CEIL">올림</option>
+                                <option value="FLOOR">버림</option>
+                                <option value="ROUND">반올림</option>
+                              </select>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                              <label style={{ fontSize: '0.75rem', fontWeight: 'bold', width: '60px' }}>대상 숫자</label>
+                              <input 
+                                type="number"
+                                step="any"
+                                className="glass-input"
+                                placeholder="예: 345, 12.3"
+                                value={q.mathTargetNumber || ''}
+                                onChange={(e) => { const newQ = [...quests]; newQ[i].mathTargetNumber = Number(e.target.value); updateQuests(newQ); }}
+                                style={{ flex: 1, padding: '0.3rem', fontSize: '0.8rem' }}
+                              />
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                              <label style={{ fontSize: '0.75rem', fontWeight: 'bold', width: '60px' }}>어림 단위</label>
+                              <select 
+                                className="glass-input"
+                                value={q.mathUnit || 10}
+                                onChange={(e) => { const newQ = [...quests]; newQ[i].mathUnit = Number(e.target.value); updateQuests(newQ); }}
+                                style={{ flex: 1, padding: '0.3rem', fontSize: '0.8rem' }}
+                              >
+                                <option value="1000">천의 자리까지 (백의 자리에서 어림)</option>
+                                <option value="100">백의 자리까지 (십의 자리에서 어림)</option>
+                                <option value="10">십의 자리까지 (일의 자리에서 어림)</option>
+                                <option value="1">일의 자리까지 (소수 첫째 자리에서 어림)</option>
+                                <option value="0.1">소수 첫째 자리까지 (소수 둘째 자리에서 어림)</option>
+                                <option value="0.01">소수 둘째 자리까지 (소수 셋째 자리에서 어림)</option>
+                              </select>
+                            </div>
+                            
+                            <button
+                              onClick={() => {
+                                const num = q.mathTargetNumber || 0;
+                                const unit = q.mathUnit || 10;
+                                const context = q.mathContext || 'BUY_BOX';
+                                let text = '';
+                                if (context === 'BUY_BOX') text = `제가 물건을 ${num}개 모았어요. 이 물건을 ${unit}개씩 들어가는 상자에 모두 담으려고 합니다. 상자를 낱개로는 안 팔고 ${unit}개 들이 상자로만 파는데, 물건을 전부 담으려면 상자 공간이 총 몇 개 분량이 필요할까요? (올림하여 ${unit}의 자리까지 나타내기)`;
+                                else if (context === 'USE_BUNDLE') text = `제가 물건을 ${num}개 모았어요. 이 물건을 ${unit}개씩 묶어서 팔려고 합니다. 묶음에 들어가지 못하는 낱개는 팔 수 없어요. 최대 몇 개까지 묶음으로 묶어서 팔 수 있을까요? (버림하여 ${unit}의 자리까지 나타내기)`;
+                                else if (context === 'RECORD') text = `기록장에 수확량을 ${unit}의 자리까지 적어야 해요. 현재 정확한 수확량은 ${num}입니다. 반올림하여 ${unit}의 자리까지 나타낸 수를 알려주세요!`;
+                                else if (context === 'MEASURE') text = `이번에 측정한 무게(또는 길이)가 ${num}입니다. 이 값을 ${unit} 단위까지 어림해서 알려주세요! (어떤 어림 방식을 쓸지 문제에 맞게 수정해주세요)`;
+                                
+                                const newQ = [...quests]; 
+                                newQ[i].title = text; 
+                                updateQuests(newQ);
+                              }}
+                              style={{ padding: '0.4rem', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', marginTop: '0.2rem' }}
+                            >
+                              ✨ 퀘스트 질문 자동 생성 (아래 입력창에 채워집니다)
+                            </button>
+                          </div>
+                        )}
+
                         <textarea 
                           className="glass-input" 
                           value={q.title || ''} 
                           onChange={(e) => { const newQ = [...quests]; newQ[i].title = e.target.value; updateQuests(newQ); }}
-                          placeholder="예: 촌장님을 위해 사과 3개를 가져다주세요!"
+                          placeholder={q.type === 'MATH' ? "문제 지문을 여기에 적어주세요." : "예: 촌장님을 위해 사과 3개를 가져다주세요!"}
                           rows={2}
                           style={{ padding: '0.4rem', resize: 'vertical' }}
                         />

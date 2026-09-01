@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import useInventoryStore from '@/store/useInventoryStore';
 
 const AuthContext = createContext({});
 
@@ -84,6 +85,18 @@ export const AuthProvider = ({ children }) => {
     
     const { data: tresData } = await supabase.from('settings').select('value').eq('key', 'treasury_balance').single();
     if (tresData) setTreasury(parseInt(tresData.value || '0', 10));
+    
+    // Fetch completed quests to prevent repeating
+    const { data: questLogs } = await supabase
+      .from('activity_logs')
+      .select('details')
+      .eq('user_id', userId)
+      .eq('action_type', 'QUEST_COMPLETED');
+    
+    if (questLogs) {
+      const completedTitles = questLogs.map(log => log.details?.title).filter(Boolean);
+      useInventoryStore.getState().setCompletedQuests(completedTitles);
+    }
     
     setLoading(false);
   };

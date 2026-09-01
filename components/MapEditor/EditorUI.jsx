@@ -130,6 +130,7 @@ export default function EditorUI({ onSave, isSaving }) {
           <ModeButton current={mode} id="spawn" label="🚩 스폰 위치" onClick={() => setMode('spawn')} />
           <ModeButton current={mode} id="erase" label="🗑️ 지우개" onClick={() => setMode('erase')} />
           <ModeButton current={mode === 'selectTarget' || mode === 'drawPath' ? 'select' : mode} id="select" label="🖱️ 선택/편집" onClick={() => setMode('select')} />
+          <ModeButton current={mode} id="itemManager" label="🎒 아이템 관리" onClick={() => setMode('itemManager')} />
         </div>
       </div>
 
@@ -251,6 +252,11 @@ export default function EditorUI({ onSave, isSaving }) {
             배치된 에셋(나무, 바위 등)이나 바닥 타일, 경계선을 클릭하면 삭제됩니다.
           </p>
         </div>
+      )}
+
+      {/* Item Manager */}
+      {mode === 'itemManager' && (
+        <ItemManagerUI />
       )}
 
       {/* Select / Edit Mode */}
@@ -574,15 +580,68 @@ function PropertyEditor() {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-            <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>퀘스트 (Quest)</label>
+            <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>퀘스트 설명 (Quest Text)</label>
             <textarea 
               className="glass-input" 
               value={asset.quest || ''} 
               onChange={(e) => updateAsset(asset.id, { quest: e.target.value })}
-              placeholder="퀘스트 내용"
+              placeholder="예: 촌장님을 위해 사과 3개를 가져다주세요!"
               rows={2}
               style={{ padding: '0.4rem', resize: 'vertical' }}
             />
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+            <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>퀘스트 요구 아이템 (Require)</label>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              <select 
+                className="glass-input"
+                value={asset.questRequireItem || ''}
+                onChange={(e) => updateAsset(asset.id, { questRequireItem: e.target.value })}
+                style={{ padding: '0.4rem', flex: 1 }}
+              >
+                <option value="">(없음)</option>
+                {useMapStore.getState().customItems?.map(item => (
+                  <option key={item.id} value={item.id}>{item.icon} {item.name}</option>
+                ))}
+              </select>
+              <input 
+                type="number"
+                className="glass-input"
+                placeholder="수량"
+                value={asset.questRequireAmount || 1}
+                onChange={(e) => updateAsset(asset.id, { questRequireAmount: Number(e.target.value) })}
+                style={{ width: '60px', padding: '0.4rem' }}
+                min="1"
+              />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+            <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>퀘스트 보상 아이템 (Reward)</label>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              <select 
+                className="glass-input"
+                value={asset.questRewardItem || ''}
+                onChange={(e) => updateAsset(asset.id, { questRewardItem: e.target.value })}
+                style={{ padding: '0.4rem', flex: 1 }}
+              >
+                <option value="">(없음)</option>
+                <option value="money">돈 (기본 화폐)</option>
+                {useMapStore.getState().customItems?.map(item => (
+                  <option key={item.id} value={item.id}>{item.icon} {item.name}</option>
+                ))}
+              </select>
+              <input 
+                type="number"
+                className="glass-input"
+                placeholder="수량"
+                value={asset.questRewardAmount || 1}
+                onChange={(e) => updateAsset(asset.id, { questRewardAmount: Number(e.target.value) })}
+                style={{ width: '60px', padding: '0.4rem' }}
+                min="1"
+              />
+            </div>
           </div>
         </>
       )}
@@ -649,10 +708,109 @@ function PropertyEditor() {
       </div>
       
       {!isNPC && (
-        <p style={{ fontSize: '0.8rem', color: '#6b7280' }}>
-          이 에셋은 편집할 수 있는 속성이 없습니다.
-        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', marginTop: '0.5rem' }}>
+          <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>채집 시 드롭 아이템 (Drop Item)</label>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <select 
+              className="glass-input"
+              value={asset.dropItemId || ''}
+              onChange={(e) => updateAsset(asset.id, { dropItemId: e.target.value })}
+              style={{ padding: '0.4rem', flex: 1 }}
+            >
+              <option value="">(없음)</option>
+              <option value="money">돈 (기본 화폐)</option>
+              {useMapStore.getState().customItems?.map(item => (
+                <option key={item.id} value={item.id}>{item.icon} {item.name}</option>
+              ))}
+            </select>
+            <input 
+              type="number"
+              className="glass-input"
+              placeholder="수량"
+              value={asset.dropItemAmount || 1}
+              onChange={(e) => updateAsset(asset.id, { dropItemAmount: Number(e.target.value) })}
+              style={{ width: '60px', padding: '0.4rem' }}
+              min="1"
+            />
+          </div>
+        </div>
       )}
+    </div>
+  );
+}
+
+function ItemManagerUI() {
+  const { customItems, addCustomItem, removeCustomItem, updateCustomItem } = useMapStore();
+  const [newItemName, setNewItemName] = useState('');
+  const [newItemIcon, setNewItemIcon] = useState('📦');
+
+  const handleAdd = () => {
+    if (!newItemName.trim()) return;
+    addCustomItem({
+      id: 'item_' + Date.now(),
+      name: newItemName.trim(),
+      icon: newItemIcon
+    });
+    setNewItemName('');
+  };
+
+  return (
+    <div style={{ background: '#fdf4ff', padding: '1rem', borderRadius: '6px' }}>
+      <h4 style={{ margin: '0 0 0.5rem 0', color: '#86198f' }}>🎒 커스텀 아이템 관리</h4>
+      <p style={{ fontSize: '0.8rem', color: '#701a75', marginBottom: '1rem' }}>
+        맵에서 사용할 수집 아이템이나 퀘스트 목표 아이템을 만드세요.
+      </p>
+      
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+        <input 
+          type="text" 
+          className="glass-input" 
+          placeholder="아이콘 (예: 🍎)" 
+          value={newItemIcon}
+          onChange={(e) => setNewItemIcon(e.target.value)}
+          style={{ width: '50px', padding: '0.4rem', textAlign: 'center' }}
+        />
+        <input 
+          type="text" 
+          className="glass-input" 
+          placeholder="새 아이템 이름" 
+          value={newItemName}
+          onChange={(e) => setNewItemName(e.target.value)}
+          style={{ flex: 1, padding: '0.4rem' }}
+        />
+        <button 
+          onClick={handleAdd}
+          style={{ padding: '0.4rem 1rem', background: '#d946ef', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+        >
+          추가
+        </button>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+        {customItems?.map(item => (
+          <div key={item.id} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', background: 'white', padding: '0.5rem', borderRadius: '4px', border: '1px solid #f0abfc' }}>
+            <span style={{ fontSize: '1.2rem' }}>{item.icon}</span>
+            <input 
+              type="text" 
+              className="glass-input"
+              value={item.name}
+              onChange={(e) => updateCustomItem(item.id, { name: e.target.value })}
+              style={{ flex: 1, padding: '0.2rem', border: 'none', borderBottom: '1px solid #e5e7eb', borderRadius: 0, background: 'transparent' }}
+            />
+            <button 
+              onClick={() => removeCustomItem(item.id)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: '1.2rem' }}
+            >
+              ×
+            </button>
+          </div>
+        ))}
+        {(!customItems || customItems.length === 0) && (
+          <div style={{ textAlign: 'center', color: '#9ca3af', fontSize: '0.9rem', padding: '1rem 0' }}>
+            등록된 커스텀 아이템이 없습니다.
+          </div>
+        )}
+      </div>
     </div>
   );
 }

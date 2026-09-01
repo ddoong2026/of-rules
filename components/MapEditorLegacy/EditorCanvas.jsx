@@ -12,6 +12,7 @@ import NPCDialogueUI from './NPCDialogueUI';
 import MiningMiniGameUI from './MiningMiniGameUI';
 import BoundaryMessageUI from './BoundaryMessageUI';
 import BoundaryManager from './BoundaryManager';
+import QuestTrackerUI from './QuestTrackerUI';
 import useMapStore from '@/store/useMapStore';
 
 export default function EditorCanvas() {
@@ -81,6 +82,7 @@ export default function EditorCanvas() {
       <NPCDialogueUI />
       <MiningMiniGameUI />
       <BoundaryMessageUI />
+      <QuestTrackerUI />
     </div>
   );
 }

@@ -7,6 +7,8 @@ import { useTexture, Html, useGLTF, useAnimations, TransformControls, Line } fro
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { SkeletonUtils } from 'three-stdlib';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/components/AuthProvider';
 
 function Tree() {
   return (
@@ -169,6 +171,8 @@ function AssetOverlay({ asset, isPlaying, mode, onSelect }) {
   const [currentBubbleText, setCurrentBubbleText] = useState('');
   const [isNear, setIsNear] = useState(false);
   const overlayGroupRef = useRef();
+  const activeQuests = useInventoryStore(state => state.activeQuests);
+  const completedQuests = useInventoryStore(state => state.completedQuests);
 
   useFrame(({ camera }) => {
     if (!isPlaying || !overlayGroupRef.current) return;
@@ -266,6 +270,20 @@ function AssetOverlay({ asset, isPlaying, mode, onSelect }) {
           </div>
         </Html>
       )}
+
+      {/* 퀘스트 마커 (플레이 모드) */}
+      {isPlaying && asset.quest && !completedQuests.includes(asset.quest) && (
+        <Html position={[0, yOffset + 0.8, 0]} center sprite zIndexRange={[100, 0]} distanceFactor={1.5}>
+          <div style={{
+            fontSize: '2.5rem',
+            textShadow: '0 2px 6px rgba(0,0,0,0.6)',
+            pointerEvents: 'none'
+          }}>
+            {activeQuests.find(q => q.assetId === asset.id) ? '❓' : '❗'}
+          </div>
+        </Html>
+      )}
+
       {!isPlaying && (asset.npcName || asset.hasDialogue || asset.bubbleDialogue || asset.roamRadius > 0 || asset.type.startsWith('caveman')) && (
         <Html position={[0, yOffset, 0]} center sprite zIndexRange={[100, 0]} distanceFactor={1.5}>
           <div 
@@ -706,8 +724,9 @@ function DecalItem({ decal, onErase }) {
 export default function AssetManager() {
   const { mode, assets, decals, removeAsset, updateAsset, removeDecal, isPlaying } = useMapStore();
   const { addItem } = useInventoryStore();
+  const { user } = useAuth();
 
-  const handleInteract = (id, type, isEraseMode) => {
+  const handleInteract = async (id, type, isEraseMode) => {
     if (isEraseMode) {
       removeAsset(id);
     } else {
@@ -716,8 +735,27 @@ export default function AssetManager() {
       } else {
         removeAsset(id);
       }
-      if (type !== 'tree') {
-        addItem(type, 1);
+      
+      const asset = assets.find(a => a.id === id);
+      if (asset && asset.dropItemId) {
+        if (asset.dropItemId === 'money' && user) {
+          try {
+            await supabase.rpc('process_transaction', {
+              p_user_id: user.id,
+              p_amount: asset.dropItemAmount || 1,
+              p_description: '채집 보상',
+              p_type: 'ETC'
+            });
+          } catch(e) {
+            console.error('Money drop failed', e);
+          }
+        } else {
+          addItem(asset.dropItemId, asset.dropItemAmount || 1);
+        }
+      } else {
+        if (type !== 'tree') {
+          addItem(type, 1);
+        }
       }
     }
   };

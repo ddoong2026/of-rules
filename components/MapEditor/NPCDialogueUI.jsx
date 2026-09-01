@@ -2,9 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import useMapStore from '@/store/useMapStore';
+import useInventoryStore from '@/store/useInventoryStore';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/components/AuthProvider';
 
 export default function NPCDialogueUI() {
-  const { isPlaying, setActiveDialogue } = useMapStore();
+  const { isPlaying, setActiveDialogue, currentMapId } = useMapStore();
+  const { activeQuests, completedQuests, acceptQuest, completeQuest, addCompletedQuest, items, consumeItem, addItem } = useInventoryStore();
+  const { user } = useAuth();
   const [activeAsset, setActiveAsset] = useState(null);
   const [currentStep, setCurrentStep] = useState(0);
 
@@ -189,6 +194,109 @@ export default function NPCDialogueUI() {
                 📜 <span>퀘스트</span>
               </strong>
               <span style={{ color: '#ffffff', fontSize: '0.95rem' }}>{activeAsset.quest}</span>
+              
+              {(() => {
+                const isAccepted = activeQuests.find(q => q.assetId === activeAsset.id);
+                const isCompletedLocally = completedQuests.includes(activeAsset.quest);
+                
+                if (isCompletedLocally) {
+                  return (
+                    <div style={{ marginTop: '10px' }}>
+                      <span style={{ fontSize: '0.85rem', color: '#4ade80' }}>✓ 이미 완료한 퀘스트입니다.</span>
+                    </div>
+                  );
+                }
+
+                if (!isAccepted) {
+                  return (
+                    <div style={{ marginTop: '10px' }}>
+                      <button onClick={(e) => {
+                        e.stopPropagation();
+                        acceptQuest({
+                          assetId: activeAsset.id,
+                          title: activeAsset.quest,
+                          requireItem: activeAsset.questRequireItem,
+                          requireAmount: activeAsset.questRequireAmount || 1,
+                          rewardItem: activeAsset.questRewardItem,
+                          rewardAmount: activeAsset.questRewardAmount || 1,
+                        });
+                        alert('퀘스트를 수락했습니다!');
+                        closeDialogue();
+                      }} style={{ padding: '6px 12px', background: '#eab308', color: 'black', fontWeight: 'bold', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                        수락하기
+                      </button>
+                    </div>
+                  );
+                } else {
+                  // Check if player has required items
+                  let hasItems = false;
+                  if (!isAccepted.requireItem) {
+                    hasItems = true;
+                  } else {
+                    let total = 0;
+                    items.forEach(item => {
+                      if (item && item.type === isAccepted.requireItem) total += item.count;
+                    });
+                    if (total >= isAccepted.requireAmount) hasItems = true;
+                  }
+
+                  const handleComplete = async (e) => {
+                    e.stopPropagation();
+                    if (!hasItems) {
+                      alert('아이템이 부족합니다!');
+                      return;
+                    }
+                    
+                    // Consume items
+                    if (isAccepted.requireItem) {
+                      consumeItem(isAccepted.requireItem, isAccepted.requireAmount);
+                    }
+                    
+                    // Give rewards
+                    if (isAccepted.rewardItem) {
+                      if (isAccepted.rewardItem === 'money') {
+                        // Call transaction API if it's money
+                        if (user) {
+                          await supabase.rpc('process_transaction', {
+                            p_user_id: user.id,
+                            p_amount: isAccepted.rewardAmount,
+                            p_description: `퀘스트 보상: ${isAccepted.title}`,
+                            p_type: 'ETC'
+                          });
+                        }
+                      } else {
+                        addItem(isAccepted.rewardItem, isAccepted.rewardAmount);
+                      }
+                    }
+                    
+                    // Log to activity_logs
+                    if (user) {
+                      await supabase.from('activity_logs').insert([{
+                        user_id: user.id,
+                        action_type: 'QUEST_COMPLETED',
+                        description: `퀘스트 완료: ${isAccepted.title}`,
+                        details: { map_id: currentMapId, asset_id: activeAsset.id, title: isAccepted.title, reward: isAccepted.rewardItem }
+                      }]);
+                    }
+
+                    completeQuest(activeAsset.id);
+                    addCompletedQuest(isAccepted.title);
+                    alert('퀘스트를 완료하고 보상을 받았습니다!');
+                    closeDialogue();
+                  };
+
+                  return (
+                    <div style={{ marginTop: '10px' }}>
+                      <span style={{ fontSize: '0.85rem', color: hasItems ? '#4ade80' : '#f87171', marginRight: '10px' }}>
+                        상태: {hasItems ? '조건 달성!' : '진행 중...'}
+                      </span>
+                      <button onClick={handleComplete} disabled={!hasItems} style={{ padding: '6px 12px', background: hasItems ? '#22c55e' : '#64748b', color: 'white', fontWeight: 'bold', border: 'none', borderRadius: '4px', cursor: hasItems ? 'pointer' : 'not-allowed' }}>
+                        보상 받기
+                      </button>
+                    </div>
+                  );
+                }
+              })()}
             </div>
           )}
 

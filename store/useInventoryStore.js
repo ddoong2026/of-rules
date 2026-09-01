@@ -7,6 +7,14 @@ const useInventoryStore = create((set, get) => ({
   items: Array(INVENTORY_SIZE).fill(null),
   selectedSlot: 0,
   isOpen: false,
+  activeQuests: [], // { assetId, title, requireItem, requireAmount, rewardItem, rewardAmount }
+  completedQuests: [], // Array of quest titles
+
+  setCompletedQuests: (quests) => set({ completedQuests: quests }),
+  addCompletedQuest: (title) => set((state) => {
+    if (state.completedQuests.includes(title)) return state;
+    return { completedQuests: [...state.completedQuests, title] };
+  }),
 
   setSlot: (index) => set({ selectedSlot: index }),
   
@@ -53,6 +61,48 @@ const useInventoryStore = create((set, get) => ({
     newItems[index2] = temp;
     return { items: newItems };
   }),
+
+  // 아이템 소비 (퀘스트 완료 등에 사용)
+  consumeItem: (type, amount = 1) => {
+    let success = false;
+    set((state) => {
+      let remaining = amount;
+      const newItems = [...state.items];
+      
+      // 인벤토리를 순회하며 해당 아이템 차감
+      for (let i = 0; i < INVENTORY_SIZE; i++) {
+        if (newItems[i] && newItems[i].type === type) {
+          if (newItems[i].count > remaining) {
+            newItems[i] = { ...newItems[i], count: newItems[i].count - remaining };
+            remaining = 0;
+            break;
+          } else {
+            remaining -= newItems[i].count;
+            newItems[i] = null;
+          }
+        }
+      }
+      
+      if (remaining === 0) {
+        success = true;
+        return { items: newItems };
+      } else {
+        // 아이템이 부족하면 변경 취소
+        success = false;
+        return state;
+      }
+    });
+    return success;
+  },
+  
+  // 퀘스트 관리
+  acceptQuest: (questData) => set((state) => {
+    if (state.activeQuests.find(q => q.assetId === questData.assetId)) return state;
+    return { activeQuests: [...state.activeQuests, questData] };
+  }),
+  completeQuest: (assetId) => set((state) => ({
+    activeQuests: state.activeQuests.filter(q => q.assetId !== assetId)
+  })),
 }));
 
 export default useInventoryStore;

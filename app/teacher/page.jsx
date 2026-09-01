@@ -5,6 +5,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { supabase } from '@/lib/supabase';
 import ActivityLogsTab from '@/components/Teacher/ActivityLogsTab';
 import EconomyAdminTab from '@/components/Teacher/EconomyAdminTab';
+import QuestLogsTab from '@/components/Teacher/QuestLogsTab';
 import dynamic from 'next/dynamic';
 const MapEditorWorkspace = dynamic(() => import('@/components/MapEditor/MapEditorWorkspace'), { ssr: false });
 const MapEditorLegacyWorkspace = dynamic(() => import('@/components/MapEditorLegacy/MapEditorWorkspace'), { ssr: false });
@@ -278,6 +279,12 @@ export default function TeacherDashboard() {
           onClick={() => setActiveTab('map-editor')}
         >
           🗺️ 3D 맵 에디터
+        </button>
+        <button 
+          className={`${styles.tabBtn} ${activeTab === 'quest' ? styles.active : ''}`}
+          onClick={() => setActiveTab('quest')}
+        >
+          🎯 학습 현황(퀘스트)
         </button>
       </div>
 
@@ -553,6 +560,7 @@ export default function TeacherDashboard() {
           </div>
         )}
         {activeTab === 'logs' && <ActivityLogsTab />}
+        {activeTab === 'quest' && <QuestLogsTab />}
         {activeTab === 'map-editor' && (
           <div className={styles.manageSection} style={{ padding: 0 }}>
             <div style={{ padding: '1rem', background: '#f3f4f6', borderBottom: '1px solid #d1d5db', display: 'flex', gap: '1rem' }}>

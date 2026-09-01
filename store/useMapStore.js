@@ -35,6 +35,7 @@ const useMapStore = create((set, get) => ({
   boundaries: [], // { id, start: [x,z], end: [x,z], condition: { type: 'item_count', itemType: 'rock', amount: 5 } }
   boundaryDrawing: null, // { start: [x,z], current: [x,z] }
   spawnPoint: null, // { x, z }
+  customItems: [], // { id, name, type (e.g. 'mineral', 'material', 'quest') }
   
   heights: new Float32Array(VERTEX_COUNT).fill(0), // Legacy single-layer heights
 
@@ -166,6 +167,7 @@ const useMapStore = create((set, get) => ({
       csgOperations: mapData.csgOperations || [],
       boundaries: mapData.boundaries || [],
       spawnPoint: mapData.spawnPoint || null,
+      customItems: mapData.customItems || [],
       history: [], // Reset history on load
     });
   },
@@ -189,6 +191,7 @@ const useMapStore = create((set, get) => ({
       csgOperations: [],
       boundaries: [],
       spawnPoint: null,
+      customItems: [],
       history: [], // Reset history on new map
     });
   },
@@ -225,6 +228,12 @@ const useMapStore = create((set, get) => ({
   
   addCsgOperation: (op) => set((state) => ({ csgOperations: [...state.csgOperations, op] })),
   removeCsgOperation: (id) => set((state) => ({ csgOperations: state.csgOperations.filter(op => op.id !== id) })),
+
+  addCustomItem: (item) => set((state) => ({ customItems: [...state.customItems, item] })),
+  removeCustomItem: (id) => set((state) => ({ customItems: state.customItems.filter(i => i.id !== id) })),
+  updateCustomItem: (id, updates) => set((state) => ({
+    customItems: state.customItems.map(i => i.id === id ? { ...i, ...updates } : i)
+  })),
 }));
 
 export default useMapStore;

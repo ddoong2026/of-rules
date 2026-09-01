@@ -89,11 +89,14 @@ export default function PetitionsTab({ onProposeLaw }) {
           p_type: 'ETC'
         });
         if (rpcError) {
+          alert('보상 지급 중 오류가 발생했습니다: ' + rpcError.message);
           console.error('Transaction error:', rpcError);
         } else {
           alert(`청원 동의 보상으로 ${rewardAmount} 지급되었습니다!`);
           if (refreshUser) refreshUser();
         }
+      } else {
+        alert('청원에 동의하셨습니다! (현재 교사 설정에서 보상 금액이 0이라 돈은 지급되지 않습니다)');
       }
       
       window.dispatchEvent(new CustomEvent('show-pet'));

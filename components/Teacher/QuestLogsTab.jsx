@@ -101,7 +101,7 @@ export default function QuestLogsTab() {
                   {new Date(log.created_at).toLocaleString()}
                 </td>
                 <td style={{ padding: '1rem', fontWeight: 'bold', color: '#334155' }}>
-                  {log.users ? \`\${log.users.student_number} \${log.users.name}\` : '알수없음'}
+                  {log.users ? `${log.users.student_number} ${log.users.name}` : '알수없음'}
                 </td>
                 <td style={{ padding: '1rem', color: '#1e293b' }}>
                   {log.details?.title || log.description.replace('퀘스트 완료: ', '')}

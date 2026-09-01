@@ -89,7 +89,7 @@ export default function QuestTrackerUI() {
           const isComplete = currentAmount >= quest.requireAmount;
 
           return (
-            <div key={quest.assetId} style={{ background: 'rgba(0,0,0,0.3)', padding: '10px', borderRadius: '8px', borderLeft: \`3px solid \${isComplete ? '#4ade80' : '#eab308'}\` }}>
+            <div key={quest.assetId} style={{ background: 'rgba(0,0,0,0.3)', padding: '10px', borderRadius: '8px', borderLeft: `3px solid ${isComplete ? '#4ade80' : '#eab308'}` }}>
               <div style={{ fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '8px', color: isComplete ? '#bbf7d0' : '#fef08a' }}>
                 {quest.title}
               </div>

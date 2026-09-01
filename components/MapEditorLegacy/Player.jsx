@@ -53,6 +53,7 @@ export default function Player() {
   const [playerBubble, setPlayerBubble] = useState(null);
   const triggeredZones = useRef(new Set());
   const lastZoneTriggerTime = useRef(0);
+  const zoomLevel = useRef(1.0);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -155,9 +156,17 @@ export default function Player() {
       }
     };
 
+    const handleWheel = (e) => {
+      if (document.pointerLockElement === canvas) {
+        zoomLevel.current += Math.sign(e.deltaY) * 0.15;
+        zoomLevel.current = Math.max(0.3, Math.min(5.0, zoomLevel.current));
+      }
+    };
+
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
     window.addEventListener('mousedown', handleMouseDown);
+    window.addEventListener('wheel', handleWheel);
     if (canvas) canvas.addEventListener('click', onCanvasClick);
     document.addEventListener('mousemove', onMouseMove);
 
@@ -165,6 +174,7 @@ export default function Player() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('mousedown', handleMouseDown);
+      window.removeEventListener('wheel', handleWheel);
       if (canvas) canvas.removeEventListener('click', onCanvasClick);
       document.removeEventListener('mousemove', onMouseMove);
     };
@@ -691,7 +701,7 @@ export default function Player() {
       group.current.position.z = Math.cos(angle) * 24;
     }
 
-    const offset3rd = new THREE.Vector3(0, 0.1, -1.0);
+    const offset3rd = new THREE.Vector3(0, 0.1, -1.0).multiplyScalar(zoomLevel.current);
     const offset1st = new THREE.Vector3(0, 0.35, 0.15); // near head
     
     const currentOffset = new THREE.Vector3();

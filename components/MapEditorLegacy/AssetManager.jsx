@@ -214,7 +214,7 @@ function AssetOverlay({ asset, isPlaying, mode, onSelect }) {
   const displayName = asset.npcName || defaultNames[asset.type] || (asset.type.startsWith('caveman') ? 'NPC' : asset.type);
 
   // 에셋 타입별 적절한 말풍선 높이 설정 (local Y)
-  const yOffset = asset.type.startsWith('caveman') ? 3.75 : 3.0;
+  const yOffset = asset.type.startsWith('caveman') ? 2.5 : 2.0;
 
   return (
     <group position={[0, 0, 0]} ref={overlayGroupRef}>

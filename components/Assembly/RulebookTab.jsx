@@ -13,11 +13,10 @@ export default function RulebookTab() {
   const [editingLaw, setEditingLaw] = useState(null);
   const { user, role } = useAuth();
 
-  useEffect(() => {
   const fetchPromulgatedLaws = async () => {
     const { data } = await supabase
       .from('laws')
-      .select('*, users:proposer_id(name)')
+      .select('*')
       .eq('status', 'PROMULGATED')
       .order('created_at', { ascending: true });
     

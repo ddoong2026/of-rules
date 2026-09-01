@@ -26,7 +26,7 @@ export default function LawForm({ onSuccess, onCancel, initialData, editLawId })
   const [actionValue, setActionValue] = useState('');
   
   const [loading, setLoading] = useState(false);
-  const { user, role } = useAuth();
+  const { user, role, refreshUser } = useAuth();
 
   const generateTemplate = () => {
     let template = '';
@@ -132,7 +132,12 @@ export default function LawForm({ onSuccess, onCancel, initialData, editLawId })
             p_description: '법률안 발의 보상',
             p_type: 'ETC'
           });
-          if (rpcError) console.error('Transaction error:', rpcError);
+          if (rpcError) {
+            console.error('Transaction error:', rpcError);
+          } else {
+            alert(`법률안 발의 보상으로 ${rewardAmount} 지급되었습니다!`);
+            if (refreshUser) refreshUser();
+          }
         }
       }
       

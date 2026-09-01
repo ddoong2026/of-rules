@@ -10,7 +10,7 @@ import { MessageSquare, ThumbsUp, Trash2, BookOpen } from 'lucide-react';
 export default function PetitionsTab({ onProposeLaw }) {
   const [petitions, setPetitions] = useState([]);
   const [showForm, setShowForm] = useState(false);
-  const { user, role } = useAuth();
+  const { user, role, refreshUser } = useAuth();
 
   const fetchPetitions = async () => {
     const { data, error } = await supabase
@@ -88,7 +88,12 @@ export default function PetitionsTab({ onProposeLaw }) {
           p_description: '청원 동의 보상',
           p_type: 'ETC'
         });
-        if (rpcError) console.error('Transaction error:', rpcError);
+        if (rpcError) {
+          console.error('Transaction error:', rpcError);
+        } else {
+          alert(`청원 동의 보상으로 ${rewardAmount} 지급되었습니다!`);
+          if (refreshUser) refreshUser();
+        }
       }
       
       window.dispatchEvent(new CustomEvent('show-pet'));

@@ -601,9 +601,18 @@ function PropertyEditor() {
                 style={{ padding: '0.4rem', flex: 1 }}
               >
                 <option value="">(없음)</option>
-                {useMapStore.getState().customItems?.map(item => (
-                  <option key={item.id} value={item.id}>{item.icon} {item.name}</option>
-                ))}
+                <optgroup label="기본 채집 아이템">
+                  <option value="도토리">🌰 도토리</option>
+                  <option value="나뭇가지">🌿 나뭇가지</option>
+                  <option value="나무껍질">📜 나무껍질</option>
+                  <option value="나무뿌리">🌱 나무뿌리</option>
+                  <option value="rock">🪨 바위(돌)</option>
+                </optgroup>
+                <optgroup label="생성된 커스텀 아이템">
+                  {useMapStore.getState().customItems?.map(item => (
+                    <option key={item.id} value={item.id}>{item.icon} {item.name}</option>
+                  ))}
+                </optgroup>
               </select>
               <input 
                 type="number"
@@ -627,10 +636,19 @@ function PropertyEditor() {
                 style={{ padding: '0.4rem', flex: 1 }}
               >
                 <option value="">(없음)</option>
-                <option value="money">돈 (기본 화폐)</option>
-                {useMapStore.getState().customItems?.map(item => (
-                  <option key={item.id} value={item.id}>{item.icon} {item.name}</option>
-                ))}
+                <option value="money">💰 돈 (기본 화폐)</option>
+                <optgroup label="기본 채집 아이템">
+                  <option value="도토리">🌰 도토리</option>
+                  <option value="나뭇가지">🌿 나뭇가지</option>
+                  <option value="나무껍질">📜 나무껍질</option>
+                  <option value="나무뿌리">🌱 나무뿌리</option>
+                  <option value="rock">🪨 바위(돌)</option>
+                </optgroup>
+                <optgroup label="생성된 커스텀 아이템">
+                  {useMapStore.getState().customItems?.map(item => (
+                    <option key={item.id} value={item.id}>{item.icon} {item.name}</option>
+                  ))}
+                </optgroup>
               </select>
               <input 
                 type="number"

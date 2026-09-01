@@ -9,7 +9,7 @@ export default function PetitionForm({ onSuccess }) {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(false);
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -43,7 +43,12 @@ export default function PetitionForm({ onSuccess }) {
           p_description: '청원 작성 보상',
           p_type: 'ETC'
         });
-        if (rpcError) console.error('Transaction error:', rpcError);
+        if (rpcError) {
+          console.error('Transaction error:', rpcError);
+        } else {
+          alert(`청원 작성 보상으로 ${rewardAmount} 지급되었습니다!`);
+          if (refreshUser) refreshUser();
+        }
       }
       
       window.dispatchEvent(new CustomEvent('show-pet'));

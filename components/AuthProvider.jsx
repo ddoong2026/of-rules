@@ -60,7 +60,11 @@ export const AuthProvider = ({ children }) => {
     if (user) {
       userSub = supabase.channel(`public:users:${user.id}`)
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'users', filter: `id=eq.${user.id}` }, (payload) => {
-          setRole(prev => ({ ...prev, balance: payload.new.balance, job: payload.new.job }));
+          setRole(prev => ({ 
+            ...prev, 
+            balance: payload.new.balance !== undefined ? payload.new.balance : prev.balance, 
+            job: payload.new.job !== undefined ? payload.new.job : prev.job 
+          }));
         })
         .subscribe();
     }
@@ -102,7 +106,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, role, currency, treasury, loading }}>
+    <AuthContext.Provider value={{ user, role, currency, treasury, loading, refreshUser: () => user && fetchUserRole(user.id) }}>
       {children}
     </AuthContext.Provider>
   );

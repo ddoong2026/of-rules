@@ -7,10 +7,17 @@ export default function EconomyAdminTab() {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [treasury, setTreasury] = useState(0);
+  const [currencyName, setCurrencyName] = useState('돈');
+
+  // Reward Settings
+  const [rewardPetitionCreate, setRewardPetitionCreate] = useState(0);
+  const [rewardPetitionAgree, setRewardPetitionAgree] = useState(0);
+  const [rewardLawPropose, setRewardLawPropose] = useState(0);
+  const [isSavingRewards, setIsSavingRewards] = useState(false);
 
   useEffect(() => {
     fetchData();
-    fetchTreasury();
+    fetchEconomySettings();
   }, []);
 
   const fetchData = async () => {
@@ -23,14 +30,25 @@ export default function EconomyAdminTab() {
     setLoading(false);
   };
 
-  const fetchTreasury = async () => {
+  const fetchEconomySettings = async () => {
     const { data } = await supabase
       .from('settings')
-      .select('value')
-      .eq('key', 'treasury_balance')
-      .single();
+      .select('key, value')
+      .in('key', [
+        'treasury_balance', 
+        'currency_name',
+        'reward_petition_create', 
+        'reward_petition_agree', 
+        'reward_law_propose'
+      ]);
+      
     if (data) {
-      setTreasury(parseInt(data.value || '0', 10));
+      const settingsMap = data.reduce((acc, curr) => ({ ...acc, [curr.key]: curr.value }), {});
+      setTreasury(parseInt(settingsMap.treasury_balance || '0', 10));
+      setCurrencyName(settingsMap.currency_name || '돈');
+      setRewardPetitionCreate(parseInt(settingsMap.reward_petition_create || '0', 10));
+      setRewardPetitionAgree(parseInt(settingsMap.reward_petition_agree || '0', 10));
+      setRewardLawPropose(parseInt(settingsMap.reward_law_propose || '0', 10));
     }
   };
 
@@ -47,6 +65,26 @@ export default function EconomyAdminTab() {
     }
   };
 
+  const handleSaveRewards = async (e) => {
+    e.preventDefault();
+    setIsSavingRewards(true);
+    
+    const updates = [
+      { key: 'reward_petition_create', value: rewardPetitionCreate.toString() },
+      { key: 'reward_petition_agree', value: rewardPetitionAgree.toString() },
+      { key: 'reward_law_propose', value: rewardLawPropose.toString() }
+    ];
+
+    const { error } = await supabase.from('settings').upsert(updates);
+    
+    setIsSavingRewards(false);
+    if (error) {
+      alert('설정 저장 중 오류가 발생했습니다.');
+    } else {
+      alert('활동 보상 설정이 저장되었습니다.');
+    }
+  };
+
   if (loading) return <div>로딩중...</div>;
 
   return (
@@ -60,6 +98,70 @@ export default function EconomyAdminTab() {
             {treasury.toLocaleString()}
           </div>
         </div>
+      </div>
+
+      {/* 활동 보상 설정 섹션 */}
+      <div className="glass-panel" style={{ padding: '1.5rem', marginBottom: '2rem' }}>
+        <h4 style={{ marginBottom: '1rem' }}>활동 자동 보상 설정</h4>
+        <p style={{ fontSize: '0.9rem', color: '#4b5563', marginBottom: '1.5rem' }}>
+          학생들이 특정 활동을 할 때마다 자동으로 지급될 보상 금액을 설정합니다. (0으로 설정 시 보상 없음)
+        </p>
+        
+        <form onSubmit={handleSaveRewards} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxWidth: '400px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <label>청원 작성 보상</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <input 
+                type="number" 
+                className="glass-input" 
+                value={rewardPetitionCreate}
+                onChange={(e) => setRewardPetitionCreate(e.target.value)}
+                min="0"
+                style={{ width: '100px', textAlign: 'right' }}
+              />
+              <span>{currencyName}</span>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <label>청원 동의 보상</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <input 
+                type="number" 
+                className="glass-input" 
+                value={rewardPetitionAgree}
+                onChange={(e) => setRewardPetitionAgree(e.target.value)}
+                min="0"
+                style={{ width: '100px', textAlign: 'right' }}
+              />
+              <span>{currencyName}</span>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <label>법률안 발의 보상</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <input 
+                type="number" 
+                className="glass-input" 
+                value={rewardLawPropose}
+                onChange={(e) => setRewardLawPropose(e.target.value)}
+                min="0"
+                style={{ width: '100px', textAlign: 'right' }}
+              />
+              <span>{currencyName}</span>
+            </div>
+          </div>
+
+          <button 
+            type="submit" 
+            className="glass-button" 
+            style={{ background: 'var(--primary)', color: 'white', marginTop: '0.5rem' }}
+            disabled={isSavingRewards}
+          >
+            {isSavingRewards ? '저장 중...' : '보상 설정 저장'}
+          </button>
+        </form>
       </div>
 
       <div className="glass-panel" style={{ padding: '1.5rem' }}>
@@ -80,7 +182,7 @@ export default function EconomyAdminTab() {
           </thead>
           <tbody>
             {students.map(s => (
-              <tr key={s.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
+               <tr key={s.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
                 <td style={{ padding: '0.8rem' }}>{s.student_number}</td>
                 <td style={{ padding: '0.8rem' }}>{s.name}</td>
                 <td style={{ padding: '0.8rem', color: '#6b7280' }}>{s.role}</td>
@@ -109,3 +211,4 @@ export default function EconomyAdminTab() {
     </div>
   );
 }
+

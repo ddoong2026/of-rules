@@ -27,12 +27,24 @@ export default function PetitionForm({ onSuccess }) {
     if (error) {
       alert('오류가 발생했습니다: ' + error.message);
     } else {
-      await supabase.rpc('process_transaction', {
-        p_user_id: user.id,
-        p_amount: 1000,
-        p_description: '청원 작성 보상',
-        p_type: 'INCOME'
-      });
+      // Fetch dynamic reward setting
+      const { data: setting } = await supabase
+        .from('settings')
+        .select('value')
+        .eq('key', 'reward_petition_create')
+        .single();
+        
+      const rewardAmount = parseInt(setting?.value || '0', 10);
+      
+      if (rewardAmount > 0) {
+        await supabase.rpc('process_transaction', {
+          p_user_id: user.id,
+          p_amount: rewardAmount,
+          p_description: '청원 작성 보상',
+          p_type: 'INCOME'
+        });
+      }
+      
       window.dispatchEvent(new CustomEvent('show-pet'));
       onSuccess();
     }

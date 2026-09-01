@@ -12,12 +12,12 @@ const DEPARTMENTS = [
 
 const PENALTY_TYPES = ['봉사', '벌금', '방과후 지도', '상담', '기타 (직접입력)'];
 
-export default function LawForm({ onSuccess, onCancel, initialData }) {
+export default function LawForm({ onSuccess, onCancel, initialData, editLawId }) {
   const [title, setTitle] = useState(initialData?.title || '');
   const [studentDuty, setStudentDuty] = useState('');
   const [reason, setReason] = useState(initialData?.reason || '');
-  const [content, setContent] = useState('');
-  const [department, setDepartment] = useState(DEPARTMENTS[0]);
+  const [content, setContent] = useState(initialData?.content || '');
+  const [department, setDepartment] = useState(initialData?.target_department || DEPARTMENTS[0]);
   
   // New states for Penalty/Reward
   const [lawType, setLawType] = useState('none'); // 'none', 'penalty', 'reward'
@@ -26,7 +26,7 @@ export default function LawForm({ onSuccess, onCancel, initialData }) {
   const [actionValue, setActionValue] = useState('');
   
   const [loading, setLoading] = useState(false);
-  const { user } = useAuth();
+  const { user, role } = useAuth();
 
   const generateTemplate = () => {
     let template = '';
@@ -47,16 +47,21 @@ export default function LawForm({ onSuccess, onCancel, initialData }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const cleanDuty = studentDuty.trim().replace(/\.$/, '');
-    if (
-      !cleanDuty.endsWith('수 있다') &&
-      !cleanDuty.endsWith('야 한다') &&
-      !cleanDuty.endsWith('야한다') &&
-      !cleanDuty.endsWith('면 안된다') &&
-      !cleanDuty.endsWith('면 안 된다')
-    ) {
-      alert("학생들이 해야 할 일은 '~수 있다.', '~야 한다.', '~면 안된다.' 중 하나로 끝나야 합니다.");
-      return;
+    const isEditingMode = !!editLawId;
+    // Only enforce the ending rule if generating from template (i.e. lawType is selected and studentDuty is filled)
+    // If they just edit content manually during edit mode, we bypass this check if studentDuty is empty
+    if (!isEditingMode || studentDuty.trim().length > 0) {
+      const cleanDuty = studentDuty.trim().replace(/\.$/, '');
+      if (
+        !cleanDuty.endsWith('수 있다') &&
+        !cleanDuty.endsWith('야 한다') &&
+        !cleanDuty.endsWith('야한다') &&
+        !cleanDuty.endsWith('면 안된다') &&
+        !cleanDuty.endsWith('면 안 된다')
+      ) {
+        alert("학생들이 해야 할 일은 '~수 있다.', '~야 한다.', '~면 안된다.' 중 하나로 끝나야 합니다.");
+        return;
+      }
     }
     
     setLoading(true);
@@ -69,39 +74,66 @@ export default function LawForm({ onSuccess, onCancel, initialData }) {
       finalContent = `[보상 규정]\n내용 및 수치: ${actionValue}\n\n${content}`;
     }
     
-    const { error } = await supabase
-      .from('laws')
-      .insert([
-        { 
-          proposer_id: user.id, 
+    let error = null;
+    
+    if (editLawId) {
+      const { error: updateError } = await supabase
+        .from('laws')
+        .update({ 
           title, 
           reason, 
           content: finalContent,
           target_department: department 
-        }
-      ]);
+        })
+        .eq('id', editLawId);
+        
+      error = updateError;
+      
+      // If student edits, reset votes
+      if (!error && role?.role !== 'TEACHER') {
+        const { error: rpcError } = await supabase.rpc('reset_law_votes', { p_law_id: editLawId });
+        if (rpcError) console.error('Reset votes error:', rpcError);
+      }
+    } else {
+      const { error: insertError } = await supabase
+        .from('laws')
+        .insert([
+          { 
+            proposer_id: user.id, 
+            title, 
+            reason, 
+            content: finalContent,
+            target_department: department 
+          }
+        ]);
+      error = insertError;
+    }
       
     setLoading(false);
     
     if (error) {
       alert('오류가 발생했습니다: ' + error.message);
     } else {
-      // Fetch dynamic reward setting
-      const { data: setting } = await supabase
-        .from('settings')
-        .select('value')
-        .eq('key', 'reward_law_propose')
-        .single();
+      // Reward logic only for new proposals
+      if (!editLawId) {
+        // Fetch dynamic reward setting
+        const { data: setting } = await supabase
+          .from('settings')
+          .select('value')
+          .eq('key', 'reward_law_propose')
+          .single();
+          
+        const rewardAmount = parseInt(setting?.value || '0', 10);
         
-      const rewardAmount = parseInt(setting?.value || '0', 10);
-      
-      if (rewardAmount > 0) {
-        await supabase.rpc('process_transaction', {
-          p_user_id: user.id,
-          p_amount: rewardAmount,
-          p_description: '법률안 발의 보상',
-          p_type: 'INCOME'
-        });
+        if (rewardAmount > 0) {
+          const { error: rpcError } = await supabase.rpc('process_transaction', {
+            p_user_id: user.id,
+            p_amount: rewardAmount,
+            p_description: '법률안 발의 보상',
+            p_type: 'ETC'
+          });
+          if (rpcError) console.error('Transaction error:', rpcError);
+        }
       }
       
       window.dispatchEvent(new CustomEvent('show-pet'));
@@ -111,7 +143,7 @@ export default function LawForm({ onSuccess, onCancel, initialData }) {
 
   return (
     <div className={styles.formContainer}>
-      <h3>법률안 발의</h3>
+      <h3>{editLawId ? '법률안 수정' : '법률안 발의'}</h3>
       
       <form onSubmit={handleSubmit} className={styles.form}>
         <div className={styles.inputGroup}>
@@ -257,7 +289,7 @@ export default function LawForm({ onSuccess, onCancel, initialData }) {
             style={{ background: 'var(--primary)', color: 'white', flex: 1 }}
             disabled={loading}
           >
-            {loading ? '발의 중...' : '법률안 발의하기'}
+            {loading ? '처리 중...' : (editLawId ? '법률안 수정하기' : '법률안 발의하기')}
           </button>
           
           <button 

@@ -82,12 +82,13 @@ export default function PetitionsTab({ onProposeLaw }) {
       const rewardAmount = parseInt(setting?.value || '0', 10);
       
       if (rewardAmount > 0) {
-        await supabase.rpc('process_transaction', {
+        const { error: rpcError } = await supabase.rpc('process_transaction', {
           p_user_id: user.id,
           p_amount: rewardAmount,
           p_description: '청원 동의 보상',
-          p_type: 'INCOME'
+          p_type: 'ETC'
         });
+        if (rpcError) console.error('Transaction error:', rpcError);
       }
       
       window.dispatchEvent(new CustomEvent('show-pet'));

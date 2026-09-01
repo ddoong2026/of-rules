@@ -11,13 +11,14 @@ export default function LawsTab({ initialData, clearInitialData }) {
   const [laws, setLaws] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [expandedLawId, setExpandedLawId] = useState(null);
+  const [editingLaw, setEditingLaw] = useState(null);
   const { user, role } = useAuth();
 
   const fetchLaws = async () => {
     const { data, error } = await supabase
       .from('laws')
       .select(`
-        id, title, reason, content, target_department, status, votes_for, votes_against, created_at,
+        id, title, reason, content, target_department, status, votes_for, votes_against, created_at, proposer_id,
         users:proposer_id (name)
       `)
       .order('created_at', { ascending: false });
@@ -140,7 +141,10 @@ export default function LawsTab({ initialData, clearInitialData }) {
       <div className={styles.tabHeader}>
         <h2>입법 현황</h2>
         {(['ASSEMBLY', 'TEACHER'].includes(role?.role) || role?.job === '국회의원') && (
-          <button className="glass-button" onClick={() => setShowForm(!showForm)}>
+          <button className="glass-button" onClick={() => {
+            setEditingLaw(null);
+            setShowForm(!showForm);
+          }}>
             {showForm ? '목록으로' : '법률안 발의'}
           </button>
         )}
@@ -150,14 +154,17 @@ export default function LawsTab({ initialData, clearInitialData }) {
         <LawForm 
           onSuccess={() => {
             setShowForm(false);
+            setEditingLaw(null);
             fetchLaws();
             if (clearInitialData) clearInitialData();
           }} 
           onCancel={() => {
             setShowForm(false);
+            setEditingLaw(null);
             if (clearInitialData) clearInitialData();
           }}
-          initialData={initialData} 
+          initialData={editingLaw || initialData}
+          editLawId={editingLaw?.id}
         />
       ) : (
         <div className={styles.list}>
@@ -209,6 +216,16 @@ export default function LawsTab({ initialData, clearInitialData }) {
                         </button>
                         <button 
                           className={styles.actionBtn} 
+                          onClick={() => {
+                            setEditingLaw(law);
+                            setShowForm(true);
+                          }}
+                          style={{ color: 'var(--primary)', padding: '0.2rem 0.5rem', marginRight: '0.5rem', border: '1px solid #93c5fd', borderRadius: '4px', background: '#eff6ff', fontSize: '0.85rem' }}
+                        >
+                          수정
+                        </button>
+                        <button 
+                          className={styles.actionBtn} 
                           onClick={() => handleDeleteLaw(law.id)}
                           style={{ color: 'var(--danger)', padding: '0.5rem', marginRight: '0.5rem' }}
                           title="법률안 완전 삭제"
@@ -216,6 +233,19 @@ export default function LawsTab({ initialData, clearInitialData }) {
                           <Trash2 size={16} />
                         </button>
                       </>
+                    )}
+                    
+                    {role?.role !== 'TEACHER' && law.proposer_id === user?.id && (
+                       <button 
+                         className={styles.actionBtn} 
+                         onClick={() => {
+                           setEditingLaw(law);
+                           setShowForm(true);
+                         }}
+                         style={{ color: 'var(--primary)', padding: '0.2rem 0.5rem', marginRight: '0.5rem', border: '1px solid #93c5fd', borderRadius: '4px', background: '#eff6ff', fontSize: '0.85rem' }}
+                       >
+                         수정
+                       </button>
                     )}
                     
                     {law.status === 'PROPOSED' && (['ASSEMBLY', 'TEACHER'].includes(role?.role) || role?.job === '국회의원') ? (

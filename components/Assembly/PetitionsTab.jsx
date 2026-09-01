@@ -10,6 +10,7 @@ import { MessageSquare, ThumbsUp, Trash2, BookOpen } from 'lucide-react';
 export default function PetitionsTab({ onProposeLaw }) {
   const [petitions, setPetitions] = useState([]);
   const [showForm, setShowForm] = useState(false);
+  const [expandedPetitionId, setExpandedPetitionId] = useState(null);
   const { user, role, refreshUser } = useAuth();
 
   const fetchPetitions = async () => {
@@ -127,9 +128,11 @@ export default function PetitionsTab({ onProposeLaw }) {
     <div>
       <div className={styles.tabHeader}>
         <h2>국민 청원 목록</h2>
-        <button className="glass-button" onClick={() => setShowForm(!showForm)}>
-          {showForm ? '목록으로' : '청원하기'}
-        </button>
+        {role?.role !== 'GUEST_MATH' && (
+          <button className="glass-button" onClick={() => setShowForm(!showForm)}>
+            {showForm ? '목록으로' : '청원하기'}
+          </button>
+        )}
       </div>
 
       {showForm ? (
@@ -145,13 +148,23 @@ export default function PetitionsTab({ onProposeLaw }) {
             <p className={styles.empty}>등록된 청원이 없습니다.</p>
           ) : (
             petitions.map(petition => (
-              <div key={petition.id} className={styles.card}>
+              <div 
+                key={petition.id} 
+                className={styles.card}
+                onClick={() => setExpandedPetitionId(expandedPetitionId === petition.id ? null : petition.id)}
+                style={{ cursor: 'pointer' }}
+              >
                 <div className={styles.cardHeader}>
                   <h3 className={styles.cardTitle}>{petition.title}</h3>
                   {getStatusBadge(petition.status)}
                 </div>
-                <p className={styles.cardContent}>{petition.content}</p>
-                <div className={styles.cardFooter}>
+                <p 
+                  className={styles.cardContent}
+                  style={{ WebkitLineClamp: expandedPetitionId === petition.id ? 'unset' : 3 }}
+                >
+                  {petition.content}
+                </p>
+                <div className={styles.cardFooter} onClick={(e) => e.stopPropagation()}>
                   <div className={styles.meta}>
                     <span className={styles.author}><MessageSquare size={16} /> {petition.users?.name || '익명'}</span>
                     <span className={styles.date}>{new Date(petition.created_at).toLocaleDateString()}</span>
@@ -179,9 +192,10 @@ export default function PetitionsTab({ onProposeLaw }) {
                     )}
                     
                     <button 
-                      className={`${styles.actionBtn} ${petition.status !== 'PENDING' ? styles.disabled : ''}`} 
+                      className={`${styles.actionBtn} ${(petition.status !== 'PENDING' || role?.role === 'GUEST_MATH') ? styles.disabled : ''}`} 
                       onClick={() => handleAgree(petition.id)}
-                      disabled={petition.status !== 'PENDING'}
+                      disabled={petition.status !== 'PENDING' || role?.role === 'GUEST_MATH'}
+                      title={role?.role === 'GUEST_MATH' ? '수학 체험 전용 계정은 읽기만 가능합니다.' : ''}
                     >
                       <ThumbsUp size={16} /> 동의 ({petition.agree_count})
                     </button>

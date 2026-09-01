@@ -256,7 +256,7 @@ export default function NPCDialogueUI() {
                     if (isAccepted.rewardItem) {
                       if (isAccepted.rewardItem === 'money') {
                         // Call transaction API if it's money
-                        if (user) {
+                        if (user && role?.role !== 'GUEST_MATH') {
                           await supabase.rpc('process_transaction', {
                             p_user_id: user.id,
                             p_amount: isAccepted.rewardAmount,
@@ -270,7 +270,7 @@ export default function NPCDialogueUI() {
                     }
                     
                     // Log to activity_logs
-                    if (user) {
+                    if (user && role?.role !== 'GUEST_MATH') {
                       await supabase.from('activity_logs').insert([{
                         user_id: user.id,
                         action_type: 'QUEST_COMPLETED',

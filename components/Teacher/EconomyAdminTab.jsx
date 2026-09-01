@@ -8,6 +8,8 @@ export default function EconomyAdminTab() {
   const [loading, setLoading] = useState(true);
   const [treasury, setTreasury] = useState(0);
   const [currencyName, setCurrencyName] = useState('돈');
+  const [isEditingTreasury, setIsEditingTreasury] = useState(false);
+  const [treasuryInput, setTreasuryInput] = useState('');
 
   // Reward Settings
   const [rewardPetitionCreate, setRewardPetitionCreate] = useState(0);
@@ -23,7 +25,7 @@ export default function EconomyAdminTab() {
   const fetchData = async () => {
     const { data } = await supabase
       .from('users')
-      .select('id, name, student_number, role, economy_admin')
+      .select('id, name, student_number, role, economy_admin, balance')
       .neq('role', 'TEACHER')
       .order('student_number');
     if (data) setStudents(data);
@@ -65,6 +67,43 @@ export default function EconomyAdminTab() {
     }
   };
 
+  const handleUpdateTreasury = async () => {
+    const val = parseInt(treasuryInput, 10);
+    if (isNaN(val)) return alert('올바른 금액을 입력하세요.');
+    const { error } = await supabase.from('settings').upsert({ key: 'treasury_balance', value: val.toString() });
+    if (!error) {
+      setTreasury(val);
+      setIsEditingTreasury(false);
+      alert('국고 잔액이 수정되었습니다.');
+    } else {
+      alert('수정 실패: ' + error.message);
+    }
+  };
+
+  const handleUpdateStudentBalance = async (userId, currentBalance, name) => {
+    const newVal = prompt(`${name} 학생의 새로운 잔액을 입력하세요:`, currentBalance || 0);
+    if (newVal === null) return;
+    const parsed = parseInt(newVal, 10);
+    if (isNaN(parsed)) return alert('올바른 숫자를 입력하세요.');
+    
+    const diff = parsed - (currentBalance || 0);
+    if (diff === 0) return;
+    
+    const { error } = await supabase.rpc('process_transaction', {
+      p_user_id: userId,
+      p_amount: diff,
+      p_description: '교사 직권 잔액 수정',
+      p_type: 'ETC'
+    });
+    
+    if (error) {
+      alert('수정 실패: ' + error.message);
+    } else {
+      fetchData();
+      alert(`${name} 학생의 잔액이 ${parsed.toLocaleString()}으로 수정되었습니다.`);
+    }
+  };
+
   const handleSaveRewards = async (e) => {
     e.preventDefault();
     setIsSavingRewards(true);
@@ -94,9 +133,47 @@ export default function EconomyAdminTab() {
       <div className="glass-panel" style={{ padding: '1.5rem', marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <div style={{ fontSize: '0.9rem', color: '#6b7280' }}>현재 국고(국세청) 잔액</div>
-          <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#3b82f6' }}>
-            {treasury.toLocaleString()}
-          </div>
+          
+          {isEditingTreasury ? (
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+              <input 
+                type="number" 
+                className="glass-input" 
+                value={treasuryInput}
+                onChange={(e) => setTreasuryInput(e.target.value)}
+                style={{ width: '150px' }}
+              />
+              <button 
+                className="glass-button" 
+                style={{ background: 'var(--primary)', color: 'white' }}
+                onClick={handleUpdateTreasury}
+              >
+                저장
+              </button>
+              <button 
+                className="glass-button" 
+                onClick={() => setIsEditingTreasury(false)}
+              >
+                취소
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#3b82f6' }}>
+                {treasury.toLocaleString()} {currencyName}
+              </div>
+              <button 
+                className="glass-button" 
+                style={{ padding: '0.3rem 0.8rem', fontSize: '0.8rem' }}
+                onClick={() => {
+                  setTreasuryInput(treasury.toString());
+                  setIsEditingTreasury(true);
+                }}
+              >
+                수정
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -177,6 +254,7 @@ export default function EconomyAdminTab() {
               <th style={{ padding: '0.8rem' }}>학번</th>
               <th style={{ padding: '0.8rem' }}>이름</th>
               <th style={{ padding: '0.8rem' }}>현재 역할</th>
+              <th style={{ padding: '0.8rem' }}>잔액</th>
               <th style={{ padding: '0.8rem' }}>경제 권한 (On/Off)</th>
             </tr>
           </thead>
@@ -186,6 +264,25 @@ export default function EconomyAdminTab() {
                 <td style={{ padding: '0.8rem' }}>{s.student_number}</td>
                 <td style={{ padding: '0.8rem' }}>{s.name}</td>
                 <td style={{ padding: '0.8rem', color: '#6b7280' }}>{s.role}</td>
+                <td style={{ padding: '0.8rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                    <span style={{ fontWeight: 'bold', color: 'var(--primary)' }}>{(s.balance || 0).toLocaleString()}</span>
+                    <button
+                      onClick={() => handleUpdateStudentBalance(s.id, s.balance, s.name)}
+                      style={{
+                        background: 'none',
+                        border: '1px solid #d1d5db',
+                        borderRadius: '4px',
+                        padding: '0.2rem 0.5rem',
+                        fontSize: '0.8rem',
+                        cursor: 'pointer',
+                        color: '#4b5563'
+                      }}
+                    >
+                      수정
+                    </button>
+                  </div>
+                </td>
                 <td style={{ padding: '0.8rem' }}>
                   <button
                     onClick={() => handleToggleAdmin(s.id, s.economy_admin)}

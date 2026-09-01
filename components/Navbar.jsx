@@ -92,6 +92,7 @@ export default function Navbar() {
       </div>
       <div className={styles.navLinks}>
         <Link href="/" className={styles.link}>3D 지도</Link>
+        <Link href="/fieldtrip" className={styles.link}>🚀 수학이란 무엇인가</Link>
         <Link href="/assembly" className={styles.link}>국회</Link>
         <Link href="/government" className={styles.link}>정부</Link>
         <Link href="/court" className={styles.link}>법원</Link>

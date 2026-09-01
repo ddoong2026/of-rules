@@ -1,6 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import { useAuth } from '@/components/AuthProvider';
 
 // Dynamically import the 3D Map component to prevent SSR issues with Three.js
 const Map3D = dynamic(() => import('@/components/Map3D'), { 
@@ -13,6 +14,8 @@ const Map3D = dynamic(() => import('@/components/Map3D'), {
 });
 
 export default function Home() {
+  const { role, loading } = useAuth();
+
   return (
     <div style={{ width: '100%', height: '100%' }}>
       <Map3D />

@@ -106,15 +106,19 @@ export default function StockTab() {
               <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
                 <button 
                   className="glass-button" 
-                  style={{ background: '#ef4444', color: 'white', flex: 1 }}
+                  style={{ background: role?.role === 'GUEST_MATH' ? '#fca5a5' : '#ef4444', color: 'white', flex: 1, cursor: role?.role === 'GUEST_MATH' ? 'not-allowed' : 'pointer' }}
                   onClick={() => handleTrade(stock, 'BUY', '매수')}
+                  disabled={role?.role === 'GUEST_MATH'}
+                  title={role?.role === 'GUEST_MATH' ? '수학 체험 전용 계정은 읽기만 가능합니다.' : ''}
                 >
                   매수
                 </button>
                 <button 
                   className="glass-button" 
-                  style={{ background: '#3b82f6', color: 'white', flex: 1 }}
+                  style={{ background: role?.role === 'GUEST_MATH' ? '#93c5fd' : '#3b82f6', color: 'white', flex: 1, cursor: role?.role === 'GUEST_MATH' ? 'not-allowed' : 'pointer' }}
                   onClick={() => handleTrade(stock, 'SELL', '매도')}
+                  disabled={role?.role === 'GUEST_MATH'}
+                  title={role?.role === 'GUEST_MATH' ? '수학 체험 전용 계정은 읽기만 가능합니다.' : ''}
                 >
                   매도
                 </button>

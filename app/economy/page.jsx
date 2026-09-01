@@ -8,7 +8,7 @@ import StockTab from '@/components/Economy/StockTab';
 import styles from './economy.module.css';
 
 export default function EconomyPage() {
-  const { user, loading } = useAuth();
+  const { user, role, loading } = useAuth();
   const [activeTab, setActiveTab] = useState('shop');
 
   if (loading) {

@@ -80,8 +80,10 @@ export default function ShopTab() {
               </p>
               <button 
                 className="glass-button" 
-                style={{ width: '100%', background: 'var(--secondary)', color: 'white' }}
+                style={{ width: '100%', background: role?.role === 'GUEST_MATH' ? '#9ca3af' : 'var(--secondary)', color: 'white', cursor: role?.role === 'GUEST_MATH' ? 'not-allowed' : 'pointer' }}
                 onClick={() => handleBuy(item)}
+                disabled={role?.role === 'GUEST_MATH'}
+                title={role?.role === 'GUEST_MATH' ? '수학 체험 전용 계정은 읽기만 가능합니다.' : ''}
               >
                 구매하기
               </button>

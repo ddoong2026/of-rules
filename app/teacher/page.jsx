@@ -38,6 +38,7 @@ export default function TeacherDashboard() {
   const [isSavingEconomy, setIsSavingEconomy] = useState(false);
 
   // --- Create Tab State ---
+  const [accountType, setAccountType] = useState('NORMAL'); // 'NORMAL' | 'MATH_ONLY'
   const [grade, setGrade] = useState('1');
   const [classNum, setClassNum] = useState('1');
   const [startNum, setStartNum] = useState('1');
@@ -146,14 +147,25 @@ export default function TeacherDashboard() {
       if (missingArray.includes(i)) continue;
       
       const studentNumberStr = `${grade}${classNum.padStart(2, '0')}${i.toString().padStart(2, '0')}`;
-      const email = `s${studentNumberStr}@class.com`;
-      const name = `${grade}학년 ${classNum}반 ${i}번`;
+      
+      let email, role, namePrefix;
+      if (accountType === 'MATH_ONLY') {
+        email = `m${studentNumberStr}@class.com`;
+        role = 'GUEST_MATH';
+        namePrefix = '[수학체험] ';
+      } else {
+        email = `s${studentNumberStr}@class.com`;
+        role = 'CITIZEN';
+        namePrefix = '';
+      }
+      
+      const name = `${namePrefix}${grade}학년 ${classNum}반 ${i}번`;
       
       usersToCreate.push({
         student_number: parseInt(studentNumberStr, 10),
         name,
         email,
-        role: 'CITIZEN',
+        role,
         department: null
       });
     }
@@ -293,9 +305,16 @@ export default function TeacherDashboard() {
           <>
             <p style={{fontSize: '0.9rem', color: 'var(--danger)', marginBottom: '1.5rem', textAlign: 'center'}}>
               * 초기 발급되는 비밀번호는 <strong>123456</strong> 으로 통일됩니다.<br/>
-              * 이메일은 <code>s[학번]@class.com</code> 형식으로 자동 생성됩니다.
+              * 일반 학생 이메일은 <code>s[학번]@class.com</code>, 수학 체험 계정은 <code>m[학번]@class.com</code> 형식으로 자동 생성됩니다.
             </p>
             <form onSubmit={handleCreateSubmit}>
+              <div className={styles.inputGroup} style={{ marginBottom: '1rem' }}>
+                <label>계정 용도 선택</label>
+                <select className="glass-input" value={accountType} onChange={(e) => setAccountType(e.target.value)}>
+                  <option value="NORMAL">일반 학생 계정 (모든 기능 사용)</option>
+                  <option value="MATH_ONLY">수학 체험 전용 계정 (맵 탐험 기능만 사용)</option>
+                </select>
+              </div>
               <div className={styles.formGrid}>
                 <div className={styles.inputGroup}>
                   <label>학년</label>

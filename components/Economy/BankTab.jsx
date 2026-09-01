@@ -116,7 +116,13 @@ export default function BankTab() {
               min="1"
               required 
             />
-            <button type="submit" className="glass-button" style={{ background: 'var(--primary)', color: 'white', whiteSpace: 'nowrap' }}>
+            <button 
+              type="submit" 
+              className="glass-button" 
+              style={{ background: role?.role === 'GUEST_MATH' ? '#9ca3af' : 'var(--primary)', color: 'white', whiteSpace: 'nowrap', cursor: role?.role === 'GUEST_MATH' ? 'not-allowed' : 'pointer' }}
+              disabled={role?.role === 'GUEST_MATH'}
+              title={role?.role === 'GUEST_MATH' ? '수학 체험 전용 계정은 읽기만 가능합니다.' : ''}
+            >
               가입하기
             </button>
           </form>

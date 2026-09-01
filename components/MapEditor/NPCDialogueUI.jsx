@@ -12,12 +12,14 @@ export default function NPCDialogueUI() {
   const { user } = useAuth();
   const [activeAsset, setActiveAsset] = useState(null);
   const [currentStep, setCurrentStep] = useState(0);
+  const [mathAnswer, setMathAnswer] = useState('');
 
   useEffect(() => {
     const handleInteract = (e) => {
       if (isPlaying) {
         setActiveAsset(e.detail.asset);
         setCurrentStep(0);
+        setMathAnswer('');
         setActiveDialogue(true);
       }
     };
@@ -314,6 +316,79 @@ export default function NPCDialogueUI() {
                       alert('퀘스트를 완료하고 보상을 받았습니다!');
                       closeDialogue();
                     };
+
+                    const evaluateMath = (target, unit, type) => {
+                      const safeDiv = parseFloat((target / unit).toFixed(10));
+                      let val = 0;
+                      if (type === 'CEIL') val = Math.ceil(safeDiv);
+                      else if (type === 'FLOOR') val = Math.floor(safeDiv);
+                      else if (type === 'ROUND') val = Math.round(safeDiv);
+                      return parseFloat((val * unit).toFixed(10));
+                    };
+
+                    if (isAccepted.type === 'MATH') {
+                      return (
+                        <div style={{ marginTop: '10px', display: 'flex', gap: '8px', alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
+                          <input 
+                            type="number"
+                            step="any"
+                            value={mathAnswer}
+                            onChange={(e) => setMathAnswer(e.target.value)}
+                            placeholder="정답 입력"
+                            style={{ 
+                              padding: '6px 12px', 
+                              borderRadius: '4px', 
+                              border: '1px solid #94a3b8',
+                              background: 'rgba(255,255,255,0.9)',
+                              width: '120px'
+                            }}
+                          />
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (mathAnswer === '') return;
+                              if (!hasItems) {
+                                alert('아이템이 부족하여 진행할 수 없습니다.');
+                                return;
+                              }
+                              const ans = Number(mathAnswer);
+                              const target = isAccepted.mathTargetNumber || 0;
+                              const unit = isAccepted.mathUnit || 10;
+                              const type = isAccepted.mathType || 'CEIL';
+                              const correctAns = evaluateMath(target, unit, type);
+
+                              if (ans === correctAns) {
+                                handleComplete(e);
+                              } else {
+                                let feedback = '';
+                                if (type === 'FLOOR') {
+                                  feedback = `오답입니다! 버림하여 [${unit}] 단위까지 나타내어 [${ans}]이(가) 되려면, 원래의 수는 [${ans}] 이상 [${parseFloat((ans + unit).toFixed(10))}] 미만이어야 합니다. 하지만 문제의 숫자 ${target}은(는) 이 범위에 속하지 않습니다.`;
+                                } else if (type === 'CEIL') {
+                                  feedback = `오답입니다! 올림하여 [${unit}] 단위까지 나타내어 [${ans}]이(가) 되려면, 원래의 수는 [${parseFloat((ans - unit).toFixed(10))}] 초과 [${ans}] 이하여야 합니다. 하지만 문제의 숫자 ${target}은(는) 이 범위에 속하지 않습니다.`;
+                                } else if (type === 'ROUND') {
+                                  feedback = `오답입니다! 반올림하여 [${unit}] 단위까지 나타내어 [${ans}]이(가) 되려면, 원래의 수는 [${parseFloat((ans - (unit/2)).toFixed(10))}] 이상 [${parseFloat((ans + (unit/2)).toFixed(10))}] 미만이어야 합니다. 하지만 문제의 숫자 ${target}은(는) 이 범위에 속하지 않습니다.`;
+                                }
+                                alert(feedback);
+                                setMathAnswer('');
+                              }
+                            }} 
+                            disabled={!hasItems}
+                            style={{ 
+                              padding: '6px 12px', 
+                              background: hasItems ? '#3b82f6' : '#64748b', 
+                              color: 'white', 
+                              fontWeight: 'bold', 
+                              border: 'none', 
+                              borderRadius: '4px', 
+                              cursor: hasItems ? 'pointer' : 'not-allowed' 
+                            }}
+                          >
+                            제출하기
+                          </button>
+                          {!hasItems && <span style={{ fontSize: '0.8rem', color: '#f87171' }}>요구 아이템 부족</span>}
+                        </div>
+                      );
+                    }
 
                     return (
                       <div style={{ marginTop: '10px' }}>

@@ -43,7 +43,9 @@ const useMapStore = create((set, get) => ({
   waterSources: [], // { x, z, amount }
 
   // Mini Game State
+  // Mini Game State
   mineMiniGame: { active: false, assetId: null, assetType: null },
+  mathMiniGame: { active: false, questData: null },
   activeDialogue: false,
 
   // Actions
@@ -59,9 +61,10 @@ const useMapStore = create((set, get) => ({
   setCameraMode: (isCameraMode) => set({ isCameraMode }),
   setIsPlaying: (isPlaying) => set({ isPlaying }),
   setSunTime: (time) => set({ sunTime: time }),
+  setSpawnPoint: (point) => set({ spawnPoint: point }),
   setMineMiniGame: (active, assetId = null, assetType = null) => set({ mineMiniGame: { active, assetId, assetType } }),
+  setMathMiniGame: (state) => set({ mathMiniGame: { ...get().mathMiniGame, ...state } }),
   setActiveDialogue: (active) => set({ activeDialogue: active }),
-  setSpawnPoint: (pt) => set({ spawnPoint: pt }),
   setTransformMode: (mode) => set({ transformMode: mode }),
   
   // Update functions

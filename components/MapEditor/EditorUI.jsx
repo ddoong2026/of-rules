@@ -689,9 +689,9 @@ function PropertyEditor() {
                                 const unit = q.mathUnit || 10;
                                 const context = q.mathContext || 'BUY_BOX';
                                 let text = '';
-                                if (context === 'BUY_BOX') text = `제가 물건을 ${num}개 모았어요. 이 물건을 ${unit}개씩 들어가는 상자에 모두 담으려고 합니다. 상자를 낱개로는 안 팔고 ${unit}개 들이 상자로만 파는데, 물건을 전부 담으려면 상자 공간이 총 몇 개 분량이 필요할까요? (올림하여 ${unit}의 자리까지 나타내기)`;
-                                else if (context === 'USE_BUNDLE') text = `제가 물건을 ${num}개 모았어요. 이 물건을 ${unit}개씩 묶어서 팔려고 합니다. 묶음에 들어가지 못하는 낱개는 팔 수 없어요. 최대 몇 개까지 묶음으로 묶어서 팔 수 있을까요? (버림하여 ${unit}의 자리까지 나타내기)`;
-                                else if (context === 'RECORD') text = `기록장에 수확량을 ${unit}의 자리까지 적어야 해요. 현재 정확한 수확량은 ${num}입니다. 반올림하여 ${unit}의 자리까지 나타낸 수를 알려주세요!`;
+                                if (context === 'BUY_BOX') text = `제가 물건을 ${num}개 모았어요. 이 물건을 ${unit}개씩 들어가는 상자에 모두 담으려고 합니다. 상자를 낱개로는 안 팔고 ${unit}개 들이 상자로만 파는데, 물건을 전부 담으려면 상자 공간이 총 몇 개 분량이 필요할까요? (어림하여 ${unit}의 자리까지 나타내기)`;
+                                else if (context === 'USE_BUNDLE') text = `제가 물건을 ${num}개 모았어요. 이 물건을 ${unit}개씩 묶어서 팔려고 합니다. 묶음에 들어가지 못하는 낱개는 팔 수 없어요. 최대 몇 개까지 묶음으로 묶어서 팔 수 있을까요? (어림하여 ${unit}의 자리까지 나타내기)`;
+                                else if (context === 'RECORD') text = `기록장에 수확량을 실제 개수와 가장 가깝게 대략적으로 적어야 해요. 현재 정확한 수확량은 ${num}입니다. 어떻게 적어야 할까요? (어림하여 ${unit}의 자리까지 나타내기)`;
                                 else if (context === 'MEASURE') text = `이번에 측정한 무게(또는 길이)가 ${num}입니다. 이 값을 ${unit} 단위까지 어림해서 알려주세요! (어떤 어림 방식을 쓸지 문제에 맞게 수정해주세요)`;
                                 
                                 const newQ = [...quests]; 

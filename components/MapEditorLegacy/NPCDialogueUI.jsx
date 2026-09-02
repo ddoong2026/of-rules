@@ -27,9 +27,9 @@ export default function NPCDialogueUI() {
     
     const obj = mathObject || '물건';
     let title = '';
-    if (type === 'CEIL') title = `제가 구한 ${obj}의 수는 ${target}개입니다. 이 ${obj}을(를) ${unit}개 단위로 포장해서 남김없이 모두 담으려면, 필요한 공간을 올림하여 ${unit}의 자리까지 나타내면 총 몇 개 분량일까요?`;
-    else if (type === 'FLOOR') title = `제가 구한 ${obj}의 수는 ${target}개입니다. 이 ${obj}을(를) ${unit}개 단위로 묶어서 팔려고 합니다. 낱개는 팔 수 없다고 할 때, 최대로 팔 수 있는 ${obj}의 총 개수를 버림하여 ${unit}의 자리까지 나타내면 얼마일까요?`;
-    else if (type === 'ROUND') title = `제가 구한 ${obj}의 수는 ${target}개입니다. 이 ${obj}의 개수를 기록장에 대략적으로 적어야 하는데, 반올림하여 ${unit}의 자리까지 나타내면 얼마일까요?`;
+    if (type === 'CEIL') title = `제가 구한 ${obj}의 수는 ${target}개입니다. 이 ${obj}을(를) ${unit}개 단위로 포장해서 남김없이 모두 담으려면, 필요한 공간은 총 몇 개 분량일까요? (어림하여 ${unit}의 자리까지 나타내기)`;
+    else if (type === 'FLOOR') title = `제가 구한 ${obj}의 수는 ${target}개입니다. 이 ${obj}을(를) ${unit}개 단위로 묶어서 팔려고 합니다. 낱개는 팔 수 없다고 할 때, 묶음으로 파는 ${obj}의 총 개수는 얼마일까요? (어림하여 ${unit}의 자리까지 나타내기)`;
+    else if (type === 'ROUND') title = `제가 구한 ${obj}의 수는 ${target}개입니다. 이 ${obj}의 개수를 실제 개수와 가장 가깝게 기록장에 대략적으로 적어야 합니다. 얼마로 적어야 할까요? (어림하여 ${unit}의 자리까지 나타내기)`;
     
     return { type, unit, target, title };
   };
@@ -377,143 +377,24 @@ export default function NPCDialogueUI() {
                       closeDialogue();
                     };
 
-                    const evaluateMath = (target, unit, type) => {
-                      const safeDiv = parseFloat((target / unit).toFixed(10));
-                      let val = 0;
-                      if (type === 'CEIL') val = Math.ceil(safeDiv);
-                      else if (type === 'FLOOR') val = Math.floor(safeDiv);
-                      else if (type === 'ROUND') val = Math.round(safeDiv);
-                      return parseFloat((val * unit).toFixed(10));
-                    };
-
                     if (isAccepted.type === 'MATH') {
                       return (
-                        <div style={{ marginTop: '10px', display: 'flex', gap: '8px', alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
-                          <input 
-                            type="number"
-                            step="any"
-                            value={mathAnswer}
-                            onChange={(e) => setMathAnswer(e.target.value)}
-                            placeholder="정답 입력"
-                            style={{ 
-                              padding: '6px 12px', 
-                              borderRadius: '4px', 
-                              border: '1px solid #94a3b8',
-                              background: 'rgba(255,255,255,0.9)',
-                              width: '120px'
-                            }}
-                          />
+                        <div style={{ marginTop: '10px' }}>
                           <button 
-                            onClick={async (e) => {
+                            onClick={(e) => {
                               e.stopPropagation();
-                              if (mathAnswer === '') return;
-                              if (!hasItems) {
-                                alert('아이템이 부족하여 진행할 수 없습니다.');
-                                return;
-                              }
-                              const ans = Number(mathAnswer);
-                              const target = isAccepted.mathTargetNumber || 0;
-                              const unit = isAccepted.mathUnit || 10;
-                              const type = isAccepted.mathType || 'CEIL';
-                              const correctAns = evaluateMath(target, unit, type);
-
-                              if (ans === correctAns) {
-                                let solvedCount = (isAccepted.mathSolvedCount || 0) + 1;
-                                let problemCount = isAccepted.mathProblemCount || 1;
-                                let rewardMode = isAccepted.mathRewardMode || 'ALL_AT_ONCE';
-                                
-                                // Consume item on first correct answer (if not consumed yet)
-                                if (isAccepted.requireItem && isAccepted.consumeItem !== false && !isAccepted.itemsConsumed) {
-                                  consumeItem(isAccepted.requireItem, isAccepted.requireAmount);
-                                  useInventoryStore.getState().updateActiveQuest(activeAsset.id, { itemsConsumed: true });
+                              useMapStore.getState().setMathMiniGame({
+                                active: true,
+                                questData: {
+                                  activeAsset,
+                                  isAccepted,
+                                  questId,
+                                  currentQuestIndex: activeAsset.quests.findIndex(q => q.title === (isAccepted.originalTitle || isAccepted.title)),
+                                  hasItems,
+                                  randomMathParams: randomMathParams[activeAsset.quests.findIndex(q => q.title === (isAccepted.originalTitle || isAccepted.title))]
                                 }
-                                
-                                // Give partial reward if PER_PROBLEM
-                                if (rewardMode === 'PER_PROBLEM') {
-                                  if (isAccepted.rewardItem) {
-                                    if (isAccepted.rewardItem === 'money') {
-                                      if (user && role?.role !== 'GUEST_MATH') {
-                                        await supabase.rpc('process_transaction', {
-                                          p_user_id: user.id,
-                                          p_amount: isAccepted.rewardAmount,
-                                          p_description: `문제 풀이 보상: ${isAccepted.title}`,
-                                          p_type: 'ETC'
-                                        });
-                                      }
-                                    } else {
-                                      addItem(isAccepted.rewardItem, isAccepted.rewardAmount);
-                                    }
-                                  }
-                                }
-
-                                if (solvedCount < problemCount) {
-                                  // Move to next problem
-                                  if (isAccepted.originalType === 'RANDOM_MATH') {
-                                    const newParams = generateMathProblem(isAccepted.mathObject);
-                                    useInventoryStore.getState().updateActiveQuest(activeAsset.id, {
-                                      mathSolvedCount: solvedCount,
-                                      title: newParams.title,
-                                      mathType: newParams.type,
-                                      mathTargetNumber: newParams.target,
-                                      mathUnit: newParams.unit
-                                    });
-                                    alert(`정답입니다! (${solvedCount}/${problemCount} 완료)\n다음 문제로 넘어갑니다.`);
-                                    setMathAnswer('');
-                                  } else {
-                                    // For generic math quests (same problem repeated if count > 1)
-                                    useInventoryStore.getState().updateActiveQuest(activeAsset.id, { mathSolvedCount: solvedCount });
-                                    alert(`정답입니다! (${solvedCount}/${problemCount} 완료)\n동일한 문제가 계속됩니다.`);
-                                    setMathAnswer('');
-                                  }
-                                } else {
-                                  // Complete quest
-                                  if (rewardMode === 'ALL_AT_ONCE') {
-                                    // Give reward once at the end
-                                    if (isAccepted.rewardItem) {
-                                      if (isAccepted.rewardItem === 'money') {
-                                        if (user && role?.role !== 'GUEST_MATH') {
-                                          await supabase.rpc('process_transaction', {
-                                            p_user_id: user.id,
-                                            p_amount: isAccepted.rewardAmount,
-                                            p_description: `퀘스트 보상: ${isAccepted.title}`,
-                                            p_type: 'ETC'
-                                          });
-                                        }
-                                      } else {
-                                        addItem(isAccepted.rewardItem, isAccepted.rewardAmount);
-                                      }
-                                    }
-                                  }
-                                  
-                                  // Log to activity_logs
-                                  if (user && role?.role !== 'GUEST_MATH') {
-                                    await supabase.from('activity_logs').insert([{
-                                      user_id: user.id,
-                                      action_type: 'QUEST_COMPLETED',
-                                      description: `퀘스트 완료: ${isAccepted.title}`,
-                                      details: { map_id: currentMapId, asset_id: activeAsset.id, title: isAccepted.title, reward: isAccepted.rewardItem }
-                                    }]);
-                                  }
-
-                                  completeQuest(activeAsset.id);
-                                  addCompletedQuest(questId);
-                                  alert(`정답입니다! 퀘스트를 완료했습니다!`);
-                                  closeDialogue();
-                                }
-                              } else {
-                                let feedback = '';
-                                if (type === 'FLOOR') {
-                                  feedback = `오답입니다! 버림하여 [${unit}] 단위까지 나타내어 [${ans}]이(가) 되려면, 원래의 수는 [${ans}] 이상 [${parseFloat((ans + unit).toFixed(10))}] 미만이어야 합니다. 하지만 문제의 숫자 ${target}은(는) 이 범위에 속하지 않습니다.`;
-                                } else if (type === 'CEIL') {
-                                  feedback = `오답입니다! 올림하여 [${unit}] 단위까지 나타내어 [${ans}]이(가) 되려면, 원래의 수는 [${parseFloat((ans - unit).toFixed(10))}] 초과 [${ans}] 이하여야 합니다. 하지만 문제의 숫자 ${target}은(는) 이 범위에 속하지 않습니다.`;
-                                } else if (type === 'ROUND') {
-                                  feedback = `오답입니다! 반올림하여 [${unit}] 단위까지 나타내어 [${ans}]이(가) 되려면, 원래의 수는 [${parseFloat((ans - (unit/2)).toFixed(10))}] 이상 [${parseFloat((ans + (unit/2)).toFixed(10))}] 미만이어야 합니다. 하지만 문제의 숫자 ${target}은(는) 이 범위에 속하지 않습니다.`;
-                                }
-                                alert(feedback);
-                                setMathAnswer('');
-                              }
+                              });
                             }} 
-                            disabled={!hasItems}
                             style={{ 
                               padding: '6px 12px', 
                               background: hasItems ? '#3b82f6' : '#64748b', 

@@ -695,13 +695,21 @@ function PropertyEditor() {
                                 else if (context === 'MEASURE') text = `이번에 측정한 무게(또는 길이)가 ${num}입니다. 이 값을 ${unit} 단위까지 어림해서 알려주세요! (어떤 어림 방식을 쓸지 문제에 맞게 수정해주세요)`;
                                 
                                 const newQ = [...quests]; 
-                                newQ[i].title = text; 
+                                newQ[i].mathProblemText = text; 
                                 updateQuests(newQ);
                               }}
                               style={{ padding: '0.4rem', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', marginTop: '0.2rem' }}
                             >
-                              ✨ 퀘스트 질문 자동 생성 (아래 입력창에 채워집니다)
+                              ✨ 문제 텍스트 자동 생성 (아래 입력창에 채워집니다)
                             </button>
+                            <textarea
+                              className="glass-input"
+                              value={q.mathProblemText || ''}
+                              onChange={(e) => { const newQ = [...quests]; newQ[i].mathProblemText = e.target.value; updateQuests(newQ); }}
+                              placeholder="수학 미니게임에서 띄울 문제를 입력하세요"
+                              rows={2}
+                              style={{ flex: 1, padding: '0.4rem', fontSize: '0.8rem', marginTop: '0.3rem', resize: 'vertical' }}
+                            />
                           </div>
                         )}
 

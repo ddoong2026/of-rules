@@ -260,13 +260,6 @@ export default function NPCDialogueUI() {
             const isAccepted = activeQuests.find(q => q.assetId === activeAsset.id && (q.questId === questId || (!q.questId && q.title === currentQuest.title)));
 
             let questToRender = currentQuest;
-            if (currentQuest.type === 'RANDOM_MATH') {
-              if (isAccepted) {
-                questToRender = { ...currentQuest, title: isAccepted.title };
-              } else if (randomMathParams[currentQuestIndex]) {
-                questToRender = { ...currentQuest, title: randomMathParams[currentQuestIndex].title };
-              }
-            }
 
             return (
               <div style={{
@@ -281,6 +274,11 @@ export default function NPCDialogueUI() {
                   {isAccepted && isAccepted.mathProblemCount > 1 && ` [문제 ${Math.min((isAccepted.mathSolvedCount || 0) + 1, isAccepted.mathProblemCount)}/${isAccepted.mathProblemCount}]`}</span>
                 </strong>
                 <span style={{ color: '#ffffff', fontSize: '0.95rem' }}>{questToRender.title}</span>
+                {questToRender.description && (
+                  <div style={{ color: '#cbd5e1', fontSize: '0.85rem', marginTop: '6px', lineHeight: '1.4' }}>
+                    {questToRender.description}
+                  </div>
+                )}
                 
                 {(() => {
                   if (!isAccepted) {
@@ -291,7 +289,9 @@ export default function NPCDialogueUI() {
                           acceptQuest({
                             assetId: activeAsset.id,
                             questId: questId,
-                            title: questToRender.title,
+                            title: currentQuest.title,
+                            description: currentQuest.description,
+                            mathProblemText: currentQuest.mathProblemText,
                             type: currentQuest.type === 'RANDOM_MATH' ? 'MATH' : currentQuest.type,
                             originalType: currentQuest.type,
                             mathType: currentQuest.type === 'RANDOM_MATH' ? randomMathParams[currentQuestIndex]?.type : currentQuest.mathType,

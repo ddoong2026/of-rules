@@ -243,10 +243,40 @@ export default function MathMiniGameUI() {
     setMathMiniGame({ active: false, questData: null });
   };
 
-  let titleText = isAccepted?.title || '';
-  if (currentQuest?.type === 'RANDOM_MATH' || isAccepted?.originalType === 'RANDOM_MATH') {
-    titleText = isAccepted?.title || randomMathParams?.title || currentQuest?.title || '';
+  const getEulLeul = (word) => {
+    if (!word) return '을';
+    const lastChar = word.charCodeAt(word.length - 1);
+    if (lastChar < 0xAC00 || lastChar > 0xD7A3) return '을';
+    const hasBatchim = (lastChar - 0xAC00) % 28 > 0;
+    return hasBatchim ? '을' : '를';
+  };
+
+  const constructProblemText = () => {
+    const target = isAccepted?.mathTargetNumber || currentQuest?.mathTargetNumber || randomMathParams?.target || 0;
+    const unit = isAccepted?.mathUnit || currentQuest?.mathUnit || randomMathParams?.unit || 10;
+    const mathType = isAccepted?.mathType || currentQuest?.mathType || randomMathParams?.type || 'CEIL';
+    const obj = objName || '물건';
+    const eulLeul = getEulLeul(obj);
+    
+    if (mathType === 'CEIL') return `제가 구한 ${obj}의 수는 ${target}개입니다. 이 ${obj}${eulLeul} ${unit}개 단위로 포장해서 남김없이 모두 담으려면, 필요한 공간은 총 몇 개 분량일까요? (어림하여 ${unit}의 자리까지 나타내기)`;
+    if (mathType === 'FLOOR') return `제가 구한 ${obj}의 수는 ${target}개입니다. 이 ${obj}${eulLeul} ${unit}개 단위로 묶어서 팔려고 합니다. 낱개는 팔 수 없다고 할 때, 묶음으로 파는 ${obj}의 총 개수는 얼마일까요? (어림하여 ${unit}의 자리까지 나타내기)`;
+    if (mathType === 'ROUND') return `제가 구한 ${obj}의 수는 ${target}개입니다. 이 ${obj}의 개수를 실제 개수와 가장 가깝게 기록장에 대략적으로 적어야 합니다. 얼마로 적어야 할까요? (어림하여 ${unit}의 자리까지 나타내기)`;
+    
+    return currentQuest?.title || '';
+  };
+
+  let titleText = isAccepted?.mathProblemText || currentQuest?.mathProblemText || '';
+  if (!titleText) {
+    if (currentQuest?.type === 'RANDOM_MATH' || isAccepted?.originalType === 'RANDOM_MATH') {
+      titleText = constructProblemText();
+    } else {
+      titleText = isAccepted?.title || currentQuest?.title || '';
+    }
   }
+
+  const parts = titleText.split(' (어림하여');
+  const mainText = parts[0];
+  const hintText = parts.length > 1 ? `(어림하여${parts[1]}` : '';
 
   return (
     <div style={{
@@ -398,7 +428,12 @@ export default function MathMiniGameUI() {
             fontWeight: '600',
             wordBreak: 'keep-all'
           }}>
-            {titleText}
+            {mainText}
+            {hintText && (
+              <div style={{ color: '#fbbf24', marginTop: '0.5rem', fontSize: '1.2rem' }}>
+                {hintText}
+              </div>
+            )}
           </h2>
 
           <div style={{

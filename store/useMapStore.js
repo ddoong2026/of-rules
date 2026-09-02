@@ -36,6 +36,7 @@ const useMapStore = create((set, get) => ({
   boundaryDrawing: null, // { start: [x,z], current: [x,z] }
   spawnPoint: null, // { x, z }
   customItems: [], // { id, name, type (e.g. 'mineral', 'material', 'quest') }
+  droppedItems: [], // { id, itemId, icon, position: [x,y,z] }
   
   heights: new Float32Array(VERTEX_COUNT).fill(0), // Legacy single-layer heights
 

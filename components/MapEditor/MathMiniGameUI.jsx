@@ -265,14 +265,14 @@ export default function MathMiniGameUI() {
       if (isCountQuestion) {
         return `제가 구한 ${obj}의 수는 ${target}개입니다. 이 ${obj}${eulLeul} ${unit}개 단위로 상자에 남김없이 모두 담으려면, 필요한 상자는 총 몇 개인가요?`;
       } else {
-        return `제가 구한 ${obj}의 수는 ${target}개입니다. 이 ${obj}${eulLeul} ${unit}개 단위로 상자에 남김없이 모두 담으려면, 필요한 상자들에 들어가는 ${obj}의 총 개수는 얼마 분량인가요? (어림하여 ${unit}의 자리까지 나타내기)`;
+        return `제가 구한 ${obj}의 수는 ${target}개입니다. 이 ${obj}${eulLeul} ${unit}개 단위로 상자에 남김없이 모두 담으려면, 필요한 상자에는 총 몇 개의 ${obj}${eulLeul} 담을 수 있나요? (어림하여 ${unit}의 자리까지 나타내기)`;
       }
     }
     if (mathType === 'FLOOR') {
       if (isCountQuestion) {
         return `제가 구한 ${obj}의 수는 ${target}개입니다. 이 ${obj}${eulLeul} ${unit}개 단위로 묶어서 팔려고 합니다. 낱개는 팔 수 없다고 할 때, 최대 몇 묶음까지 만들 수 있나요?`;
       } else {
-        return `제가 구한 ${obj}의 수는 ${target}개입니다. 이 ${obj}${eulLeul} ${unit}개 단위로 묶어서 팔려고 합니다. 낱개는 팔 수 없다고 할 때, 묶음으로 파는 ${obj}의 총 개수는 얼마인가요? (어림하여 ${unit}의 자리까지 나타내기)`;
+        return `제가 구한 ${obj}의 수는 ${target}개입니다. 이 ${obj}${eulLeul} ${unit}개 단위로 묶어서 팔려고 합니다. 낱개는 팔 수 없다고 할 때, 묶음으로 파는 ${obj}의 총 개수는 몇 개인가요? (어림하여 ${unit}의 자리까지 나타내기)`;
       }
     }
     if (mathType === 'ROUND') {

@@ -59,8 +59,8 @@ export default function MathMiniGameUI() {
 
   if (!active || !questData) return null;
 
-  const currentQuest = activeAsset.quests[currentQuestIndex];
-  const objName = isAccepted.mathObject || currentQuest.mathObject || '물건';
+  const currentQuest = activeAsset.quests?.[currentQuestIndex];
+  const objName = isAccepted.mathObject || currentQuest?.mathObject || '물건';
   const emoji = getEmoji(objName);
 
   const generateMathProblem = (mathObject) => {
@@ -243,9 +243,9 @@ export default function MathMiniGameUI() {
     setMathMiniGame({ active: false, questData: null });
   };
 
-  let titleText = isAccepted.title;
-  if (currentQuest.type === 'RANDOM_MATH') {
-    titleText = isAccepted.title || randomMathParams?.title || currentQuest.title;
+  let titleText = isAccepted?.title || '';
+  if (currentQuest?.type === 'RANDOM_MATH' || isAccepted?.originalType === 'RANDOM_MATH') {
+    titleText = isAccepted?.title || randomMathParams?.title || currentQuest?.title || '';
   }
 
   return (

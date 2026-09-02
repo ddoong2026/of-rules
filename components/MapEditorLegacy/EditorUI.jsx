@@ -259,7 +259,7 @@ export default function EditorUI({ onSave, isSaving }) {
 
       {/* Item Manager */}
       {mode === 'itemManager' && (
-        <ItemManagerUI />
+        <ItemManagerUI availableModels={availableModels} />
       )}
 
       {/* Select / Edit Mode */}
@@ -972,7 +972,7 @@ function PropertyEditor() {
   );
 }
 
-function ItemManagerUI() {
+function ItemManagerUI({ availableModels = [] }) {
   const { customItems, addCustomItem, removeCustomItem, updateCustomItem } = useMapStore();
   const [newItemName, setNewItemName] = useState('');
   const [newItemIcon, setNewItemIcon] = useState('📦');

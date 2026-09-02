@@ -100,6 +100,9 @@ const useInventoryStore = create((set, get) => ({
     if (state.activeQuests.find(q => q.assetId === questData.assetId)) return state;
     return { activeQuests: [...state.activeQuests, questData] };
   }),
+  updateActiveQuest: (assetId, newData) => set((state) => ({
+    activeQuests: state.activeQuests.map(q => q.assetId === assetId ? { ...q, ...newData } : q)
+  })),
   completeQuest: (assetId) => set((state) => ({
     activeQuests: state.activeQuests.filter(q => q.assetId !== assetId)
   })),

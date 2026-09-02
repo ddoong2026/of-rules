@@ -611,7 +611,8 @@ function PropertyEditor() {
                           style={{ padding: '0.4rem' }}
                         >
                           <option value="COLLECT">수집 퀘스트 (아이템 모으기)</option>
-                          <option value="MATH">수학 퀘스트 (어림하기 문제)</option>
+                          <option value="MATH">수학 퀘스트 (어림하기 문제 직접 설정)</option>
+                          <option value="RANDOM_MATH">수학 퀘스트 (랜덤 어림하기 문제)</option>
                         </select>
 
                         {q.type === 'MATH' && (
@@ -697,13 +698,57 @@ function PropertyEditor() {
                           </div>
                         )}
 
+                        {q.type === 'RANDOM_MATH' && (
+                          <div style={{ padding: '0.5rem', background: 'rgba(168, 85, 247, 0.1)', borderRadius: '4px', border: '1px solid #d8b4fe', marginTop: '0.3rem', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                            <div style={{ fontSize: '0.75rem', color: '#6b21a8', marginBottom: '0.2rem' }}>
+                              💡 올림/버림/반올림 중 하나가 랜덤하게 출제되며, 숫자와 단위도 무작위로 생성됩니다.
+                            </div>
+                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                              <label style={{ fontSize: '0.75rem', fontWeight: 'bold', width: '60px' }}>구체물</label>
+                              <input 
+                                type="text"
+                                className="glass-input"
+                                placeholder="예: 사과, 도토리, 밧줄"
+                                value={q.mathObject || ''}
+                                onChange={(e) => { const newQ = [...quests]; newQ[i].mathObject = e.target.value; updateQuests(newQ); }}
+                                style={{ flex: 1, padding: '0.3rem', fontSize: '0.8rem' }}
+                              />
+                            </div>
+                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                              <label style={{ fontSize: '0.75rem', fontWeight: 'bold', width: '60px' }}>출제 문제 수</label>
+                              <input 
+                                type="number"
+                                className="glass-input"
+                                value={q.mathProblemCount || 1}
+                                onChange={(e) => { const newQ = [...quests]; newQ[i].mathProblemCount = Number(e.target.value); updateQuests(newQ); }}
+                                style={{ flex: 1, padding: '0.3rem', fontSize: '0.8rem' }}
+                                min="1"
+                                max="10"
+                              />
+                            </div>
+                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                              <label style={{ fontSize: '0.75rem', fontWeight: 'bold', width: '60px' }}>보상 지급 방식</label>
+                              <select 
+                                className="glass-input"
+                                value={q.mathRewardMode || 'ALL_AT_ONCE'}
+                                onChange={(e) => { const newQ = [...quests]; newQ[i].mathRewardMode = e.target.value; updateQuests(newQ); }}
+                                style={{ flex: 1, padding: '0.3rem', fontSize: '0.8rem' }}
+                              >
+                                <option value="ALL_AT_ONCE">모든 문제를 다 풀면 한 번에 보상</option>
+                                <option value="PER_PROBLEM">1문제 맞힐 때마다 즉시 보상 (반복 지급)</option>
+                              </select>
+                            </div>
+                          </div>
+                        )}
+
                         <textarea 
                           className="glass-input" 
                           value={q.title || ''} 
                           onChange={(e) => { const newQ = [...quests]; newQ[i].title = e.target.value; updateQuests(newQ); }}
-                          placeholder={q.type === 'MATH' ? "문제 지문을 여기에 적어주세요." : "예: 촌장님을 위해 사과 3개를 가져다주세요!"}
+                          placeholder={q.type === 'MATH' ? "문제 지문을 여기에 적어주세요." : q.type === 'RANDOM_MATH' ? "(문제 지문은 구체물을 바탕으로 게임 플레이 중 랜덤 생성됩니다)" : "예: 촌장님을 위해 사과 3개를 가져다주세요!"}
                           rows={2}
                           style={{ padding: '0.4rem', resize: 'vertical' }}
+                          disabled={q.type === 'RANDOM_MATH'}
                         />
                         
                         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>

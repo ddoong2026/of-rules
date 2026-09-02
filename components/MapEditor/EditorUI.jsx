@@ -721,6 +721,30 @@ function PropertyEditor() {
                                 style={{ flex: 1, padding: '0.3rem', fontSize: '0.8rem' }}
                               />
                             </div>
+                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                              <label style={{ fontSize: '0.75rem', fontWeight: 'bold', width: '60px' }}>출제 문제 수</label>
+                              <input 
+                                type="number"
+                                className="glass-input"
+                                value={q.mathProblemCount || 1}
+                                onChange={(e) => { const newQ = [...quests]; newQ[i].mathProblemCount = Number(e.target.value); updateQuests(newQ); }}
+                                style={{ flex: 1, padding: '0.3rem', fontSize: '0.8rem' }}
+                                min="1"
+                                max="10"
+                              />
+                            </div>
+                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                              <label style={{ fontSize: '0.75rem', fontWeight: 'bold', width: '60px' }}>보상 지급 방식</label>
+                              <select 
+                                className="glass-input"
+                                value={q.mathRewardMode || 'ALL_AT_ONCE'}
+                                onChange={(e) => { const newQ = [...quests]; newQ[i].mathRewardMode = e.target.value; updateQuests(newQ); }}
+                                style={{ flex: 1, padding: '0.3rem', fontSize: '0.8rem' }}
+                              >
+                                <option value="ALL_AT_ONCE">모든 문제를 다 풀면 한 번에 보상</option>
+                                <option value="PER_PROBLEM">1문제 맞힐 때마다 즉시 보상 (반복 지급)</option>
+                              </select>
+                            </div>
                           </div>
                         )}
 

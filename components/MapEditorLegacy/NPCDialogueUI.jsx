@@ -9,15 +9,48 @@ import { useAuth } from '@/components/AuthProvider';
 export default function NPCDialogueUI() {
   const { isPlaying, setActiveDialogue, currentMapId } = useMapStore();
   const { activeQuests, completedQuests, acceptQuest, completeQuest, addCompletedQuest, items, consumeItem, addItem } = useInventoryStore();
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const [activeAsset, setActiveAsset] = useState(null);
   const [currentStep, setCurrentStep] = useState(0);
   const [mathAnswer, setMathAnswer] = useState('');
+  const [randomMathParams, setRandomMathParams] = useState({});
+
+  const generateMathProblem = (mathObject) => {
+    const types = ['CEIL', 'FLOOR', 'ROUND'];
+    const type = types[Math.floor(Math.random() * types.length)];
+    const unitOptions = [10, 100, 1000];
+    const unit = unitOptions[Math.floor(Math.random() * unitOptions.length)];
+    let target = 0;
+    if (unit === 10) target = Math.floor(Math.random() * 900) + 100;
+    else if (unit === 100) target = Math.floor(Math.random() * 9000) + 1000;
+    else target = Math.floor(Math.random() * 90000) + 10000;
+    
+    const obj = mathObject || '물건';
+    let title = '';
+    if (type === 'CEIL') title = `제가 구한 ${obj}의 수는 ${target}개입니다. 이 ${obj}을(를) ${unit}개 단위로 포장해서 남김없이 모두 담으려면, 필요한 공간을 올림하여 ${unit}의 자리까지 나타내면 총 몇 개 분량일까요?`;
+    else if (type === 'FLOOR') title = `제가 구한 ${obj}의 수는 ${target}개입니다. 이 ${obj}을(를) ${unit}개 단위로 묶어서 팔려고 합니다. 낱개는 팔 수 없다고 할 때, 최대로 팔 수 있는 ${obj}의 총 개수를 버림하여 ${unit}의 자리까지 나타내면 얼마일까요?`;
+    else if (type === 'ROUND') title = `제가 구한 ${obj}의 수는 ${target}개입니다. 이 ${obj}의 개수를 기록장에 대략적으로 적어야 하는데, 반올림하여 ${unit}의 자리까지 나타내면 얼마일까요?`;
+    
+    return { type, unit, target, title };
+  };
 
   useEffect(() => {
     const handleInteract = (e) => {
       if (isPlaying) {
-        setActiveAsset(e.detail.asset);
+        const asset = e.detail.asset;
+        const newRandomParams = {};
+        if (asset.quests) {
+          asset.quests.forEach((q, idx) => {
+            if (q.type === 'RANDOM_MATH') {
+              newRandomParams[idx] = generateMathProblem(q.mathObject);
+            }
+          });
+        } else if (asset.quest && asset.questType === 'RANDOM_MATH') {
+           newRandomParams[0] = generateMathProblem(asset.mathObject);
+        }
+        setRandomMathParams(newRandomParams);
+        
+        setActiveAsset(asset);
         setCurrentStep(0);
         setMathAnswer('');
         setActiveDialogue(true);
@@ -69,7 +102,7 @@ export default function NPCDialogueUI() {
     
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeAsset, currentStep, isLastStep]); // added dependencies
+  }, [activeAsset, currentStep, isLastStep]);
 
   if (!isPlaying || !activeAsset) return null;
 
@@ -122,9 +155,7 @@ export default function NPCDialogueUI() {
         style={{ width: '85%', maxWidth: '850px', display: 'flex', flexDirection: 'column' }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Character Portrait Badges */}
         <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0 24px', marginBottom: '-14px', zIndex: 2 }}>
-          {/* Player Portrait */}
           <div style={{
             background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.9), rgba(30, 58, 138, 0.95))',
             border: '2px solid #60a5fa',
@@ -142,7 +173,6 @@ export default function NPCDialogueUI() {
             <span>나 (모험가)</span>
           </div>
           
-          {/* NPC Portrait */}
           <div style={{
             background: 'linear-gradient(135deg, rgba(234, 179, 8, 0.9), rgba(161, 98, 7, 0.95))',
             border: '2px solid #fde047',
@@ -161,7 +191,6 @@ export default function NPCDialogueUI() {
           </div>
         </div>
 
-        {/* Dialogue Box */}
         <div 
           style={{
             background: 'linear-gradient(145deg, #1e293b 0%, #0f172a 100%)',
@@ -178,31 +207,34 @@ export default function NPCDialogueUI() {
           }}
           onClick={handleNext}
         >
-          {/* Dialogue Text */}
           <div style={{ color: '#f8fafc', fontSize: '1.15rem', lineHeight: '1.7', fontWeight: '500' }}>
             <p style={{ margin: 0 }}>&ldquo;{dialogueLines[currentStep]}&rdquo;</p>
           </div>
           
-          {/* Quest Area if present - Show only on the last step */}
           {(() => {
             if (!isLastStep) return null;
             
-            // Normalize quests data
             let npcQuests = activeAsset.quests || [];
             if (npcQuests.length === 0 && activeAsset.quest) {
               npcQuests = [{
                 title: activeAsset.quest,
+                type: activeAsset.questType,
                 requireItem: activeAsset.questRequireItem,
                 requireAmount: activeAsset.questRequireAmount || 1,
                 rewardItem: activeAsset.questRewardItem,
                 rewardAmount: activeAsset.questRewardAmount || 1,
-                consumeItem: activeAsset.questConsumeItem !== false
+                consumeItem: activeAsset.questConsumeItem !== false,
+                mathType: activeAsset.mathType,
+                mathTargetNumber: activeAsset.mathTargetNumber,
+                mathUnit: activeAsset.mathUnit,
+                mathObject: activeAsset.mathObject,
+                mathProblemCount: activeAsset.mathProblemCount || 1,
+                mathRewardMode: activeAsset.mathRewardMode || 'ALL_AT_ONCE'
               }];
             }
             
             if (npcQuests.length === 0) return null;
 
-            // Find current quest
             const currentQuestIndex = npcQuests.findIndex(q => !completedQuests.includes(q.title));
             
             if (currentQuestIndex === -1) {
@@ -223,7 +255,10 @@ export default function NPCDialogueUI() {
             }
 
             const currentQuest = npcQuests[currentQuestIndex];
-            const isAccepted = activeQuests.find(q => q.assetId === activeAsset.id && q.title === currentQuest.title);
+            const questToRender = (currentQuest.type === 'RANDOM_MATH' && randomMathParams[currentQuestIndex]) 
+              ? { ...currentQuest, title: randomMathParams[currentQuestIndex].title } 
+              : currentQuest;
+            const isAccepted = activeQuests.find(q => q.assetId === activeAsset.id && q.originalTitle === currentQuest.title);
 
             return (
               <div style={{
@@ -234,9 +269,10 @@ export default function NPCDialogueUI() {
                 borderRadius: '8px'
               }}>
                 <strong style={{ color: '#fef08a', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px', fontSize: '0.9rem' }}>
-                  📜 <span>퀘스트 {npcQuests.length > 1 ? `(${currentQuestIndex + 1}/${npcQuests.length})` : ''}</span>
+                  📜 <span>퀘스트 {npcQuests.length > 1 ? `(${currentQuestIndex + 1}/${npcQuests.length})` : ''}
+                  {isAccepted && isAccepted.mathProblemCount > 1 && ` [문제 ${Math.min((isAccepted.mathSolvedCount || 0) + 1, isAccepted.mathProblemCount)}/${isAccepted.mathProblemCount}]`}</span>
                 </strong>
-                <span style={{ color: '#ffffff', fontSize: '0.95rem' }}>{currentQuest.title}</span>
+                <span style={{ color: '#ffffff', fontSize: '0.95rem' }}>{questToRender.title}</span>
                 
                 {(() => {
                   if (!isAccepted) {
@@ -246,7 +282,17 @@ export default function NPCDialogueUI() {
                           e.stopPropagation();
                           acceptQuest({
                             assetId: activeAsset.id,
-                            title: currentQuest.title,
+                            title: questToRender.title,
+                            type: currentQuest.type === 'RANDOM_MATH' ? 'MATH' : currentQuest.type,
+                            originalType: currentQuest.type,
+                            mathType: currentQuest.type === 'RANDOM_MATH' ? randomMathParams[currentQuestIndex]?.type : currentQuest.mathType,
+                            mathTargetNumber: currentQuest.type === 'RANDOM_MATH' ? randomMathParams[currentQuestIndex]?.target : currentQuest.mathTargetNumber,
+                            mathUnit: currentQuest.type === 'RANDOM_MATH' ? randomMathParams[currentQuestIndex]?.unit : currentQuest.mathUnit,
+                            mathObject: currentQuest.mathObject,
+                            mathProblemCount: currentQuest.mathProblemCount || 1,
+                            mathRewardMode: currentQuest.mathRewardMode || 'ALL_AT_ONCE',
+                            mathSolvedCount: 0,
+                            itemsConsumed: false,
                             requireItem: currentQuest.requireItem,
                             requireAmount: currentQuest.requireAmount || 1,
                             rewardItem: currentQuest.rewardItem,
@@ -263,7 +309,9 @@ export default function NPCDialogueUI() {
                   } else {
                     // Check if player has required items
                     let hasItems = false;
-                    if (!isAccepted.requireItem) {
+                    if (isAccepted.itemsConsumed) {
+                      hasItems = true;
+                    } else if (!isAccepted.requireItem) {
                       hasItems = true;
                     } else {
                       let total = 0;
@@ -344,7 +392,7 @@ export default function NPCDialogueUI() {
                             }}
                           />
                           <button 
-                            onClick={(e) => {
+                            onClick={async (e) => {
                               e.stopPropagation();
                               if (mathAnswer === '') return;
                               if (!hasItems) {
@@ -358,7 +406,88 @@ export default function NPCDialogueUI() {
                               const correctAns = evaluateMath(target, unit, type);
 
                               if (ans === correctAns) {
-                                handleComplete(e);
+                                let solvedCount = (isAccepted.mathSolvedCount || 0) + 1;
+                                let problemCount = isAccepted.mathProblemCount || 1;
+                                let rewardMode = isAccepted.mathRewardMode || 'ALL_AT_ONCE';
+                                
+                                // Consume item on first correct answer (if not consumed yet)
+                                if (isAccepted.requireItem && isAccepted.consumeItem !== false && !isAccepted.itemsConsumed) {
+                                  consumeItem(isAccepted.requireItem, isAccepted.requireAmount);
+                                  useInventoryStore.getState().updateActiveQuest(activeAsset.id, { itemsConsumed: true });
+                                }
+                                
+                                // Give partial reward if PER_PROBLEM
+                                if (rewardMode === 'PER_PROBLEM') {
+                                  if (isAccepted.rewardItem) {
+                                    if (isAccepted.rewardItem === 'money') {
+                                      if (user && role?.role !== 'GUEST_MATH') {
+                                        await supabase.rpc('process_transaction', {
+                                          p_user_id: user.id,
+                                          p_amount: isAccepted.rewardAmount,
+                                          p_description: `문제 풀이 보상: ${isAccepted.title}`,
+                                          p_type: 'ETC'
+                                        });
+                                      }
+                                    } else {
+                                      addItem(isAccepted.rewardItem, isAccepted.rewardAmount);
+                                    }
+                                  }
+                                }
+
+                                if (solvedCount < problemCount) {
+                                  // Move to next problem
+                                  if (isAccepted.originalType === 'RANDOM_MATH') {
+                                    const newParams = generateMathProblem(isAccepted.mathObject);
+                                    useInventoryStore.getState().updateActiveQuest(activeAsset.id, {
+                                      mathSolvedCount: solvedCount,
+                                      title: newParams.title,
+                                      mathType: newParams.type,
+                                      mathTargetNumber: newParams.target,
+                                      mathUnit: newParams.unit
+                                    });
+                                    alert(`정답입니다! (${solvedCount}/${problemCount} 완료)\n다음 문제로 넘어갑니다.`);
+                                    setMathAnswer('');
+                                  } else {
+                                    // For generic math quests (same problem repeated if count > 1)
+                                    useInventoryStore.getState().updateActiveQuest(activeAsset.id, { mathSolvedCount: solvedCount });
+                                    alert(`정답입니다! (${solvedCount}/${problemCount} 완료)\n동일한 문제가 계속됩니다.`);
+                                    setMathAnswer('');
+                                  }
+                                } else {
+                                  // Complete quest
+                                  if (rewardMode === 'ALL_AT_ONCE') {
+                                    // Give reward once at the end
+                                    if (isAccepted.rewardItem) {
+                                      if (isAccepted.rewardItem === 'money') {
+                                        if (user && role?.role !== 'GUEST_MATH') {
+                                          await supabase.rpc('process_transaction', {
+                                            p_user_id: user.id,
+                                            p_amount: isAccepted.rewardAmount,
+                                            p_description: `퀘스트 보상: ${isAccepted.title}`,
+                                            p_type: 'ETC'
+                                          });
+                                        }
+                                      } else {
+                                        addItem(isAccepted.rewardItem, isAccepted.rewardAmount);
+                                      }
+                                    }
+                                  }
+                                  
+                                  // Log to activity_logs
+                                  if (user && role?.role !== 'GUEST_MATH') {
+                                    await supabase.from('activity_logs').insert([{
+                                      user_id: user.id,
+                                      action_type: 'QUEST_COMPLETED',
+                                      description: `퀘스트 완료: ${isAccepted.title}`,
+                                      details: { map_id: currentMapId, asset_id: activeAsset.id, title: isAccepted.title, reward: isAccepted.rewardItem }
+                                    }]);
+                                  }
+
+                                  completeQuest(activeAsset.id);
+                                  addCompletedQuest(isAccepted.title);
+                                  alert(`정답입니다! 퀘스트를 완료했습니다!`);
+                                  closeDialogue();
+                                }
                               } else {
                                 let feedback = '';
                                 if (type === 'FLOOR') {

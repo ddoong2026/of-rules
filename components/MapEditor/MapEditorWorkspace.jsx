@@ -7,7 +7,7 @@ import EditorCanvas from './EditorCanvas';
 import EditorUI from './EditorUI';
 
 export default function MapEditorWorkspace() {
-  const { currentMapId, mapName, setMapName, heightsBase, heightsTop, heightsBottom, heightsWater, colors, assets, decals, boundaries, spawnPoint, loadMap, resetMap } = useMapStore();
+  const { currentMapId, mapName, setMapName, heightsBase, heightsTop, heightsBottom, heightsWater, colors, assets, decals, boundaries, spawnPoint, customItems, loadMap, resetMap } = useMapStore();
   const [mapList, setMapList] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -109,6 +109,7 @@ export default function MapEditorWorkspace() {
       decals: decals,
       boundaries: boundaries || [],
       spawnPoint: spawnPoint || null,
+      customItems: customItems || [],
       updated_at: new Date().toISOString()
     };
 

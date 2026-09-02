@@ -405,7 +405,7 @@ export default function NPCDialogueUI() {
                               cursor: hasItems ? 'pointer' : 'not-allowed' 
                             }}
                           >
-                            제출하기
+                            수학 퀘스트 도전하기 ✏️
                           </button>
                           {!hasItems && <span style={{ fontSize: '0.8rem', color: '#f87171' }}>요구 아이템 부족</span>}
                         </div>

@@ -4,9 +4,25 @@ import { useEffect } from 'react';
 import useInventoryStore from '@/store/useInventoryStore';
 import useMapStore from '@/store/useMapStore';
 
-// Helper to get image emoji and label for assets
-const getAssetInfo = (type) => {
-  switch (type) {
+const getAssetInfo = (type, customItems = []) => {
+  let isIdentified = false;
+  let baseType = type;
+  
+  if (type.endsWith('_identified')) {
+    isIdentified = true;
+    baseType = type.replace('_identified', '');
+  }
+
+  const customDef = customItems.find(c => c.id === baseType);
+  if (customDef) {
+    if (isIdentified) {
+      return { name: customDef.name, img: customDef.icon };
+    } else {
+      return { name: '미확인 ' + customDef.name, img: '❓' };
+    }
+  }
+
+  switch (baseType) {
     case 'tree': return { name: '나무', img: '🌳' };
     case 'rock': return { name: '바위', img: '🪨' };
     case 'house': return { name: '집', img: '🏠' };
@@ -16,13 +32,13 @@ const getAssetInfo = (type) => {
     case '나뭇가지': return { name: '나뭇가지', img: '🪵' };
     case '나무껍질': return { name: '나무껍질', img: '🍂' };
     case '나무뿌리': return { name: '나무뿌리', img: '🌱' };
-    default: return { name: type, img: '❓' };
+    default: return { name: baseType, img: '❓' };
   }
 };
 
 export default function InventoryUI() {
   const { items, selectedSlot, isOpen, setIsOpen, setSlot } = useInventoryStore();
-  const { isPlaying } = useMapStore();
+  const { isPlaying, customItems } = useMapStore();
   
   useEffect(() => {
     if (!isPlaying) {
@@ -97,7 +113,7 @@ export default function InventoryUI() {
           >
             {item && (
               <>
-                <span style={{ fontSize: '1.8rem', pointerEvents: 'none' }}>{getAssetInfo(item.type).img}</span>
+                <span style={{ fontSize: '1.8rem', pointerEvents: 'none' }}>{getAssetInfo(item.type, customItems).img}</span>
                 <span style={{ position: 'absolute', bottom: '2px', right: '4px', color: 'white', fontSize: '0.8rem', fontWeight: 'bold', textShadow: '1px 1px 0 #000' }}>
                   {item.count}
                 </span>
@@ -158,7 +174,7 @@ export default function InventoryUI() {
               >
                 {item && (
                   <>
-                    <span style={{ fontSize: '1.8rem', pointerEvents: 'none' }}>{getAssetInfo(item.type).img}</span>
+                    <span style={{ fontSize: '1.8rem', pointerEvents: 'none' }}>{getAssetInfo(item.type, customItems).img}</span>
                     <span style={{ position: 'absolute', bottom: '2px', right: '4px', color: 'white', fontSize: '0.8rem', fontWeight: 'bold', textShadow: '1px 1px 0 #000' }}>
                       {item.count}
                     </span>

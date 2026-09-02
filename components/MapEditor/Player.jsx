@@ -104,11 +104,11 @@ export default function Player() {
 
         const invState = useInventoryStore.getState();
         const mapState = useMapStore.getState();
-        const selectedSlot = invState.selectedSlot;
-        const selectedItem = invState.items[selectedSlot];
+        const selectedItem = invState.items[invState.selectedSlot];
 
         if (selectedItem) {
-          const customDef = mapState.customItems.find(c => c.id === selectedItem.id);
+          const baseType = selectedItem.type.replace('_identified', '');
+          const customDef = mapState.customItems.find(c => c.id === baseType);
           if (customDef && customDef.linkedAsset) {
             // 설치 위치 계산: 플레이어 정면 3칸 앞
             const playerPos = group.current.position;
@@ -121,7 +121,7 @@ export default function Player() {
             const targetY = getWalkableHeight(targetX, playerPos.y, targetZ);
 
             // 아이템 1개 소모
-            invState.consumeItem(selectedItem.id, 1);
+            invState.consumeItem(selectedItem.type, 1);
             
             // 맵에 에셋 추가 (customItemId를 함께 저장하여 나중에 회수 시 사용)
             mapState.addAsset({
@@ -130,7 +130,7 @@ export default function Player() {
               position: [targetX, targetY, targetZ],
               rotation: [0, 0, 0],
               scale: [1, 1, 1],
-              customItemId: selectedItem.id // 커스텀 아이템과 연결됨 표시
+              customItemId: baseType // 커스텀 아이템 원본 ID 저장
             });
             return;
           }
@@ -186,12 +186,13 @@ export default function Player() {
           // 사용자가 설치한 아이템 회수 처리 (더블클릭으로 회수)
           if (targetAsset.customItemId) {
             if (isDoubleClick) {
-              const customDef = useMapStore.getState().customItems.find(c => c.id === targetAsset.customItemId);
+              const baseId = targetAsset.customItemId.replace('_identified', '');
+              const customDef = useMapStore.getState().customItems?.find(c => c.id === baseId);
               useMapStore.getState().addDroppedItem({
-                id: 'drop_' + Date.now(),
-                itemId: targetAsset.customItemId,
+                id: 'dropped_' + Date.now(),
+                itemId: baseId + '_identified', // 다시 획득 시 이모지가 보이도록 식별된 상태로 드롭
                 icon: customDef ? customDef.icon : '📦',
-                position: [targetAsset.position[0], targetAsset.position[1], targetAsset.position[2]]
+                position: [...targetAsset.position]
               });
               useMapStore.getState().removeAsset(targetAsset.id);
             }

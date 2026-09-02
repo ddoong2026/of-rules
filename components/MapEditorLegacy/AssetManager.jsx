@@ -801,6 +801,9 @@ export default function AssetManager() {
     if (asset.type.startsWith('caveman')) {
       return <NPC asset={asset} isPlaying={isPlaying} roaming={roaming} mode={mode} onSelect={handleClick} />;
     }
+    if (asset.type.startsWith('models/')) {
+      return <GenericGLTFAsset url={`/${asset.type}`} />;
+    }
     switch(asset.type) {
       case 'tree': return <Tree />;
       case 'rock': return <Rock />;
@@ -873,6 +876,22 @@ function DroppedItem({ item, isPlaying }) {
       </Html>
     </group>
   );
+}
+
+function GenericGLTFAsset({ url }) {
+  const { scene } = useGLTF(url);
+  const clonedScene = useMemo(() => scene.clone(), [scene]);
+  
+  useEffect(() => {
+    clonedScene.traverse((child) => {
+      if (child.isMesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+      }
+    });
+  }, [clonedScene]);
+
+  return <primitive object={clonedScene} />;
 }
 
 useGLTF.preload('/models/caveman1.glb');

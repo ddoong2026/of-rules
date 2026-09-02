@@ -44,6 +44,16 @@ export default function EditorUI({ onSave, isSaving }) {
   } = useMapStore();
 
   const fileInputRef = useRef(null);
+  const [availableModels, setAvailableModels] = useState([]);
+
+  useEffect(() => {
+    fetch('/api/models')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) setAvailableModels(data);
+      })
+      .catch(err => console.error('Failed to fetch models:', err));
+  }, []);
 
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
@@ -1013,12 +1023,15 @@ function ItemManagerUI() {
           {ASSETS.map(a => (
             <option key={a.id} value={a.id}>{a.name}</option>
           ))}
+          {availableModels.map(m => (
+            <option key={m} value={`models/${m}`}>{m}</option>
+          ))}
         </select>
         <button 
           onClick={handleAdd}
-          style={{ padding: '0.4rem 1rem', background: '#d946ef', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+          style={{ padding: '0.4rem 1rem', background: '#d946ef', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', flexShrink: 0 }}
         >
-          추가
+          등록
         </button>
       </div>
 

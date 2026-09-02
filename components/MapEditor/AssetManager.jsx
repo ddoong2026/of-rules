@@ -834,7 +834,44 @@ export default function AssetManager() {
       {decals.map(decal => (
         <DecalItem key={decal.id} decal={decal} onErase={handleEraseDecal} />
       ))}
+      
+      {useMapStore(state => state.droppedItems).map(item => (
+        <DroppedItem key={item.id} item={item} isPlaying={isPlaying} />
+      ))}
     </>
+  );
+}
+
+function DroppedItem({ item, isPlaying }) {
+  const groupRef = useRef();
+  const { removeDroppedItem } = useMapStore();
+  const addItem = useInventoryStore(state => state.addItem);
+  
+  useFrame(({ clock, camera }) => {
+    if (!groupRef.current) return;
+    
+    // 둥둥 떠다니는 애니메이션
+    groupRef.current.position.y = item.position[1] + Math.sin(clock.elapsedTime * 3) * 0.2 + 0.5;
+    groupRef.current.rotation.y += 0.02;
+
+    if (isPlaying) {
+      // 카메라(플레이어)와의 거리 계산하여 자동 획득
+      const dist = camera.position.distanceTo(groupRef.current.position);
+      if (dist < 1.5) { // 획득 반경
+        addItem(item.itemId, 1);
+        removeDroppedItem(item.id);
+      }
+    }
+  });
+
+  return (
+    <group ref={groupRef} position={[item.position[0], item.position[1], item.position[2]]}>
+      <Html center sprite zIndexRange={[100, 0]} distanceFactor={3}>
+        <div style={{ fontSize: '2rem', filter: 'drop-shadow(0px 4px 8px rgba(0,0,0,0.5))' }}>
+          {item.icon}
+        </div>
+      </Html>
+    </group>
   );
 }
 

@@ -55,6 +55,8 @@ export default function Player() {
   const lastZoneTriggerTime = useRef(0);
   const zoomLevel = useRef(1.0);
 
+  const lastClickTimeRef = useRef(0);
+
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (useMapStore.getState().mineMiniGame.active) return;
@@ -92,8 +94,52 @@ export default function Player() {
     };
 
     const handleMouseDown = (e) => {
+      // 우클릭(설치) 처리
+      if (e.button === 2 && document.pointerLockElement === canvas) {
+        if (useMapStore.getState().mineMiniGame.active) return;
+        if (!group.current) return;
+
+        const invState = useInventoryStore.getState();
+        const mapState = useMapStore.getState();
+        const selectedSlot = invState.selectedSlot;
+        const selectedItem = invState.items[selectedSlot];
+
+        if (selectedItem) {
+          const customDef = mapState.customItems.find(c => c.id === selectedItem.id);
+          if (customDef && customDef.linkedAsset) {
+            // 설치 위치 계산: 플레이어 정면 3칸 앞
+            const playerPos = group.current.position;
+            const forward = new THREE.Vector3(0, 0, 1).applyEuler(new THREE.Euler(0, yaw.current, 0));
+            const placeDist = 3.0;
+            const targetX = playerPos.x + forward.x * placeDist;
+            const targetZ = playerPos.z + forward.z * placeDist;
+            
+            // 바닥 높이 계산
+            const targetY = getWalkableHeight(targetX, playerPos.y, targetZ);
+
+            // 아이템 1개 소모
+            invState.consumeItem(selectedItem.id, 1);
+            
+            // 맵에 에셋 추가 (customItemId를 함께 저장하여 나중에 회수 시 사용)
+            mapState.addAsset({
+              id: 'asset_' + Date.now(),
+              type: customDef.linkedAsset,
+              position: [targetX, targetY, targetZ],
+              rotation: [0, 0, 0],
+              scale: [1, 1, 1],
+              customItemId: selectedItem.id // 커스텀 아이템과 연결됨 표시
+            });
+            return;
+          }
+        }
+      }
+
       // 좌클릭이고 마우스 잠금 상태일 때 순수 거리/방향 수학으로 채집 판정
       if (e.button === 0 && document.pointerLockElement === canvas) {
+        const now = Date.now();
+        const isDoubleClick = (now - lastClickTimeRef.current) < 300;
+        lastClickTimeRef.current = now;
+
         if (useMapStore.getState().mineMiniGame.active) return;
         if (!group.current) return;
         
@@ -134,6 +180,21 @@ export default function Player() {
           const isTree = targetAsset?.type === 'tree';
           const isNPC = targetAsset?.type?.startsWith('caveman');
           
+          // 사용자가 설치한 아이템 회수 처리 (더블클릭으로 회수)
+          if (targetAsset.customItemId) {
+            if (isDoubleClick) {
+              const customDef = useMapStore.getState().customItems.find(c => c.id === targetAsset.customItemId);
+              useMapStore.getState().addDroppedItem({
+                id: 'drop_' + Date.now(),
+                itemId: targetAsset.customItemId,
+                icon: customDef ? customDef.icon : '📦',
+                position: [targetAsset.position[0], targetAsset.position[1], targetAsset.position[2]]
+              });
+              useMapStore.getState().removeAsset(targetAsset.id);
+            }
+            return;
+          }
+
           const hasDialogueEnabled = targetAsset.hasDialogue === true || (isNPC && targetAsset.hasDialogue !== false);
 
           if (hasDialogueEnabled) {

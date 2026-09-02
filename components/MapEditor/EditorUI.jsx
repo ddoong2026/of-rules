@@ -986,22 +986,25 @@ function ItemManagerUI() {
   const { customItems, addCustomItem, removeCustomItem, updateCustomItem } = useMapStore();
   const [newItemName, setNewItemName] = useState('');
   const [newItemIcon, setNewItemIcon] = useState('📦');
+  const [newLinkedAsset, setNewLinkedAsset] = useState('');
 
   const handleAdd = () => {
     if (!newItemName.trim()) return;
     addCustomItem({
       id: 'item_' + Date.now(),
       name: newItemName.trim(),
-      icon: newItemIcon
+      icon: newItemIcon,
+      linkedAsset: newLinkedAsset || null
     });
     setNewItemName('');
+    setNewLinkedAsset('');
   };
 
   return (
     <div style={{ background: '#fdf4ff', padding: '1rem', borderRadius: '6px' }}>
       <h4 style={{ margin: '0 0 0.5rem 0', color: '#86198f' }}>🎒 커스텀 아이템 관리</h4>
       <p style={{ fontSize: '0.8rem', color: '#701a75', marginBottom: '1rem' }}>
-        맵에서 사용할 수집 아이템이나 퀘스트 목표 아이템을 만드세요.
+        맵에서 사용할 수집 아이템이나 퀘스트 목표 아이템을 만드세요. 3D 에셋을 연동하면 마인크래프트처럼 바닥에 설치할 수 있습니다.
       </p>
       
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
@@ -1021,6 +1024,16 @@ function ItemManagerUI() {
           onChange={(e) => setNewItemName(e.target.value)}
           style={{ flex: 1, padding: '0.4rem' }}
         />
+        <select
+          value={newLinkedAsset}
+          onChange={(e) => setNewLinkedAsset(e.target.value)}
+          style={{ padding: '0.4rem', borderRadius: '4px', border: '1px solid #d1d5db' }}
+        >
+          <option value="">(연동 안함)</option>
+          {ASSETS.map(a => (
+            <option key={a.id} value={a.id}>{a.name}</option>
+          ))}
+        </select>
         <button 
           onClick={handleAdd}
           style={{ padding: '0.4rem 1rem', background: '#d946ef', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
@@ -1040,6 +1053,16 @@ function ItemManagerUI() {
               onChange={(e) => updateCustomItem(item.id, { name: e.target.value })}
               style={{ flex: 1, padding: '0.2rem', border: 'none', borderBottom: '1px solid #e5e7eb', borderRadius: 0, background: 'transparent' }}
             />
+            <select
+              value={item.linkedAsset || ''}
+              onChange={(e) => updateCustomItem(item.id, { linkedAsset: e.target.value || null })}
+              style={{ padding: '0.2rem', borderRadius: '4px', border: '1px solid #d1d5db', fontSize: '0.8rem' }}
+            >
+              <option value="">(연동 안함)</option>
+              {ASSETS.map(a => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </select>
             <button 
               onClick={() => removeCustomItem(item.id)}
               style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: '1.2rem' }}

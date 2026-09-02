@@ -237,6 +237,9 @@ const useMapStore = create((set, get) => ({
   updateCustomItem: (id, updates) => set((state) => ({
     customItems: state.customItems.map(i => i.id === id ? { ...i, ...updates } : i)
   })),
+
+  addDroppedItem: (item) => set((state) => ({ droppedItems: [...state.droppedItems, item] })),
+  removeDroppedItem: (id) => set((state) => ({ droppedItems: state.droppedItems.filter(i => i.id !== id) }))
 }));
 
 export default useMapStore;

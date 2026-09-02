@@ -160,7 +160,7 @@ export default function Terrain() {
     if (mode === 'sculptWater') return { base: 0.2, bottom: 0.2, top: 0.2, water: 1 };
     if (mode === 'resetWater') return { base: 0.5, bottom: 0.5, top: 0.8, water: 1 }; // See terrain and water clearly
     if (mode === 'sculptBottom') return { base: 0.2, bottom: 1, top: 0.2, water: 0.2 };
-    return { base: 1, bottom: 1, top: 1, water: 0.6 };
+    return { base: 1, bottom: 1, top: 1, water: 0.4 };
   };
 
   const { base: oBase, bottom: oBottom, top: oTop, water: oWater } = getOpacities();
@@ -551,13 +551,13 @@ export default function Terrain() {
         </mesh>
         <mesh ref={meshWaterRef} geometry={geometries.waterGeo}>
           <meshStandardMaterial 
-            color="#3b82f6"
-            roughness={1}
-            metalness={0}
+            color="#0ea5e9"
+            roughness={0.1}
+            metalness={0.1}
             side={THREE.DoubleSide}
             transparent={true}
             opacity={oWater}
-            depthWrite={oWater === 1}
+            depthWrite={false}
             polygonOffset={true} polygonOffsetFactor={2} polygonOffsetUnits={2}
           />
         </mesh>

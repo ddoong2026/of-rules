@@ -62,7 +62,14 @@ export default function FluidSystem() {
       {waterPositions.length > 0 && (
         <instancedMesh ref={instancedMeshRef} args={[null, null, 5000]}>
           <boxGeometry args={[1, 0.5, 1]} />
-          <meshStandardMaterial color="#60a5fa" transparent opacity={0.8} />
+          <meshStandardMaterial 
+            color="#0ea5e9" 
+            transparent 
+            opacity={0.6} 
+            roughness={0.1}
+            metalness={0.1}
+            depthWrite={false}
+          />
         </instancedMesh>
       )}
     </group>

@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import useMapStore from '@/store/useMapStore';
+import useInventoryStore from '@/store/useInventoryStore';
 import { supabase } from '@/lib/supabase';
 
 const PALETTE = [
@@ -92,12 +93,25 @@ export default function EditorUI({ onSave, isSaving }) {
           {currentMapId ? mapName : '저장되지 않은 맵'}
         </div>
         
-        <button 
-          onClick={() => setIsPlaying(!isPlaying)}
-          style={{ padding: '0.4rem 1rem', background: isPlaying ? '#ef4444' : '#8b5cf6', color: 'white', borderRadius: '4px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}
-        >
-          {isPlaying ? '⏹️ 편집으로 돌아가기' : '🏃‍♂️ 캐릭터 체험하기'}
-        </button>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          {isPlaying && (
+            <button
+              onClick={() => {
+                useInventoryStore.getState().setCompletedQuests([]);
+                alert('완료한 퀘스트가 모두 초기화되었습니다.');
+              }}
+              style={{ padding: '0.4rem 1rem', background: '#3b82f6', color: 'white', borderRadius: '4px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}
+            >
+              🔄 퀘스트 초기화
+            </button>
+          )}
+          <button 
+            onClick={() => setIsPlaying(!isPlaying)}
+            style={{ padding: '0.4rem 1rem', background: isPlaying ? '#ef4444' : '#8b5cf6', color: 'white', borderRadius: '4px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}
+          >
+            {isPlaying ? '⏹️ 편집으로 돌아가기' : '🏃‍♂️ 캐릭터 체험하기'}
+          </button>
+        </div>
       </div>
       
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>

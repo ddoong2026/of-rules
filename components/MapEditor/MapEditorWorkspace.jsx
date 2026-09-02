@@ -105,11 +105,13 @@ export default function MapEditorWorkspace() {
         water: heightsWaterArray
       },
       colors: colorsArray,
-      assets: assets,
+      assets: [
+        { id: '__customItems__', type: 'system', data: customItems || [] },
+        ...assets
+      ],
       decals: decals,
       boundaries: boundaries || [],
       spawnPoint: spawnPoint || null,
-      customItems: customItems || [],
       updated_at: new Date().toISOString()
     };
 

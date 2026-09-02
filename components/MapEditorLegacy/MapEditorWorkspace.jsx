@@ -97,11 +97,13 @@ export default function MapEditorWorkspace() {
       name: mapName,
       heights: heightsArray,
       colors: colorsArray,
-      assets: assets,
+      assets: [
+        { id: '__customItems__', type: 'system', data: customItems || [] },
+        ...assets
+      ],
       decals: decals,
       boundaries: boundaries || [],
       spawnPoint: spawnPoint || null,
-      customItems: customItems || [],
       updated_at: new Date().toISOString()
     };
 

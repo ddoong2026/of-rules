@@ -157,6 +157,16 @@ const useMapStore = create((set, get) => ({
       }
     }
 
+    // Extract customItems from assets array if present (workaround for DB schema limitation)
+    let actualAssets = mapData.assets || [];
+    let customItems = mapData.customItems || [];
+    
+    const sysAssetIndex = actualAssets.findIndex(a => a.id === '__customItems__');
+    if (sysAssetIndex !== -1) {
+      customItems = actualAssets[sysAssetIndex].data || [];
+      actualAssets = actualAssets.filter(a => a.id !== '__customItems__');
+    }
+
     set({
       currentMapId: mapData.id,
       mapName: mapData.name,
@@ -166,12 +176,12 @@ const useMapStore = create((set, get) => ({
       heightsWater,
       heights: heightsLegacy,
       colors,
-      assets: mapData.assets || [],
+      assets: actualAssets,
       decals: mapData.decals || [],
       csgOperations: mapData.csgOperations || [],
       boundaries: mapData.boundaries || [],
       spawnPoint: mapData.spawnPoint || null,
-      customItems: mapData.customItems || [],
+      customItems: customItems,
       history: [], // Reset history on load
     });
   },

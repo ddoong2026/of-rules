@@ -1075,6 +1075,9 @@ function ItemManagerUI({ availableModels = [] }) {
               {ASSETS.map(a => (
                 <option key={a.id} value={a.id}>{a.name}</option>
               ))}
+              {availableModels.map(m => (
+                <option key={m} value={`models/${m}`}>{m}</option>
+              ))}
             </select>
             <button 
               onClick={() => removeCustomItem(item.id)}

@@ -394,6 +394,8 @@ export default function NPCDialogueUI() {
                                   randomMathParams: randomMathParams[activeAsset.quests.findIndex(q => q.title === (isAccepted.originalTitle || isAccepted.title))]
                                 }
                               });
+                              setActiveDialogue(false);
+                              setActiveAsset(null);
                             }} 
                             style={{ 
                               padding: '6px 12px', 

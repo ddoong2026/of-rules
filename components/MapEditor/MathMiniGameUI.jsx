@@ -18,14 +18,14 @@ const NpcModel = ({ type }) => {
   useFrame((state) => {
     if (ref.current) {
       ref.current.rotation.y = Math.sin(state.clock.elapsedTime * 2) * 0.2;
-      ref.current.position.y = Math.sin(state.clock.elapsedTime * 5) * 0.1 - 0.5;
+      ref.current.position.y = Math.sin(state.clock.elapsedTime * 5) * 0.1 - 0.9;
     }
   });
 
   let ModelComp = Caveman1;
-  if (type === 'npc2') ModelComp = Caveman2;
-  else if (type === 'npc3') ModelComp = Caveman3;
-  else if (type === 'npc4') ModelComp = Caveman4;
+  if (type === 'caveman2') ModelComp = Caveman2;
+  else if (type === 'caveman3') ModelComp = Caveman3;
+  else if (type === 'caveman4') ModelComp = Caveman4;
 
   return (
     <group ref={ref} scale={5}>
@@ -408,6 +408,7 @@ export default function MathMiniGameUI() {
             animation: isShaking ? 'shake 0.5s' : 'none'
           }}>
             <input 
+              autoFocus
               type="number"
               step="any"
               value={mathAnswer}

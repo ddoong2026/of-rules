@@ -74,20 +74,21 @@ export default function MathMiniGameUI() {
     else target = Math.floor(Math.random() * 90000) + 10000;
     
     const obj = mathObject || '물건';
-    let title = '';
-    if (type === 'CEIL') title = `제가 구한 ${obj}의 수는 ${target}개입니다. 이 ${obj}을(를) ${unit}개 단위로 포장해서 남김없이 모두 담으려면, 필요한 공간은 총 몇 개 분량일까요? (어림하여 ${unit}의 자리까지 나타내기)`;
-    else if (type === 'FLOOR') title = `제가 구한 ${obj}의 수는 ${target}개입니다. 이 ${obj}을(를) ${unit}개 단위로 묶어서 팔려고 합니다. 낱개는 팔 수 없다고 할 때, 묶음으로 파는 ${obj}의 총 개수는 얼마일까요? (어림하여 ${unit}의 자리까지 나타내기)`;
-    else if (type === 'ROUND') title = `제가 구한 ${obj}의 수는 ${target}개입니다. 이 ${obj}의 개수를 실제 개수와 가장 가깝게 기록장에 대략적으로 적어야 합니다. 얼마로 적어야 할까요? (어림하여 ${unit}의 자리까지 나타내기)`;
+    const isCountQuestion = Math.random() < 0.5;
     
-    return { type, unit, target, title };
+    return { type, unit, target, isCountQuestion, title: '' };
   };
 
-  const evaluateMath = (target, unit, type) => {
+  const evaluateMath = (target, unit, type, isCountQuestion) => {
     const safeDiv = parseFloat((target / unit).toFixed(10));
     let val = 0;
     if (type === 'CEIL') val = Math.ceil(safeDiv);
     else if (type === 'FLOOR') val = Math.floor(safeDiv);
     else if (type === 'ROUND') val = Math.round(safeDiv);
+    
+    if (isCountQuestion && (type === 'CEIL' || type === 'FLOOR')) {
+      return val;
+    }
     return parseFloat((val * unit).toFixed(10));
   };
 
@@ -102,7 +103,8 @@ export default function MathMiniGameUI() {
     const target = isAccepted.mathTargetNumber || 0;
     const unit = isAccepted.mathUnit || 10;
     const type = isAccepted.mathType || 'CEIL';
-    const correctAns = evaluateMath(target, unit, type);
+    const isCountQuestion = isAccepted.mathIsCountQuestion ?? false;
+    const correctAns = evaluateMath(target, unit, type, isCountQuestion);
 
     if (ans === correctAns) {
       setFeedback('SUCCESS');
@@ -255,12 +257,27 @@ export default function MathMiniGameUI() {
     const target = isAccepted?.mathTargetNumber || currentQuest?.mathTargetNumber || randomMathParams?.target || 0;
     const unit = isAccepted?.mathUnit || currentQuest?.mathUnit || randomMathParams?.unit || 10;
     const mathType = isAccepted?.mathType || currentQuest?.mathType || randomMathParams?.type || 'CEIL';
+    const isCountQuestion = isAccepted?.mathIsCountQuestion ?? currentQuest?.mathIsCountQuestion ?? randomMathParams?.isCountQuestion ?? false;
     const obj = objName || '물건';
     const eulLeul = getEulLeul(obj);
     
-    if (mathType === 'CEIL') return `제가 구한 ${obj}의 수는 ${target}개입니다. 이 ${obj}${eulLeul} ${unit}개 단위로 포장해서 남김없이 모두 담으려면, 필요한 공간은 총 몇 개 분량일까요? (어림하여 ${unit}의 자리까지 나타내기)`;
-    if (mathType === 'FLOOR') return `제가 구한 ${obj}의 수는 ${target}개입니다. 이 ${obj}${eulLeul} ${unit}개 단위로 묶어서 팔려고 합니다. 낱개는 팔 수 없다고 할 때, 묶음으로 파는 ${obj}의 총 개수는 얼마일까요? (어림하여 ${unit}의 자리까지 나타내기)`;
-    if (mathType === 'ROUND') return `제가 구한 ${obj}의 수는 ${target}개입니다. 이 ${obj}의 개수를 실제 개수와 가장 가깝게 기록장에 대략적으로 적어야 합니다. 얼마로 적어야 할까요? (어림하여 ${unit}의 자리까지 나타내기)`;
+    if (mathType === 'CEIL') {
+      if (isCountQuestion) {
+        return `제가 구한 ${obj}의 수는 ${target}개입니다. 이 ${obj}${eulLeul} ${unit}개 단위로 상자에 남김없이 모두 담으려면, 필요한 상자는 총 몇 개인가요?`;
+      } else {
+        return `제가 구한 ${obj}의 수는 ${target}개입니다. 이 ${obj}${eulLeul} ${unit}개 단위로 상자에 남김없이 모두 담으려면, 필요한 상자들에 들어가는 ${obj}의 총 개수는 얼마 분량인가요? (어림하여 ${unit}의 자리까지 나타내기)`;
+      }
+    }
+    if (mathType === 'FLOOR') {
+      if (isCountQuestion) {
+        return `제가 구한 ${obj}의 수는 ${target}개입니다. 이 ${obj}${eulLeul} ${unit}개 단위로 묶어서 팔려고 합니다. 낱개는 팔 수 없다고 할 때, 최대 몇 묶음까지 만들 수 있나요?`;
+      } else {
+        return `제가 구한 ${obj}의 수는 ${target}개입니다. 이 ${obj}${eulLeul} ${unit}개 단위로 묶어서 팔려고 합니다. 낱개는 팔 수 없다고 할 때, 묶음으로 파는 ${obj}의 총 개수는 얼마인가요? (어림하여 ${unit}의 자리까지 나타내기)`;
+      }
+    }
+    if (mathType === 'ROUND') {
+      return `제가 구한 ${obj}의 수는 ${target}개입니다. 이 ${obj}의 개수를 실제 개수와 가장 가깝게 기록장에 대략적으로 적어야 합니다. 얼마로 적어야 할까요? (어림하여 ${unit}의 자리까지 나타내기)`;
+    }
     
     return currentQuest?.title || '';
   };

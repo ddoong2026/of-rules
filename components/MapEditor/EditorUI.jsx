@@ -653,6 +653,21 @@ function PropertyEditor() {
                               </select>
                             </div>
 
+                            {(q.mathType === 'CEIL' || q.mathType === 'FLOOR' || !q.mathType) && (
+                              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                <label style={{ fontSize: '0.75rem', fontWeight: 'bold', width: '60px' }}>정답 기준</label>
+                                <select 
+                                  className="glass-input"
+                                  value={q.mathIsCountQuestion ? 'true' : 'false'}
+                                  onChange={(e) => { const newQ = [...quests]; newQ[i].mathIsCountQuestion = e.target.value === 'true'; updateQuests(newQ); }}
+                                  style={{ flex: 1, padding: '0.3rem', fontSize: '0.8rem' }}
+                                >
+                                  <option value="false">어림한 총 개수 묻기 (예: 2400개)</option>
+                                  <option value="true">상자/묶음의 수 묻기 (예: 24개)</option>
+                                </select>
+                              </div>
+                            )}
+
                             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                               <label style={{ fontSize: '0.75rem', fontWeight: 'bold', width: '60px' }}>대상 숫자</label>
                               <input 
@@ -688,9 +703,22 @@ function PropertyEditor() {
                                 const num = q.mathTargetNumber || 0;
                                 const unit = q.mathUnit || 10;
                                 const context = q.mathContext || 'BUY_BOX';
+                                const isCountQuestion = q.mathIsCountQuestion ?? false;
                                 let text = '';
-                                if (context === 'BUY_BOX') text = `제가 물건을 ${num}개 모았어요. 이 물건을 ${unit}개씩 들어가는 상자에 모두 담으려고 합니다. 상자를 낱개로는 안 팔고 ${unit}개 들이 상자로만 파는데, 물건을 전부 담으려면 상자 공간이 총 몇 개 분량이 필요할까요? (어림하여 ${unit}의 자리까지 나타내기)`;
-                                else if (context === 'USE_BUNDLE') text = `제가 물건을 ${num}개 모았어요. 이 물건을 ${unit}개씩 묶어서 팔려고 합니다. 묶음에 들어가지 못하는 낱개는 팔 수 없어요. 최대 몇 개까지 묶음으로 묶어서 팔 수 있을까요? (어림하여 ${unit}의 자리까지 나타내기)`;
+                                if (context === 'BUY_BOX') {
+                                  if (isCountQuestion) {
+                                    text = `제가 물건을 ${num}개 모았어요. 이 물건을 ${unit}개씩 상자에 남김없이 모두 담으려면, 필요한 상자는 총 몇 개인가요?`;
+                                  } else {
+                                    text = `제가 물건을 ${num}개 모았어요. 이 물건을 ${unit}개씩 상자에 남김없이 모두 담으려면, 필요한 상자들에 들어가는 물건의 총 개수는 얼마 분량인가요? (어림하여 ${unit}의 자리까지 나타내기)`;
+                                  }
+                                }
+                                else if (context === 'USE_BUNDLE') {
+                                  if (isCountQuestion) {
+                                    text = `제가 물건을 ${num}개 모았어요. 이 물건을 ${unit}개씩 묶어서 팔려고 합니다. 낱개는 팔 수 없다고 할 때, 최대 몇 묶음까지 만들 수 있나요?`;
+                                  } else {
+                                    text = `제가 물건을 ${num}개 모았어요. 이 물건을 ${unit}개씩 묶어서 팔려고 합니다. 낱개는 팔 수 없다고 할 때, 묶음으로 파는 물건의 총 개수는 얼마인가요? (어림하여 ${unit}의 자리까지 나타내기)`;
+                                  }
+                                }
                                 else if (context === 'RECORD') text = `기록장에 수확량을 실제 개수와 가장 가깝게 대략적으로 적어야 해요. 현재 정확한 수확량은 ${num}입니다. 어떻게 적어야 할까요? (어림하여 ${unit}의 자리까지 나타내기)`;
                                 else if (context === 'MEASURE') text = `이번에 측정한 무게(또는 길이)가 ${num}입니다. 이 값을 ${unit} 단위까지 어림해서 알려주세요! (어떤 어림 방식을 쓸지 문제에 맞게 수정해주세요)`;
                                 

@@ -26,12 +26,9 @@ export default function NPCDialogueUI() {
     else target = Math.floor(Math.random() * 90000) + 10000;
     
     const obj = mathObject || '물건';
-    let title = '';
-    if (type === 'CEIL') title = `제가 구한 ${obj}의 수는 ${target}개입니다. 이 ${obj}을(를) ${unit}개 단위로 포장해서 남김없이 모두 담으려면, 필요한 공간은 총 몇 개 분량일까요? (어림하여 ${unit}의 자리까지 나타내기)`;
-    else if (type === 'FLOOR') title = `제가 구한 ${obj}의 수는 ${target}개입니다. 이 ${obj}을(를) ${unit}개 단위로 묶어서 팔려고 합니다. 낱개는 팔 수 없다고 할 때, 묶음으로 파는 ${obj}의 총 개수는 얼마일까요? (어림하여 ${unit}의 자리까지 나타내기)`;
-    else if (type === 'ROUND') title = `제가 구한 ${obj}의 수는 ${target}개입니다. 이 ${obj}의 개수를 실제 개수와 가장 가깝게 기록장에 대략적으로 적어야 합니다. 얼마로 적어야 할까요? (어림하여 ${unit}의 자리까지 나타내기)`;
+    const isCountQuestion = Math.random() < 0.5;
     
-    return { type, unit, target, title };
+    return { type, unit, target, isCountQuestion, title: '' };
   };
 
   useEffect(() => {
@@ -292,6 +289,7 @@ export default function NPCDialogueUI() {
                             title: currentQuest.title,
                             description: currentQuest.description,
                             mathProblemText: currentQuest.mathProblemText,
+                            mathIsCountQuestion: currentQuest.type === 'RANDOM_MATH' ? randomMathParams[currentQuestIndex]?.isCountQuestion : currentQuest.mathIsCountQuestion,
                             type: currentQuest.type === 'RANDOM_MATH' ? 'MATH' : currentQuest.type,
                             originalType: currentQuest.type,
                             mathType: currentQuest.type === 'RANDOM_MATH' ? randomMathParams[currentQuestIndex]?.type : currentQuest.mathType,

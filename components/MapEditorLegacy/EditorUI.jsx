@@ -646,6 +646,21 @@ function PropertyEditor() {
                               </select>
                             </div>
 
+                            {(q.mathType === 'CEIL' || q.mathType === 'FLOOR' || !q.mathType) && (
+                              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                <label style={{ fontSize: '0.75rem', fontWeight: 'bold', width: '60px' }}>정답 기준</label>
+                                <select 
+                                  className="glass-input"
+                                  value={q.mathIsCountQuestion ? 'true' : 'false'}
+                                  onChange={(e) => { const newQ = [...quests]; newQ[i].mathIsCountQuestion = e.target.value === 'true'; updateQuests(newQ); }}
+                                  style={{ flex: 1, padding: '0.3rem', fontSize: '0.8rem' }}
+                                >
+                                  <option value="false">어림한 총 개수 묻기 (예: 2400개)</option>
+                                  <option value="true">상자/묶음의 수 묻기 (예: 24개)</option>
+                                </select>
+                              </div>
+                            )}
+
                             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                               <label style={{ fontSize: '0.75rem', fontWeight: 'bold', width: '60px' }}>대상 숫자</label>
                               <input 

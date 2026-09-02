@@ -235,7 +235,10 @@ export default function NPCDialogueUI() {
             
             if (npcQuests.length === 0) return null;
 
-            const currentQuestIndex = npcQuests.findIndex(q => !completedQuests.includes(q.title));
+            const currentQuestIndex = npcQuests.findIndex((q, idx) => {
+              const questId = q.type === 'RANDOM_MATH' ? `random_math_${activeAsset.id}_${idx}` : q.title;
+              return !completedQuests.includes(questId);
+            });
             
             if (currentQuestIndex === -1) {
               return (
@@ -255,10 +258,17 @@ export default function NPCDialogueUI() {
             }
 
             const currentQuest = npcQuests[currentQuestIndex];
-            const questToRender = (currentQuest.type === 'RANDOM_MATH' && randomMathParams[currentQuestIndex]) 
-              ? { ...currentQuest, title: randomMathParams[currentQuestIndex].title } 
-              : currentQuest;
-            const isAccepted = activeQuests.find(q => q.assetId === activeAsset.id && q.originalTitle === currentQuest.title);
+            const questId = currentQuest.type === 'RANDOM_MATH' ? `random_math_${activeAsset.id}_${currentQuestIndex}` : currentQuest.title;
+            const isAccepted = activeQuests.find(q => q.assetId === activeAsset.id && (q.questId === questId || (!q.questId && q.title === currentQuest.title) || (!q.questId && q.originalTitle === currentQuest.title)));
+
+            let questToRender = currentQuest;
+            if (currentQuest.type === 'RANDOM_MATH') {
+              if (isAccepted) {
+                questToRender = { ...currentQuest, title: isAccepted.title };
+              } else if (randomMathParams[currentQuestIndex]) {
+                questToRender = { ...currentQuest, title: randomMathParams[currentQuestIndex].title };
+              }
+            }
 
             return (
               <div style={{
@@ -282,7 +292,9 @@ export default function NPCDialogueUI() {
                           e.stopPropagation();
                           acceptQuest({
                             assetId: activeAsset.id,
+                            questId: questId,
                             title: questToRender.title,
+                            originalTitle: currentQuest.title,
                             type: currentQuest.type === 'RANDOM_MATH' ? 'MATH' : currentQuest.type,
                             originalType: currentQuest.type,
                             mathType: currentQuest.type === 'RANDOM_MATH' ? randomMathParams[currentQuestIndex]?.type : currentQuest.mathType,
@@ -360,7 +372,7 @@ export default function NPCDialogueUI() {
                       }
 
                       completeQuest(activeAsset.id);
-                      addCompletedQuest(isAccepted.title);
+                      addCompletedQuest(questId);
                       alert('퀘스트를 완료하고 보상을 받았습니다!');
                       closeDialogue();
                     };
@@ -484,7 +496,7 @@ export default function NPCDialogueUI() {
                                   }
 
                                   completeQuest(activeAsset.id);
-                                  addCompletedQuest(isAccepted.title);
+                                  addCompletedQuest(questId);
                                   alert(`정답입니다! 퀘스트를 완료했습니다!`);
                                   closeDialogue();
                                 }

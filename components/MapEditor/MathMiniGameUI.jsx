@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import useMapStore from '@/store/useMapStore';
 import useInventoryStore from '@/store/useInventoryStore';
-import { supabase } from '@/lib/supabaseClient';
+import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/components/AuthProvider';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Environment, OrthographicCamera } from '@react-three/drei';
@@ -220,13 +220,9 @@ export default function MathMiniGameUI() {
           completeQuest(activeAsset.id);
           addCompletedQuest(questId);
           // Auto close without alert, wait for success animation
-          setTimeout(() => {
-            setMathMiniGame({ active: false, questData: null });
-          }, 1500); // give time for success screen if needed, wait, we are already inside setTimeout!
-          // Actually we don't need a nested setTimeout.
           setMathMiniGame({ active: false, questData: null });
         }
-
+      }, 1500);
     } else {
       let errFeedback = '';
       if (type === 'FLOOR') {
@@ -367,7 +363,7 @@ export default function MathMiniGameUI() {
           position: 'relative'
         }}>
           <style>
-            {\`
+            {`
               @keyframes shake {
                 0%, 100% { transform: translateX(0); }
                 10%, 30%, 50%, 70%, 90% { transform: translateX(-10px); }
@@ -381,7 +377,7 @@ export default function MathMiniGameUI() {
                 from { opacity: 0; }
                 to { opacity: 1; }
               }
-            \`}
+            `}
           </style>
 
           <div style={{ 

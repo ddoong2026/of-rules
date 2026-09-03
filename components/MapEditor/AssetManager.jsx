@@ -26,7 +26,7 @@ function Tree() {
 }
 
 function Rock() {
-  const rotation = useMemo(() => [Math.random() * Math.PI, Math.random() * Math.PI, 0], []);
+  const rotation = [Math.PI * 0.17, Math.PI * 0.31, 0];
   return (
     <mesh position={[0, 0.4, 0]} rotation={rotation}>
       <dodecahedronGeometry args={[0.8, 0]} />
@@ -313,6 +313,11 @@ function NPC({ asset, isPlaying, roaming, mode, onSelect }) {
   const { actions } = useAnimations(animations, clone);
   const npcGroupRef = useRef();
   const walkActionRef = useRef(null);
+  const actionsRef = useRef(null);
+
+  useEffect(() => {
+    actionsRef.current = actions;
+  }, [actions]);
 
   // Check player distance
   useFrame(({ camera }) => {
@@ -333,15 +338,16 @@ function NPC({ asset, isPlaying, roaming, mode, onSelect }) {
 
   // Animation handling
   useEffect(() => {
-    if (!actions || Object.keys(actions).length === 0) return;
+    const mutableActions = actionsRef.current;
+    if (!mutableActions || Object.keys(mutableActions).length === 0) return;
     
-    const actionNames = Object.keys(actions);
+    const actionNames = Object.keys(mutableActions);
     const walkName = actionNames.find(n => n.toLowerCase().includes('walk')) || actionNames.find(n => n.toLowerCase().includes('run'));
-    const walkAction = walkName ? actions[walkName] : null;
+    const walkAction = walkName ? mutableActions[walkName] : null;
     walkActionRef.current = walkAction;
 
     if (roaming && walkAction) {
-      walkAction.timeScale = 0.8; // 자연스러운 보폭 재생 속도
+      walkAction.setEffectiveTimeScale(0.8); // 자연스러운 보폭 재생 속도
       walkAction.reset().fadeIn(0.2).play();
     } else {
       if (walkAction && walkAction.isRunning()) {
@@ -350,7 +356,7 @@ function NPC({ asset, isPlaying, roaming, mode, onSelect }) {
     }
 
     return () => {
-      Object.values(actions).forEach(a => a?.stop());
+      Object.values(mutableActions).forEach(a => a?.stop());
     };
   }, [actions, roaming, isPlaying]);
 
@@ -390,7 +396,8 @@ function MineableAsset({ asset, onInteract, mode, isPlaying, children }) {
     
     if (['one-way', 'round-trip', 'repeat'].includes(asset.pathMode)) {
       if (asset.pathPoints && asset.pathPoints.length > 0) {
-        setRoaming(true);
+        const startTimer = setTimeout(() => setRoaming(true), 0);
+        return () => clearTimeout(startTimer);
       }
       return;
     }

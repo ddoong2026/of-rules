@@ -11,6 +11,7 @@ const useInventoryStore = create((set, get) => ({
   completedQuests: [], // Array of quest titles
 
   setCompletedQuests: (quests) => set({ completedQuests: quests }),
+  resetQuests: () => set({ activeQuests: [], completedQuests: [] }),
   addCompletedQuest: (title) => set((state) => {
     if (state.completedQuests.includes(title)) return state;
     return { completedQuests: [...state.completedQuests, title] };
@@ -96,10 +97,21 @@ const useInventoryStore = create((set, get) => ({
   },
   
   // 퀘스트 관리
-  acceptQuest: (questData) => set((state) => {
-    if (state.activeQuests.find(q => q.assetId === questData.assetId)) return state;
-    return { activeQuests: [...state.activeQuests, questData] };
-  }),
+  acceptQuest: (questData) => {
+    let accepted = false;
+    set((state) => {
+      const questKey = questData.questId || questData.title;
+      const alreadyAccepted = state.activeQuests.some((quest) =>
+        quest.assetId === questData.assetId &&
+        (quest.questId || quest.title) === questKey
+      );
+
+      if (alreadyAccepted) return state;
+      accepted = true;
+      return { activeQuests: [...state.activeQuests, questData] };
+    });
+    return accepted;
+  },
   updateActiveQuest: (assetId, newData) => set((state) => ({
     activeQuests: state.activeQuests.map(q => q.assetId === assetId ? { ...q, ...newData } : q)
   })),

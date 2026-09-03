@@ -98,8 +98,8 @@ export default function EditorUI({ onSave, isSaving }) {
           {isPlaying && (
             <button
               onClick={() => {
-                useInventoryStore.getState().setCompletedQuests([]);
-                alert('완료한 퀘스트가 모두 초기화되었습니다.');
+                useInventoryStore.getState().resetQuests();
+                alert('진행 중인 퀘스트와 완료한 퀘스트가 모두 초기화되었습니다.');
               }}
               style={{ padding: '0.4rem 1rem', background: '#3b82f6', color: 'white', borderRadius: '4px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}
             >

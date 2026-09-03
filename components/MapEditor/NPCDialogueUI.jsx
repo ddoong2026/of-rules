@@ -283,7 +283,7 @@ export default function NPCDialogueUI() {
                       <div style={{ marginTop: '10px' }}>
                         <button onClick={(e) => {
                           e.stopPropagation();
-                          acceptQuest({
+                          const accepted = acceptQuest({
                             assetId: activeAsset.id,
                             questId: questId,
                             title: currentQuest.title,
@@ -306,8 +306,12 @@ export default function NPCDialogueUI() {
                             rewardAmount: currentQuest.rewardAmount || 1,
                             consumeItem: currentQuest.consumeItem !== false,
                           });
-                          alert('퀘스트를 수락했습니다!');
-                          closeDialogue();
+                          if (accepted) {
+                            alert('퀘스트를 수락했습니다!');
+                            closeDialogue();
+                          } else {
+                            alert('이미 수락한 퀘스트입니다.');
+                          }
                         }} style={{ padding: '6px 12px', background: '#eab308', color: 'black', fontWeight: 'bold', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
                           수락하기
                         </button>

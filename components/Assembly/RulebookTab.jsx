@@ -24,7 +24,7 @@ export default function RulebookTab() {
   };
 
   useEffect(() => {
-    fetchPromulgatedLaws();
+    const initialFetchTimer = setTimeout(fetchPromulgatedLaws, 0);
 
     const channel = supabase.channel('public:laws_rulebook')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'laws' }, () => {
@@ -32,7 +32,10 @@ export default function RulebookTab() {
       })
       .subscribe();
 
-    return () => supabase.removeChannel(channel);
+    return () => {
+      clearTimeout(initialFetchTimer);
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const handleDeleteLaw = async (lawId) => {

@@ -73,7 +73,7 @@ export const AuthProvider = ({ children }) => {
     }
   }, [user]);
 
-  const fetchUserRole = async (userId) => {
+  async function fetchUserRole(userId) {
     const { data, error } = await supabase
       .from('users')
       .select('role, name, department, balance, job')

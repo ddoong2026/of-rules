@@ -28,12 +28,13 @@ export default function LawsTab({ initialData, clearInitialData }) {
 
   useEffect(() => {
     if (initialData) {
-      setShowForm(true);
+      const showTimer = setTimeout(() => setShowForm(true), 0);
+      return () => clearTimeout(showTimer);
     }
   }, [initialData]);
 
   useEffect(() => {
-    fetchLaws();
+    const initialFetchTimer = setTimeout(fetchLaws, 0);
 
     const channel = supabase.channel('public:laws')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'laws' }, () => {
@@ -41,7 +42,10 @@ export default function LawsTab({ initialData, clearInitialData }) {
       })
       .subscribe();
 
-    return () => supabase.removeChannel(channel);
+    return () => {
+      clearTimeout(initialFetchTimer);
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const handleVote = async (lawId, isFor) => {

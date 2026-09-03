@@ -30,13 +30,6 @@ export default function EconomyGridTab() {
   const isEconomyAdmin = role?.economy_admin === true;
   const hasAuth = isTeacherOrPres || isEconomyAdmin;
 
-  useEffect(() => {
-    if (hasAuth) {
-      fetchStudents();
-      fetchReferences();
-    }
-  }, [hasAuth]);
-
   const fetchReferences = async () => {
     const { data: lawsData } = await supabase.from('laws').select('id, title').eq('status', 'PASSED');
     if (lawsData) setLaws(lawsData);
@@ -68,6 +61,16 @@ export default function EconomyGridTab() {
       setStudents(withAvatars);
     }
   };
+
+  useEffect(() => {
+    if (hasAuth) {
+      const initialFetchTimer = setTimeout(() => {
+        fetchStudents();
+        fetchReferences();
+      }, 0);
+      return () => clearTimeout(initialFetchTimer);
+    }
+  }, [hasAuth]);
 
   const handleMouseDown = (id) => {
     setIsDragging(true);

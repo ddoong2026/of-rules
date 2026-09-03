@@ -60,7 +60,7 @@ export default function TeacherDashboard() {
     }
   }, [activeTab, role]);
 
-  const fetchEconomyData = async () => {
+  async function fetchEconomyData() {
     const { data: curData } = await supabase.from('settings').select('value').eq('key', 'currency_name').single();
     if (curData) setCurrencyName(curData.value);
 
@@ -109,7 +109,7 @@ export default function TeacherDashboard() {
     }
   };
 
-  const fetchStudents = async () => {
+  async function fetchStudents() {
     setIsLoadingStudents(true);
     const { data, error } = await supabase
       .from('users')

@@ -287,7 +287,7 @@ export default function Player() {
 
   const getTerrainHeight = (x, z) => getLayerHeight(heightsTop, x, z);
 
-  const getWalkableHeight = (x, y, z) => {
+  function getWalkableHeight(x, y, z) {
     const topH = getLayerHeight(heightsTop, x, z);
     const bottomH = getLayerHeight(heightsBottom, x, z);
     const baseH = getLayerHeight(heightsBase, x, z);

@@ -15,7 +15,7 @@ export default function ShopTab() {
     fetchMyPurchases();
   }, [user]);
 
-  const fetchItems = async () => {
+  async function fetchItems() {
     const { data } = await supabase
       .from('shop_items')
       .select('*')
@@ -24,7 +24,7 @@ export default function ShopTab() {
     if (data) setItems(data);
   };
 
-  const fetchMyPurchases = async () => {
+  async function fetchMyPurchases() {
     if (!user) return;
     const { data } = await supabase
       .from('purchases')

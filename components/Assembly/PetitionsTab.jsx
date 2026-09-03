@@ -26,7 +26,7 @@ export default function PetitionsTab({ onProposeLaw }) {
   };
 
   useEffect(() => {
-    fetchPetitions();
+    const initialFetchTimer = setTimeout(fetchPetitions, 0);
 
     // Subscribe to real-time changes
     const channel = supabase.channel('public:petitions')
@@ -36,6 +36,7 @@ export default function PetitionsTab({ onProposeLaw }) {
       .subscribe();
 
     return () => {
+      clearTimeout(initialFetchTimer);
       supabase.removeChannel(channel);
     };
   }, []);

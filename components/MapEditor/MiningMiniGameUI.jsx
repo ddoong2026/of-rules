@@ -141,8 +141,11 @@ export default function MiningMiniGameUI() {
 
   useEffect(() => {
     if (active) {
-      setSuccessCount(0);
-      initRound();
+      const initTimer = setTimeout(() => {
+        setSuccessCount(0);
+        initRound();
+      }, 0);
+      return () => clearTimeout(initTimer);
     }
   }, [active, initRound]);
 

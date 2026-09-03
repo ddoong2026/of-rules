@@ -17,7 +17,7 @@ export default function BankTab() {
     }
   }, [user]);
 
-  const fetchAccounts = async () => {
+  async function fetchAccounts() {
     const { data } = await supabase
       .from('bank_accounts')
       .select('*')
@@ -27,7 +27,7 @@ export default function BankTab() {
     if (data) setAccounts(data);
   };
 
-  const fetchTransactions = async () => {
+  async function fetchTransactions() {
     const { data } = await supabase
       .from('transactions')
       .select('*')

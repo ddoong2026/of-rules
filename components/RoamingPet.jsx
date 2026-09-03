@@ -131,7 +131,7 @@ export default function RoamingPet() {
   const [teacherOverride, setTeacherOverride] = useState(false);
   
   useEffect(() => {
-    setMounted(true);
+    const mountTimer = setTimeout(() => setMounted(true), 0);
     
     let timeoutId;
     const handleShowPet = () => {
@@ -152,6 +152,7 @@ export default function RoamingPet() {
     return () => {
       window.removeEventListener('show-pet', handleShowPet);
       window.removeEventListener('toggle-pet-override', handleToggleOverride);
+      clearTimeout(mountTimer);
       if (timeoutId) clearTimeout(timeoutId);
     };
   }, []);

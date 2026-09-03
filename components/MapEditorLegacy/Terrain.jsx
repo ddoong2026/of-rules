@@ -81,7 +81,9 @@ export default function Terrain() {
     if (csgOperations.length === 0) {
       if (csgGeometry) {
         csgGeometry.dispose();
-        setCsgGeometry(null);
+        const resetTimer = setTimeout(() => setCsgGeometry(null), 0);
+        bspCache.current = { heightsRef: null, operationsLength: 0, bsp: null };
+        return () => clearTimeout(resetTimer);
       }
       bspCache.current = { heightsRef: null, operationsLength: 0, bsp: null };
       return;

@@ -8,11 +8,7 @@ export default function QuestLogsTab() {
   const [loading, setLoading] = useState(true);
   const [studentsProgress, setStudentsProgress] = useState({}); // { user_id: { name, number, completedQuests: [] } }
 
-  useEffect(() => {
-    fetchQuestLogs();
-  }, []);
-
-  const fetchQuestLogs = async () => {
+  async function fetchQuestLogs() {
     const { data, error } = await supabase
       .from('activity_logs')
       .select('*, users(name, student_number)')
@@ -48,6 +44,11 @@ export default function QuestLogsTab() {
     }
     setLoading(false);
   };
+
+  useEffect(() => {
+    const initialFetchTimer = setTimeout(fetchQuestLogs, 0);
+    return () => clearTimeout(initialFetchTimer);
+  }, []);
 
   if (loading) return <div>로딩중...</div>;
 

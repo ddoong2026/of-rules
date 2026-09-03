@@ -15,8 +15,19 @@ export default function MapEditorWorkspace() {
   const setCameraMode = useMapStore(state => state.setCameraMode);
   const isCameraMode = useMapStore(state => state.isCameraMode);
 
+  const fetchMaps = async () => {
+    setIsLoading(true);
+    const { data, error } = await supabase
+      .from('maps')
+      .select('id, name, created_at, updated_at')
+      .order('updated_at', { ascending: false });
+
+    if (data) setMapList(data);
+    setIsLoading(false);
+  };
+
   useEffect(() => {
-    fetchMaps();
+    const initialFetchTimer = setTimeout(fetchMaps, 0);
     
     // Global keyboard listener for Space bar (Camera Mode)
     const handleKeyDown = (e) => {
@@ -47,22 +58,12 @@ export default function MapEditorWorkspace() {
     window.addEventListener('keyup', handleKeyUp);
 
     return () => {
+      clearTimeout(initialFetchTimer);
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
       setCameraMode(false); // Cleanup
     };
   }, [setCameraMode]);
-
-  const fetchMaps = async () => {
-    setIsLoading(true);
-    const { data, error } = await supabase
-      .from('maps')
-      .select('id, name, created_at, updated_at')
-      .order('updated_at', { ascending: false });
-    
-    if (data) setMapList(data);
-    setIsLoading(false);
-  };
 
   const handleCreateNewMap = () => {
     if(confirm('새 맵을 만드시겠습니까? 작업 중인 내용은 저장되지 않습니다.')) {

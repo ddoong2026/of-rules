@@ -29,7 +29,7 @@ export default function DecreesTab() {
   };
 
   useEffect(() => {
-    fetchDecrees();
+    const initialFetchTimer = setTimeout(fetchDecrees, 0);
 
     const channel = supabase.channel('public:decrees')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'decrees' }, () => {
@@ -37,7 +37,10 @@ export default function DecreesTab() {
       })
       .subscribe();
 
-    return () => supabase.removeChannel(channel);
+    return () => {
+      clearTimeout(initialFetchTimer);
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const handleApprove = async (decreeId) => {

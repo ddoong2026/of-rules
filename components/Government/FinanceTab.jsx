@@ -12,12 +12,6 @@ export default function FinanceTab() {
   
   const isAuthorized = role?.role === 'TEACHER' || role?.role === 'PRESIDENT' || role?.department === '재정경제부/기획예산처';
 
-  useEffect(() => {
-    if (isAuthorized) {
-      fetchStudents();
-    }
-  }, [isAuthorized]);
-
   const fetchStudents = async () => {
     setIsLoading(true);
     const { data, error } = await supabase
@@ -29,6 +23,13 @@ export default function FinanceTab() {
     if (data) setStudents(data);
     setIsLoading(false);
   };
+
+  useEffect(() => {
+    if (isAuthorized) {
+      const initialFetchTimer = setTimeout(fetchStudents, 0);
+      return () => clearTimeout(initialFetchTimer);
+    }
+  }, [isAuthorized]);
 
   const handlePaySalary = async (userId, amount) => {
     if (!amount || isNaN(amount) || amount <= 0) return alert('올바른 금액을 입력하세요.');

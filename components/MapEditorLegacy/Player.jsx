@@ -283,7 +283,7 @@ export default function Player() {
 
   const terrainMeshRef = useRef(null);
 
-  const getTerrainHeightRaycast = (x, y, z) => {
+  function getTerrainHeightRaycast(x, y, z) {
     // 1. Check if we are near any cave. If not, fallback to fast 2D lookup.
     const { csgOperations } = useMapStore.getState();
     let isNearCave = false;

@@ -16,7 +16,7 @@ export default function StockTab() {
     }
   }, [user]);
 
-  const fetchData = async () => {
+  async function fetchData() {
     const { data: stockData } = await supabase.from('stocks').select('*').order('name');
     if (stockData) setStocks(stockData);
 

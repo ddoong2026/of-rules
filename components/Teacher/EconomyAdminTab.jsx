@@ -22,7 +22,7 @@ export default function EconomyAdminTab() {
     fetchEconomySettings();
   }, []);
 
-  const fetchData = async () => {
+  async function fetchData() {
     const { data } = await supabase
       .from('users')
       .select('id, name, student_number, role, economy_admin, balance')
@@ -32,7 +32,7 @@ export default function EconomyAdminTab() {
     setLoading(false);
   };
 
-  const fetchEconomySettings = async () => {
+  async function fetchEconomySettings() {
     const { data } = await supabase
       .from('settings')
       .select('key, value')
@@ -244,7 +244,7 @@ export default function EconomyAdminTab() {
       <div className="glass-panel" style={{ padding: '1.5rem' }}>
         <h4 style={{ marginBottom: '1rem' }}>학생 징수/지급 권한 부여</h4>
         <p style={{ fontSize: '0.9rem', color: '#4b5563', marginBottom: '1.5rem' }}>
-          권한이 부여된 학생은 '정부 - 경제 및 징수' 탭에 접근하여 다른 학생들에게 벌금을 징수하거나 지원금을 지급할 수 있습니다.<br/>
+          권한이 부여된 학생은 &apos;정부 - 경제 및 징수&apos; 탭에 접근하여 다른 학생들에게 벌금을 징수하거나 지원금을 지급할 수 있습니다.<br/>
           (단, 학생은 본인의 돈이 아닌 <strong>국고(국세청) 잔액</strong>으로만 거래할 수 있게 강제됩니다.)
         </p>
 

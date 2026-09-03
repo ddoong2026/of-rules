@@ -881,6 +881,7 @@ function DroppedItem({ item, isPlaying }) {
 function GenericGLTFAsset({ url }) {
   const { scene } = useGLTF(url);
   const clonedScene = useMemo(() => scene.clone(), [scene]);
+  const [yOffset, setYOffset] = useState(0);
   
   useEffect(() => {
     clonedScene.traverse((child) => {
@@ -889,9 +890,21 @@ function GenericGLTFAsset({ url }) {
         child.receiveShadow = true;
       }
     });
+
+    // Calculate bounding box to snap the bottom of the asset to the ground
+    clonedScene.position.set(0, 0, 0);
+    clonedScene.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(clonedScene);
+    if (!box.isEmpty()) {
+      setYOffset(-box.min.y);
+    }
   }, [clonedScene]);
 
-  return <primitive object={clonedScene} />;
+  return (
+    <group position={[0, yOffset, 0]}>
+      <primitive object={clonedScene} />
+    </group>
+  );
 }
 
 useGLTF.preload('/models/caveman1.glb');

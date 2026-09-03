@@ -9,6 +9,7 @@ import QuestLogsTab from '@/components/Teacher/QuestLogsTab';
 import dynamic from 'next/dynamic';
 const MapEditorWorkspace = dynamic(() => import('@/components/MapEditor/MapEditorWorkspace'), { ssr: false });
 const MapEditorLegacyWorkspace = dynamic(() => import('@/components/MapEditorLegacy/MapEditorWorkspace'), { ssr: false });
+const MapEditor2DWorkspace = dynamic(() => import('@/components/MapEditor2D/MapEditor2DWorkspace'), { ssr: false });
 const VoxelEditorWorkspace = dynamic(() => import('@/components/VoxelEditor/VoxelEditorWorkspace'), { ssr: false });
 import styles from './teacher.module.css';
 
@@ -604,10 +605,18 @@ export default function TeacherDashboard() {
               >
                 🧱 복셀 에디터 (마인크래프트형)
               </button>
+              <button
+                className="glass-button"
+                style={{ background: editorType === '2d' ? 'var(--primary)' : 'white', color: editorType === '2d' ? 'white' : 'black' }}
+                onClick={() => setEditorType('2d')}
+              >
+                🎨 2D 스프라이트 맵
+              </button>
             </div>
             {editorType === 'heightmap_legacy' && <MapEditorLegacyWorkspace />}
             {editorType === 'heightmap' && <MapEditorWorkspace />}
             {editorType === 'voxel' && <VoxelEditorWorkspace />}
+            {editorType === '2d' && <MapEditor2DWorkspace />}
           </div>
         )}
       </div>

@@ -19,10 +19,10 @@ export default function MapEditorWorkspace() {
     setIsLoading(true);
     const { data, error } = await supabase
       .from('maps')
-      .select('id, name, created_at, updated_at')
+      .select('id, name, created_at, updated_at, assets')
       .order('updated_at', { ascending: false });
 
-    if (data) setMapList(data);
+    if (data) setMapList(data.filter(map => !map.assets?.some(asset => asset.id === '__map2d__')));
     setIsLoading(false);
   };
 

@@ -847,6 +847,7 @@ export default function AssetManager() {
 
 function DroppedItem({ item, isPlaying }) {
   const groupRef = useRef();
+  const collectedRef = useRef(false);
   const { removeDroppedItem } = useMapStore();
   const addItem = useInventoryStore(state => state.addItem);
   
@@ -860,7 +861,10 @@ function DroppedItem({ item, isPlaying }) {
     if (isPlaying) {
       // 카메라(플레이어)와의 거리 계산하여 자동 획득
       const dist = camera.position.distanceTo(groupRef.current.position);
-      if (dist < 1.5) { // 획득 반경
+      if (dist < 1.5 && !collectedRef.current) { // 획득 반경
+        // Store removal is visible on the next render; prevent another frame
+        // from granting the same dropped entity again in the meantime.
+        collectedRef.current = true;
         addItem(item.itemId, 1);
         removeDroppedItem(item.id);
       }
@@ -880,10 +884,8 @@ function DroppedItem({ item, isPlaying }) {
 
 function GenericGLTFAsset({ url }) {
   const { scene } = useGLTF(url);
-  const clonedScene = useMemo(() => scene.clone(), [scene]);
-  const [yOffset, setYOffset] = useState(0);
-  
-  useEffect(() => {
+  const { clonedScene, modelScale, yOffset } = useMemo(() => {
+    const clonedScene = scene.clone();
     clonedScene.traverse((child) => {
       if (child.isMesh) {
         child.castShadow = true;
@@ -893,16 +895,23 @@ function GenericGLTFAsset({ url }) {
 
     // Calculate bounding box to snap the bottom of the asset to the ground
     clonedScene.position.set(0, 0, 0);
+    clonedScene.scale.set(1, 1, 1);
     clonedScene.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(clonedScene);
-    if (!box.isEmpty()) {
-      setYOffset(-box.min.y);
-    }
-  }, [clonedScene]);
+    const size = box.getSize(new THREE.Vector3());
+    const targetHeight = 1;
+    const modelScale = !box.isEmpty() && size.y > 0 ? targetHeight / size.y : 1;
+
+    return {
+      clonedScene,
+      modelScale,
+      yOffset: box.isEmpty() ? 0 : -box.min.y * modelScale
+    };
+  }, [scene]);
 
   return (
     <group position={[0, yOffset, 0]}>
-      <primitive object={clonedScene} />
+      <primitive object={clonedScene} scale={modelScale} />
     </group>
   );
 }

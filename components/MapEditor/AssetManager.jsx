@@ -889,9 +889,66 @@ function DroppedItem({ item, isPlaying }) {
   );
 }
 
+function CampfireEffect({ position }) {
+  const flameRef = useRef();
+  const innerFlameRef = useRef();
+  const lightRef = useRef();
+  const smokeRefs = useRef([]);
+
+  useFrame(({ clock }) => {
+    const time = clock.elapsedTime;
+    if (flameRef.current) {
+      flameRef.current.scale.set(
+        0.85 + Math.sin(time * 11) * 0.12,
+        0.9 + Math.sin(time * 8.3) * 0.18,
+        0.85 + Math.cos(time * 9) * 0.1
+      );
+      flameRef.current.rotation.y = time * 1.7;
+    }
+    if (innerFlameRef.current) {
+      innerFlameRef.current.position.y = 0.02 + Math.sin(time * 13) * 0.025;
+      innerFlameRef.current.rotation.y = -time * 2.1;
+    }
+    if (lightRef.current) {
+      lightRef.current.intensity = 2.1 + Math.sin(time * 17) * 0.35 + Math.sin(time * 7) * 0.2;
+    }
+    smokeRefs.current.forEach((smoke, index) => {
+      if (!smoke) return;
+      const cycle = (time * 0.22 + index / 3) % 1;
+      smoke.position.y = 0.35 + cycle * 0.75;
+      smoke.position.x = Math.sin(time * 1.3 + index * 2.4) * 0.07 * cycle;
+      smoke.scale.setScalar(0.04 + cycle * 0.12);
+      smoke.material.opacity = (1 - cycle) * 0.22;
+    });
+  });
+
+  return (
+    <group position={position}>
+      <group ref={flameRef}>
+        <mesh position={[0, 0.23, 0]}>
+          <coneGeometry args={[0.16, 0.48, 8]} />
+          <meshBasicMaterial color="#ff5a0a" transparent opacity={0.82} depthWrite={false} toneMapped={false} />
+        </mesh>
+        <mesh ref={innerFlameRef} position={[0, 0.17, 0.015]}>
+          <coneGeometry args={[0.09, 0.34, 7]} />
+          <meshBasicMaterial color="#ffd84d" transparent opacity={0.95} depthWrite={false} toneMapped={false} />
+        </mesh>
+      </group>
+      {[0, 1, 2].map((index) => (
+        <mesh key={index} ref={(node) => { smokeRefs.current[index] = node; }}>
+          <sphereGeometry args={[1, 8, 8]} />
+          <meshBasicMaterial color="#64748b" transparent opacity={0.15} depthWrite={false} />
+        </mesh>
+      ))}
+      <pointLight ref={lightRef} color="#ff7a18" intensity={2.2} distance={5} decay={2} position={[0, 0.35, 0]} />
+    </group>
+  );
+}
+
 function GenericGLTFAsset({ url }) {
   const { scene } = useGLTF(url);
-  const { clonedScene, modelScale, yOffset } = useMemo(() => {
+  const isCampfire = /born[_-]?fire/i.test(url);
+  const { clonedScene, modelScale, yOffset, effectPosition } = useMemo(() => {
     const clonedScene = scene.clone();
     clonedScene.traverse((child) => {
       if (child.isMesh) {
@@ -906,19 +963,24 @@ function GenericGLTFAsset({ url }) {
     clonedScene.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(clonedScene);
     const size = box.getSize(new THREE.Vector3());
-    const targetHeight = 1;
+    const targetHeight = isCampfire ? 0.4 : 1;
     const modelScale = !box.isEmpty() && size.y > 0 ? targetHeight / size.y : 1;
+    const center = box.getCenter(new THREE.Vector3());
 
     return {
       clonedScene,
       modelScale,
-      yOffset: box.isEmpty() ? 0 : -box.min.y * modelScale
+      yOffset: box.isEmpty() ? 0 : -box.min.y * modelScale,
+      effectPosition: [center.x * modelScale, targetHeight * 0.38, center.z * modelScale]
     };
-  }, [scene]);
+  }, [scene, isCampfire]);
 
   return (
-    <group position={[0, yOffset, 0]}>
-      <primitive object={clonedScene} scale={modelScale} />
+    <group>
+      <group position={[0, yOffset, 0]}>
+        <primitive object={clonedScene} scale={modelScale} />
+      </group>
+      {isCampfire && <CampfireEffect position={effectPosition} />}
     </group>
   );
 }

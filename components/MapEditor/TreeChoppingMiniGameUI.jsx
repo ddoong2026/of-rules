@@ -13,7 +13,45 @@ const CONDITIONS = [
 function createProblem() {
   const condition = CONDITIONS[Math.floor(Math.random() * CONDITIONS.length)];
   const value = Math.floor(Math.random() * 7) + 2;
-  return { ...condition, value };
+  if (Math.random() < 0.5) {
+    return {
+      ...condition,
+      value,
+      story: `숲지기가 나뭇가지를 ${value}개 ${condition.type} 모아 오라고 했습니다.`,
+      question: '조건을 만족하는 수를 하나 입력하세요. (1~10)',
+      checkAnswer: (answer) => condition.matches(answer, value),
+      wrongExplanation: `'${condition.type}'은 ${condition.explanation}를 뜻합니다.`
+    };
+  }
+
+  const reasoningProblems = [
+    {
+      story: `나뭇가지를 ${value}개 이상 가져가면 너무 무거워서 안 됩니다.`,
+      question: '가져갈 수 있는 나뭇가지의 최대 개수는 몇 개인가요?',
+      correctAnswer: value - 1,
+      wrongExplanation: `${value}개 이상은 안 되므로 ${value}개도 포함할 수 없습니다. 최대 개수는 ${value - 1}개입니다.`
+    },
+    {
+      story: `나뭇가지를 ${value}개 초과하여 가져가면 안 됩니다.`,
+      question: '가져갈 수 있는 나뭇가지의 최대 개수는 몇 개인가요?',
+      correctAnswer: value,
+      wrongExplanation: `${value}개 초과만 안 되므로 ${value}개는 가능합니다. 최대 개수는 ${value}개입니다.`
+    },
+    {
+      story: `나뭇가지를 ${value}개 이하로 가져오면 모닥불을 피우기에 부족합니다.`,
+      question: '가져와야 하는 나뭇가지의 최소 개수는 몇 개인가요?',
+      correctAnswer: value + 1,
+      wrongExplanation: `${value}개 이하로는 부족하므로 ${value}개도 안 됩니다. 최소 개수는 ${value + 1}개입니다.`
+    },
+    {
+      story: `나뭇가지를 ${value}개 미만으로 가져오면 안 됩니다.`,
+      question: '가져와야 하는 나뭇가지의 최소 개수는 몇 개인가요?',
+      correctAnswer: value,
+      wrongExplanation: `${value}개 미만만 안 되므로 ${value}개는 가능합니다. 최소 개수는 ${value}개입니다.`
+    }
+  ];
+  const problem = reasoningProblems[Math.floor(Math.random() * reasoningProblems.length)];
+  return { ...problem, checkAnswer: (answer) => answer === problem.correctAnswer };
 }
 
 function requestGamePointerLock() {
@@ -48,8 +86,8 @@ export default function TreeChoppingMiniGameUI() {
     }
 
     window.dispatchEvent(new CustomEvent('mine-jiggle', { detail: { id: assetId, type: assetType } }));
-    if (!problem.matches(numericAnswer, problem.value)) {
-      setFeedback(`아직 조건에 맞지 않아요. '${problem.type}'은 ${problem.explanation}를 뜻합니다.`);
+    if (!problem.checkAnswer(numericAnswer)) {
+      setFeedback(`아직 정답이 아니에요. ${problem.wrongExplanation}`);
       setAnswer('');
       return;
     }
@@ -82,9 +120,8 @@ export default function TreeChoppingMiniGameUI() {
       </div>
 
       <div style={{ background: '#f0fdf4', border: '2px solid #86efac', borderRadius: 16, padding: '1.4rem', textAlign: 'center' }}>
-        <div style={{ fontSize: '1.2rem', marginBottom: 10 }}>나뭇가지가 <b>{problem.value}개 {problem.type}</b>이 되도록 모으려고 합니다.</div>
-        <div style={{ fontSize: '1.05rem', color: '#374151' }}>조건을 만족하는 수를 하나 입력하세요. (1~10)</div>
-        <div style={{ fontSize: '2.2rem', fontWeight: 900, color: '#166534', marginTop: 14 }}>나뭇가지 {problem.value}개 {problem.type}</div>
+        <div style={{ fontSize: '1.25rem', marginBottom: 12, lineHeight: 1.6 }}>{problem.story}</div>
+        <div style={{ fontSize: '1.4rem', fontWeight: 900, color: '#166534', lineHeight: 1.5 }}>{problem.question}</div>
       </div>
 
       <input autoFocus type="number" min="1" max="10" step="1" value={answer} onChange={(event) => { setAnswer(event.target.value); if (feedback) setFeedback(null); }} placeholder="정답 입력" style={{ fontSize: '1.5rem', padding: '0.9rem', textAlign: 'center', border: '2px solid #d1d5db', borderRadius: 12 }} />

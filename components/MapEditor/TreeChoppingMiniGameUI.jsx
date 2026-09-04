@@ -4,10 +4,10 @@ import { useCallback, useEffect, useState } from 'react';
 import useMapStore from '@/store/useMapStore';
 
 const CONDITIONS = [
-  { type: '이상', symbol: '≥', matches: (answer, value) => answer >= value, explanation: '기준 수를 포함하여 그보다 큰 수' },
-  { type: '이하', symbol: '≤', matches: (answer, value) => answer <= value, explanation: '기준 수를 포함하여 그보다 작은 수' },
-  { type: '초과', symbol: '>', matches: (answer, value) => answer > value, explanation: '기준 수를 포함하지 않고 그보다 큰 수' },
-  { type: '미만', symbol: '<', matches: (answer, value) => answer < value, explanation: '기준 수를 포함하지 않고 그보다 작은 수' }
+  { type: '이상', matches: (answer, value) => answer >= value, explanation: '기준 수를 포함하여 그보다 큰 수' },
+  { type: '이하', matches: (answer, value) => answer <= value, explanation: '기준 수를 포함하여 그보다 작은 수' },
+  { type: '초과', matches: (answer, value) => answer > value, explanation: '기준 수를 포함하지 않고 그보다 큰 수' },
+  { type: '미만', matches: (answer, value) => answer < value, explanation: '기준 수를 포함하지 않고 그보다 작은 수' }
 ];
 
 function createProblem() {
@@ -84,7 +84,7 @@ export default function TreeChoppingMiniGameUI() {
       <div style={{ background: '#f0fdf4', border: '2px solid #86efac', borderRadius: 16, padding: '1.4rem', textAlign: 'center' }}>
         <div style={{ fontSize: '1.2rem', marginBottom: 10 }}>나뭇가지가 <b>{problem.value}개 {problem.type}</b>이 되도록 모으려고 합니다.</div>
         <div style={{ fontSize: '1.05rem', color: '#374151' }}>조건을 만족하는 수를 하나 입력하세요. (1~10)</div>
-        <div style={{ fontSize: '2.2rem', fontWeight: 900, color: '#166534', marginTop: 14 }}>나뭇가지 수 {problem.symbol} {problem.value}</div>
+        <div style={{ fontSize: '2.2rem', fontWeight: 900, color: '#166534', marginTop: 14 }}>나뭇가지 {problem.value}개 {problem.type}</div>
       </div>
 
       <input autoFocus type="number" min="1" max="10" step="1" value={answer} onChange={(event) => { setAnswer(event.target.value); if (feedback) setFeedback(null); }} placeholder="정답 입력" style={{ fontSize: '1.5rem', padding: '0.9rem', textAlign: 'center', border: '2px solid #d1d5db', borderRadius: 12 }} />

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import useMapStore from '@/store/useMapStore';
+import TreeChoppingMiniGameUI from '../MapEditor/TreeChoppingMiniGameUI';
 
 function generateSingleCondition(isRange, oldCond = null) {
   if (!isRange) {
@@ -110,7 +111,7 @@ function checkCondition(val, cond) {
   return false;
 }
 
-export default function MiningMiniGameUI() {
+function RockMiningMiniGameUI() {
   const { mineMiniGame, setMineMiniGame } = useMapStore();
   const { active, assetId, assetType } = mineMiniGame;
 
@@ -559,6 +560,11 @@ export default function MiningMiniGameUI() {
       </div>
     </div>
   );
+}
+
+export default function MiningMiniGameUI() {
+  const assetType = useMapStore(state => state.mineMiniGame.assetType);
+  return assetType === 'tree' ? <TreeChoppingMiniGameUI /> : <RockMiningMiniGameUI />;
 }
 
 function NumberLine({ condition }) {

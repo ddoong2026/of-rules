@@ -760,7 +760,10 @@ export default function AssetManager() {
           addItem(asset.dropItemId, asset.dropItemAmount || 1);
         }
       } else {
-        if (type !== 'tree') {
+        if (type === 'tree') {
+          const treeItems = ['도토리', '나뭇가지', '나무껍질', '나무뿌리'];
+          addItem(treeItems[Math.floor(Math.random() * treeItems.length)], 1);
+        } else {
           addItem(type, 1);
         }
       }
@@ -781,21 +784,6 @@ export default function AssetManager() {
     }, 10000); // Check every 10 seconds
     return () => clearInterval(interval);
   }, [isPlaying]);
-
-  useEffect(() => {
-    const handleGlobalJiggle = (e) => {
-      if (!isPlaying) return;
-      const { type } = e.detail;
-      if (type === 'tree') {
-        const items = ['도토리', '나뭇가지', '나무껍질', '나무뿌리'];
-        const randomItem = items[Math.floor(Math.random() * items.length)];
-        addItem(randomItem, 1);
-      }
-    };
-    
-    window.addEventListener('mine-jiggle', handleGlobalJiggle);
-    return () => window.removeEventListener('mine-jiggle', handleGlobalJiggle);
-  }, [isPlaying, addItem]);
 
   const handleEraseDecal = (e, id) => {
     if (mode === 'erase') {

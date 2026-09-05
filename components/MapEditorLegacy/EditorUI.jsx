@@ -991,6 +991,7 @@ function ItemManagerUI({ availableModels = [] }) {
   const [newItemName, setNewItemName] = useState('');
   const [newItemIcon, setNewItemIcon] = useState('📦');
   const [newLinkedAsset, setNewLinkedAsset] = useState('');
+  const [newAllowWaterPlacement, setNewAllowWaterPlacement] = useState(false);
 
   const handleAdd = () => {
     if (!newItemName.trim()) return;
@@ -998,10 +999,12 @@ function ItemManagerUI({ availableModels = [] }) {
       id: 'item_' + Date.now(),
       name: newItemName.trim(),
       icon: newItemIcon,
-      linkedAsset: newLinkedAsset || null
+      linkedAsset: newLinkedAsset || null,
+      allowWaterPlacement: newAllowWaterPlacement
     });
     setNewItemName('');
     setNewLinkedAsset('');
+    setNewAllowWaterPlacement(false);
   };
 
   return (
@@ -1011,6 +1014,9 @@ function ItemManagerUI({ availableModels = [] }) {
         맵에서 사용할 수집 아이템이나 퀘스트 목표 아이템을 만드세요. 3D 에셋을 연동하면 마인크래프트처럼 바닥에 설치할 수 있습니다.
       </p>
       
+      <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.75rem' }}>
+        <input type="checkbox" checked={newAllowWaterPlacement} onChange={e => setNewAllowWaterPlacement(e.target.checked)} /> 새 아이템 물에 설치 허용
+      </label>
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
         <input 
           type="text" 
@@ -1051,7 +1057,7 @@ function ItemManagerUI({ availableModels = [] }) {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
         {customItems?.map(item => (
-          <div key={item.id} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', background: 'white', padding: '0.5rem', borderRadius: '4px', border: '1px solid #f0abfc' }}>
+          <div key={item.id} style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center', background: 'white', padding: '0.5rem', borderRadius: '4px', border: '1px solid #f0abfc' }}>
             <span style={{ fontSize: '1.2rem' }}>{item.icon}</span>
             <input 
               type="text" 
@@ -1073,6 +1079,9 @@ function ItemManagerUI({ availableModels = [] }) {
                 <option key={m} value={`models/${m}`}>{m}</option>
               ))}
             </select>
+            <label style={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+              <input type="checkbox" checked={item.allowWaterPlacement !== false} onChange={e => updateCustomItem(item.id, { allowWaterPlacement: e.target.checked })} /> 물에 설치 허용
+            </label>
             <button 
               onClick={() => removeCustomItem(item.id)}
               style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: '1.2rem' }}

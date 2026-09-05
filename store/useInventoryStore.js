@@ -112,11 +112,11 @@ const useInventoryStore = create((set, get) => ({
     });
     return accepted;
   },
-  updateActiveQuest: (assetId, newData) => set((state) => ({
-    activeQuests: state.activeQuests.map(q => q.assetId === assetId ? { ...q, ...newData } : q)
+  updateActiveQuest: (assetId, questId, newData) => set((state) => ({
+    activeQuests: state.activeQuests.map(q => q.assetId === assetId && (q.questId || q.title) === questId ? { ...q, ...newData } : q)
   })),
-  completeQuest: (assetId) => set((state) => ({
-    activeQuests: state.activeQuests.filter(q => q.assetId !== assetId)
+  completeQuest: (assetId, questId) => set((state) => ({
+    activeQuests: state.activeQuests.filter(q => q.assetId !== assetId || (q.questId || q.title) !== questId)
   })),
 }));
 

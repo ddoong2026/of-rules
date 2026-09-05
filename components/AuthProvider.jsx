@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { legacyQuestKey } from '@/lib/questIdentity.mjs';
 import useInventoryStore from '@/store/useInventoryStore';
 
 const AuthContext = createContext({});
@@ -98,7 +99,13 @@ export const AuthProvider = ({ children }) => {
       .eq('action_type', 'QUEST_COMPLETED');
     
     if (questLogs) {
-      const completedTitles = questLogs.map(log => log.details?.title).filter(Boolean);
+      const completedTitles = questLogs.map(({ details }) => {
+        if (details?.quest_id) return details.quest_id;
+        if (!details?.title) return null;
+        return details.asset_id
+          ? legacyQuestKey(details.map_id, details.asset_id, details.title)
+          : details.title;
+      }).filter(Boolean);
       useInventoryStore.getState().setCompletedQuests(completedTitles);
     }
     

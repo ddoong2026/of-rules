@@ -1,5 +1,7 @@
 'use client';
 
+import { placeCustomItem } from '@/lib/customItemPlacement.mjs';
+
 import { useRef, useState, useEffect, useMemo } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { useGLTF, useAnimations, Html } from '@react-three/drei';
@@ -120,18 +122,18 @@ export default function Player() {
             // 바닥 높이 계산
             const targetY = getWalkableHeight(targetX, playerPos.y, targetZ);
 
-            // 아이템 1개 소모
-            invState.consumeItem(selectedItem.type, 1);
-            
-            // 맵에 에셋 추가 (customItemId를 함께 저장하여 나중에 회수 시 사용)
-            mapState.addAsset({
-              id: 'asset_' + Date.now(),
-              type: customDef.linkedAsset,
+            const result = placeCustomItem({
+              definition: customDef,
+              selectedType: selectedItem.type,
               position: [targetX, targetY, targetZ],
-              rotation: [0, 0, 0],
-              scale: [1, 1, 1],
-              customItemId: baseType // 커스텀 아이템 원본 ID 저장
+              waterHeight: getLayerHeight(mapState.heightsWater, targetX, targetZ),
+              inventory: invState,
+              map: mapState,
             });
+            if (result === 'water-blocked') {
+              setPlayerBubble('이 아이템은 물에 설치할 수 없습니다.');
+              setTimeout(() => setPlayerBubble(null), 3000);
+            }
             return;
           }
         }

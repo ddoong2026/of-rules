@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
 const MARKER_ID = '__map2d__';
+const DIRECTION_LABELS = { down: '아래', left: '왼쪽', right: '오른쪽', up: '위' };
 const newLayer = (name = '바닥') => ({ id: crypto.randomUUID(), name, visible: true, tiles: {} });
 const emptyMap = () => {
   const layer = newLayer();
@@ -154,9 +155,14 @@ export default function MapEditor2DWorkspace() {
   const [playerPosition, setPlayerPosition] = useState(null);
   const [playMessage, setPlayMessage] = useState('');
   const [frameDraft, setFrameDraft] = useState(null);
+  const [animationDirection, setAnimationDirection] = useState('down');
+  const [playerDirection, setPlayerDirection] = useState('down');
+  const [playerAnimationFrame, setPlayerAnimationFrame] = useState(0);
+  const [isPlayerMoving, setIsPlayerMoving] = useState(false);
   const fileInputRef = useRef(null);
   const frameEditorRef = useRef(null);
   const activeZoneRef = useRef(null);
+  const movementStopTimerRef = useRef(null);
 
   const fetchMaps = async () => {
     const { data } = await supabase.from('maps').select('id, name, updated_at, assets').order('updated_at', { ascending: false });
@@ -266,9 +272,22 @@ export default function MapEditor2DWorkspace() {
     setPlayerPosition({ x: start.x, y: start.z });
     setPlayMessage(spawnPoint ? '방향키 또는 WASD로 이동하고, NPC 근처에서 E를 누르세요.' : '스폰 위치가 없어 0, 0에서 시작했습니다.');
     activeZoneRef.current = null;
+    setPlayerDirection('down');
+    setPlayerAnimationFrame(0);
+    setIsPlayerMoving(false);
     setIsPlaying(true);
   };
-  const stopPlay = () => { setIsPlaying(false); setPlayerPosition(null); setPlayMessage(''); activeZoneRef.current = null; };
+  const stopPlay = () => {
+    if (movementStopTimerRef.current) clearTimeout(movementStopTimerRef.current);
+    setIsPlaying(false); setPlayerPosition(null); setPlayMessage(''); setIsPlayerMoving(false); activeZoneRef.current = null;
+  };
+
+  useEffect(() => {
+    if (!isPlaying || !isPlayerMoving) return;
+    const fps = Math.max(1, Math.min(20, mapData.playerAnimation?.fps || 8));
+    const timer = setInterval(() => setPlayerAnimationFrame((frame) => frame + 1), 1000 / fps);
+    return () => clearInterval(timer);
+  }, [isPlayerMoving, isPlaying, mapData.playerAnimation?.fps]);
 
   useEffect(() => {
     if (!isPlaying || !playerPosition) return;
@@ -284,7 +303,7 @@ export default function MapEditor2DWorkspace() {
         }
         return;
       }
-      const directions = { arrowup: [0, -1], w: [0, -1], arrowdown: [0, 1], s: [0, 1], arrowleft: [-1, 0], a: [-1, 0], arrowright: [1, 0], d: [1, 0] };
+      const directions = { arrowup: [0, -1, 'up'], w: [0, -1, 'up'], arrowdown: [0, 1, 'down'], s: [0, 1, 'down'], arrowleft: [-1, 0, 'left'], a: [-1, 0, 'left'], arrowright: [1, 0, 'right'], d: [1, 0, 'right'] };
       const direction = directions[key];
       if (!direction) return;
       event.preventDefault();
@@ -293,6 +312,11 @@ export default function MapEditor2DWorkspace() {
       const cellBoundaries = boundaries.filter((boundary) => boundary.tiles?.[`${next.x},${next.y}`]);
       if (cellBoundaries.some((boundary) => !boundary.isZone && !boundary.isFarmland)) { setPlayMessage('경계선으로 막혀 있습니다.'); return; }
       if (mapData.entities.some((entity) => entity.x === next.x && entity.y === next.y)) { setPlayMessage('캐릭터가 있습니다. 가까이에서 E를 눌러 대화하세요.'); return; }
+      setPlayerDirection(direction[2]);
+      setPlayerAnimationFrame(0);
+      setIsPlayerMoving(true);
+      if (movementStopTimerRef.current) clearTimeout(movementStopTimerRef.current);
+      movementStopTimerRef.current = setTimeout(() => setIsPlayerMoving(false), 220);
       setPlayerPosition(next);
       const zone = cellBoundaries.find((boundary) => boundary.isZone);
       if (zone && activeZoneRef.current !== zone.id) setPlayMessage(zone.condition?.message || '이벤트 구역에 들어왔습니다.');
@@ -302,6 +326,18 @@ export default function MapEditor2DWorkspace() {
     window.addEventListener('keydown', handlePlayKey);
     return () => window.removeEventListener('keydown', handlePlayKey);
   }, [boundaries, isPlaying, mapData.entities, mapData.height, mapData.width, playerPosition]);
+
+  const playerAnimationFrames = mapData.playerAnimation?.directions?.[animationDirection] || [];
+  const addAnimationFrame = () => {
+    if (!selectedSheet) return;
+    const currentAnimation = mapData.playerAnimation || { fps: 8, directions: { down: [], left: [], right: [], up: [] } };
+    updateMap({ playerAnimation: { ...currentAnimation, directions: { ...currentAnimation.directions, [animationDirection]: [...(currentAnimation.directions?.[animationDirection] || []), { sheetId: selectedSheetId, frame: selectedFrame }] } } });
+  };
+  const removeAnimationFrame = (index) => {
+    const currentAnimation = mapData.playerAnimation;
+    if (!currentAnimation) return;
+    updateMap({ playerAnimation: { ...currentAnimation, directions: { ...currentAnimation.directions, [animationDirection]: playerAnimationFrames.filter((_, frameIndex) => frameIndex !== index) } } });
+  };
 
   const interact = (x, y) => {
     if (mode === 'spawn') return setSpawnPoint({ x, z: y });
@@ -409,6 +445,10 @@ export default function MapEditor2DWorkspace() {
   const gridWidth = mapData.width * mapData.tileSize;
   const gridHeight = mapData.height * mapData.tileSize;
   const shownBoundaries = boundaryDraft ? [...boundaries, boundaryDraft] : boundaries;
+  const activeMovementFrames = mapData.playerAnimation?.directions?.[playerDirection] || [];
+  const displayedPlayerSprite = isPlayerMoving && activeMovementFrames.length
+    ? activeMovementFrames[playerAnimationFrame % activeMovementFrames.length]
+    : mapData.playerSprite;
   const containerStyle = isFullscreen ? { position: 'fixed', inset: 0, zIndex: 9999, background: '#111827', display: 'flex' } : { height: '76vh', minHeight: 620, display: 'flex', overflow: 'hidden', border: '1px solid #d1d5db', borderRadius: 8 };
 
   return <div style={containerStyle} onPointerUp={() => setIsPainting(false)} onPointerLeave={() => setIsPainting(false)}>
@@ -430,7 +470,8 @@ export default function MapEditor2DWorkspace() {
             {frameDraft && <span style={{ position: 'absolute', pointerEvents: 'none', left: `${frameDraft.x / selectedSheet.imageWidth * 100}%`, top: `${frameDraft.y / selectedSheet.imageHeight * 100}%`, width: `${frameDraft.width / selectedSheet.imageWidth * 100}%`, height: `${frameDraft.height / selectedSheet.imageHeight * 100}%`, border: '2px dashed #f97316', background: 'rgba(249,115,22,0.15)' }} />}
           </div>}
           {selectedSheet.frames?.[selectedFrame] && <div style={{ padding: 7, border: '1px solid #d1d5db', borderRadius: 5, display: 'grid', gap: 5 }}><b style={{ fontSize: 12 }}>선택 프레임 수동 조정</b><div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 3 }}>{['x', 'y', 'width', 'height'].map((field) => <Field key={field} label={field.toUpperCase()}><input type="number" min={field === 'width' || field === 'height' ? 1 : 0} value={selectedSheet.frames[selectedFrame][field]} onChange={(event) => updateSelectedFrame({ [field]: Number(event.target.value) })} style={{ width: '100%' }} /></Field>)}</div><div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}><button type="button" onClick={() => updateSelectedFrame({ x: selectedSheet.frames[selectedFrame].x - 1 })}>←</button><button type="button" onClick={() => updateSelectedFrame({ x: selectedSheet.frames[selectedFrame].x + 1 })}>→</button><button type="button" onClick={() => updateSelectedFrame({ y: selectedSheet.frames[selectedFrame].y - 1 })}>↑</button><button type="button" onClick={() => updateSelectedFrame({ y: selectedSheet.frames[selectedFrame].y + 1 })}>↓</button><button type="button" onClick={() => updateSelectedFrame({ width: selectedSheet.frames[selectedFrame].width - 1 })}>폭−</button><button type="button" onClick={() => updateSelectedFrame({ width: selectedSheet.frames[selectedFrame].width + 1 })}>폭+</button><button type="button" onClick={() => updateSelectedFrame({ height: selectedSheet.frames[selectedFrame].height - 1 })}>높이−</button><button type="button" onClick={() => updateSelectedFrame({ height: selectedSheet.frames[selectedFrame].height + 1 })}>높이+</button><button type="button" onClick={() => { setMapData((current) => ({ ...current, sheets: current.sheets.map((sheet) => sheet.id === selectedSheetId ? { ...sheet, frames: sheet.frames.filter((_, index) => index !== selectedFrame) } : sheet) })); setSelectedFrame(Math.max(0, selectedFrame - 1)); }} style={{ color: '#dc2626' }}>영역 삭제</button></div></div>}
-          <div style={{ maxHeight: 180, overflowY: 'auto', display: 'grid', gridTemplateColumns: 'repeat(7, 36px)', gap: 3, padding: 4, background: '#d1d5db' }}>{Array.from({ length: selectedSheet.frames?.length || selectedSheet.columns * selectedSheet.rows }, (_, frame) => <button type="button" key={frame} title={`프레임 ${frame}`} onClick={() => setSelectedFrame(frame)} style={{ width: 36, height: 36, padding: 1, border: frame === selectedFrame ? '2px solid #2563eb' : '1px solid #9ca3af', background: 'white' }}><Sprite sheet={selectedSheet} frame={frame} size={30} /></button>)}</div><button type="button" onClick={() => updateMap({ playerSprite: { sheetId: selectedSheetId, frame: selectedFrame } })}>현재 프레임을 플레이어로 지정</button></>}
+          <div style={{ maxHeight: 180, overflowY: 'auto', display: 'grid', gridTemplateColumns: 'repeat(7, 36px)', gap: 3, padding: 4, background: '#d1d5db' }}>{Array.from({ length: selectedSheet.frames?.length || selectedSheet.columns * selectedSheet.rows }, (_, frame) => <button type="button" key={frame} title={`프레임 ${frame}`} onClick={() => setSelectedFrame(frame)} style={{ width: 36, height: 36, padding: 1, border: frame === selectedFrame ? '2px solid #2563eb' : '1px solid #9ca3af', background: 'white' }}><Sprite sheet={selectedSheet} frame={frame} size={30} /></button>)}</div><button type="button" onClick={() => updateMap({ playerSprite: { sheetId: selectedSheetId, frame: selectedFrame } })}>현재 프레임을 플레이어 기본 자세로 지정</button>
+          <div style={{ border: '1px solid #93c5fd', borderRadius: 6, padding: 8, background: '#eff6ff', display: 'grid', gap: 7 }}><b style={{ fontSize: 13 }}>플레이어 이동 애니메이션</b><Field label="재생 속도(FPS)"><input type="number" min="1" max="20" value={mapData.playerAnimation?.fps || 8} onChange={(event) => updateMap({ playerAnimation: { ...(mapData.playerAnimation || {}), fps: Math.max(1, Math.min(20, Number(event.target.value) || 8)), directions: mapData.playerAnimation?.directions || { down: [], left: [], right: [], up: [] } } })} /></Field><div style={{ display: 'flex', gap: 3 }}>{Object.entries(DIRECTION_LABELS).map(([direction, label]) => <button type="button" key={direction} onClick={() => setAnimationDirection(direction)} style={{ flex: 1, background: animationDirection === direction ? '#2563eb' : 'white', color: animationDirection === direction ? 'white' : '#111827' }}>{label}</button>)}</div><button type="button" onClick={addAnimationFrame}>선택 프레임을 {DIRECTION_LABELS[animationDirection]} 이동에 추가</button><div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', minHeight: 38 }}>{playerAnimationFrames.map((item, index) => <button type="button" key={`${item.sheetId}-${item.frame}-${index}`} title="클릭하여 순서에서 제거" onClick={() => removeAnimationFrame(index)} style={{ width: 38, height: 38, padding: 2, position: 'relative', background: 'white', border: '1px solid #60a5fa' }}><Sprite sheet={sheetById[item.sheetId]} frame={item.frame} size={32} /><span style={{ position: 'absolute', right: 0, top: -4, color: '#dc2626', fontWeight: 900 }}>×</span></button>)}</div><small style={{ color: '#4b5563' }}>{DIRECTION_LABELS[animationDirection]} 이동 프레임 {playerAnimationFrames.length}개 · 등록된 순서대로 반복 재생</small></div></>}
       </section>
 
       <section style={{ display: 'grid', gap: 6 }}><div style={{ display: 'flex', justifyContent: 'space-between' }}><b>타일 레이어</b><button type="button" onClick={addLayer}>+ 추가</button></div>{[...mapData.layers].reverse().map((layer) => <div key={layer.id} style={{ display: 'flex', gap: 4 }}><button type="button" onClick={() => updateMap({ activeLayerId: layer.id })} style={{ flex: 1, background: layer.id === mapData.activeLayerId ? '#dbeafe' : 'white' }}>{layer.name}</button><button type="button" onClick={() => setMapData((current) => ({ ...current, layers: current.layers.map((item) => item.id === layer.id ? { ...item, visible: !item.visible } : item) }))}>{layer.visible ? '👁' : '—'}</button></div>)}</section>
@@ -449,7 +490,7 @@ export default function MapEditor2DWorkspace() {
           {entity && <span style={{ position: 'absolute', inset: 0, outline: !isPlaying && entity.id === selectedEntityId ? '3px solid #facc15' : 'none', zIndex: 3 }}><Sprite sheet={sheetById[entity.sheetId]} frame={entity.frame} size={mapData.tileSize} /></span>}
           {!isPlaying && (boundary || selectedInDraft) && <span style={{ position: 'absolute', inset: 1, zIndex: 4, pointerEvents: 'none', background: selectedInDraft ? 'rgba(250,204,21,0.35)' : boundary.isFarmland ? 'rgba(34,197,94,0.28)' : boundary.isZone ? 'rgba(59,130,246,0.28)' : 'rgba(239,68,68,0.28)', outline: boundary?.id === selectedBoundaryId ? '3px solid #facc15' : `2px solid ${boundary?.isFarmland ? '#22c55e' : boundary?.isZone ? '#3b82f6' : '#ef4444'}` }} />}
           {!isPlaying && spawnPoint?.x === x && spawnPoint?.z === y && <span title="스폰 위치" style={{ position: 'absolute', inset: 0, zIndex: 5, color: '#22c55e', fontSize: 24, textShadow: '0 1px 2px black' }}>⚑</span>}
-          {hasPlayer && <span style={{ position: 'absolute', inset: 0, zIndex: 10, filter: 'drop-shadow(0 2px 2px rgba(0,0,0,0.7))' }}>{mapData.playerSprite ? <Sprite sheet={sheetById[mapData.playerSprite.sheetId]} frame={mapData.playerSprite.frame} size={mapData.tileSize} /> : <span style={{ fontSize: mapData.tileSize * 0.8 }}>🧍</span>}</span>}
+          {hasPlayer && <span style={{ position: 'absolute', inset: 0, zIndex: 10, filter: 'drop-shadow(0 2px 2px rgba(0,0,0,0.7))' }}>{displayedPlayerSprite ? <Sprite sheet={sheetById[displayedPlayerSprite.sheetId]} frame={displayedPlayerSprite.frame} size={mapData.tileSize} /> : <span style={{ fontSize: mapData.tileSize * 0.8 }}>🧍</span>}</span>}
         </button>; })}
         {!isPlaying && <svg width={gridWidth} height={gridHeight} viewBox={`0 0 ${mapData.width} ${mapData.height}`} preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 6 }}>{shownBoundaries.filter((boundary) => boundary.points?.length).map((boundary) => { const points = boundary.points.map((point) => point.join(',')).join(' '); const color = boundary.id === selectedBoundaryId ? '#facc15' : boundary.isFarmland ? '#22c55e' : boundary.isZone ? '#3b82f6' : '#ef4444'; return boundary.isZone || boundary.isFarmland ? <polygon key={boundary.id} points={points} fill="rgba(0,0,0,0)" stroke={color} strokeWidth="0.12" /> : <polyline key={boundary.id} points={points} fill="none" stroke={color} strokeWidth="0.12" />; })}</svg>}
       </div>

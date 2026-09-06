@@ -150,7 +150,13 @@ export default function MapEditor2DWorkspace() {
   const [isPainting, setIsPainting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [playerPosition, setPlayerPosition] = useState(null);
+  const [playMessage, setPlayMessage] = useState('');
+  const [frameDraft, setFrameDraft] = useState(null);
   const fileInputRef = useRef(null);
+  const frameEditorRef = useRef(null);
+  const activeZoneRef = useRef(null);
 
   const fetchMaps = async () => {
     const { data } = await supabase.from('maps').select('id, name, updated_at, assets').order('updated_at', { ascending: false });
@@ -210,6 +216,93 @@ export default function MapEditor2DWorkspace() {
     image.src = selectedSheet.dataUrl;
   };
 
+  const updateSelectedFrame = (changes) => {
+    if (!selectedSheet?.frames?.[selectedFrame]) return;
+    setMapData((current) => ({ ...current, sheets: current.sheets.map((sheet) => {
+      if (sheet.id !== selectedSheetId) return sheet;
+      const frames = sheet.frames.map((frame, index) => {
+        if (index !== selectedFrame) return frame;
+        const next = { ...frame, ...changes };
+        next.x = Math.max(0, Math.min(sheet.imageWidth - 1, Number(next.x) || 0));
+        next.y = Math.max(0, Math.min(sheet.imageHeight - 1, Number(next.y) || 0));
+        next.width = Math.max(1, Math.min(sheet.imageWidth - next.x, Number(next.width) || 1));
+        next.height = Math.max(1, Math.min(sheet.imageHeight - next.y, Number(next.height) || 1));
+        return next;
+      });
+      return { ...sheet, frames };
+    }) }));
+  };
+
+  const framePoint = (event) => {
+    const bounds = frameEditorRef.current.getBoundingClientRect();
+    return {
+      x: Math.max(0, Math.min(selectedSheet.imageWidth, Math.round((event.clientX - bounds.left) / bounds.width * selectedSheet.imageWidth))),
+      y: Math.max(0, Math.min(selectedSheet.imageHeight, Math.round((event.clientY - bounds.top) / bounds.height * selectedSheet.imageHeight)))
+    };
+  };
+  const startFrameDraw = (event) => {
+    if (!selectedSheet?.frames) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const point = framePoint(event);
+    setFrameDraft({ startX: point.x, startY: point.y, x: point.x, y: point.y, width: 1, height: 1 });
+  };
+  const moveFrameDraw = (event) => {
+    if (!frameDraft) return;
+    const point = framePoint(event);
+    setFrameDraft((draft) => ({ ...draft, x: Math.min(draft.startX, point.x), y: Math.min(draft.startY, point.y), width: Math.max(1, Math.abs(point.x - draft.startX)), height: Math.max(1, Math.abs(point.y - draft.startY)) }));
+  };
+  const finishFrameDraw = () => {
+    if (!frameDraft || !selectedSheet?.frames) return;
+    if (frameDraft.width >= 3 && frameDraft.height >= 3) {
+      const frame = { x: frameDraft.x, y: frameDraft.y, width: frameDraft.width, height: frameDraft.height };
+      setMapData((current) => ({ ...current, sheets: current.sheets.map((sheet) => sheet.id === selectedSheetId ? { ...sheet, frames: [...sheet.frames, frame] } : sheet) }));
+      setSelectedFrame(selectedSheet.frames.length);
+    }
+    setFrameDraft(null);
+  };
+
+  const startPlay = () => {
+    const start = spawnPoint || { x: 0, z: 0 };
+    setPlayerPosition({ x: start.x, y: start.z });
+    setPlayMessage(spawnPoint ? '방향키 또는 WASD로 이동하고, NPC 근처에서 E를 누르세요.' : '스폰 위치가 없어 0, 0에서 시작했습니다.');
+    activeZoneRef.current = null;
+    setIsPlaying(true);
+  };
+  const stopPlay = () => { setIsPlaying(false); setPlayerPosition(null); setPlayMessage(''); activeZoneRef.current = null; };
+
+  useEffect(() => {
+    if (!isPlaying || !playerPosition) return;
+    const handlePlayKey = (event) => {
+      const key = event.key.toLowerCase();
+      if (key === 'escape') { stopPlay(); return; }
+      if (key === 'e') {
+        const npc = mapData.entities.find((entity) => Math.abs(entity.x - playerPosition.x) + Math.abs(entity.y - playerPosition.y) <= 1);
+        if (!npc) setPlayMessage('근처에 대화할 캐릭터가 없습니다.');
+        else {
+          const questText = npc.quests?.length ? `\n퀘스트: ${npc.quests.map((quest) => quest.title || '제목 없음').join(', ')}` : '';
+          setPlayMessage(`${npc.npcName || '캐릭터'}: ${npc.dialogue || '안녕하세요!'}${questText}`);
+        }
+        return;
+      }
+      const directions = { arrowup: [0, -1], w: [0, -1], arrowdown: [0, 1], s: [0, 1], arrowleft: [-1, 0], a: [-1, 0], arrowright: [1, 0], d: [1, 0] };
+      const direction = directions[key];
+      if (!direction) return;
+      event.preventDefault();
+      const next = { x: playerPosition.x + direction[0], y: playerPosition.y + direction[1] };
+      if (next.x < 0 || next.y < 0 || next.x >= mapData.width || next.y >= mapData.height) return;
+      const cellBoundaries = boundaries.filter((boundary) => boundary.tiles?.[`${next.x},${next.y}`]);
+      if (cellBoundaries.some((boundary) => !boundary.isZone && !boundary.isFarmland)) { setPlayMessage('경계선으로 막혀 있습니다.'); return; }
+      if (mapData.entities.some((entity) => entity.x === next.x && entity.y === next.y)) { setPlayMessage('캐릭터가 있습니다. 가까이에서 E를 눌러 대화하세요.'); return; }
+      setPlayerPosition(next);
+      const zone = cellBoundaries.find((boundary) => boundary.isZone);
+      if (zone && activeZoneRef.current !== zone.id) setPlayMessage(zone.condition?.message || '이벤트 구역에 들어왔습니다.');
+      else if (!zone) setPlayMessage('방향키 또는 WASD로 이동하고, NPC 근처에서 E를 누르세요.');
+      activeZoneRef.current = zone?.id || null;
+    };
+    window.addEventListener('keydown', handlePlayKey);
+    return () => window.removeEventListener('keydown', handlePlayKey);
+  }, [boundaries, isPlaying, mapData.entities, mapData.height, mapData.width, playerPosition]);
+
   const interact = (x, y) => {
     if (mode === 'spawn') return setSpawnPoint({ x, z: y });
     if (mode === 'boundary' || mode === 'zone' || mode === 'farmland') {
@@ -267,6 +360,7 @@ export default function MapEditor2DWorkspace() {
   };
 
   const resetEditor = () => {
+    stopPlay();
     setCurrentMapId(null); setMapName('새 2D 맵'); setMapData(emptyMap()); setBoundaries([]); setSpawnPoint(null);
     setSelectedSheetId(null); setSelectedEntityId(null); setSelectedBoundaryId(null); setBoundaryDraft(null);
   };
@@ -276,6 +370,7 @@ export default function MapEditor2DWorkspace() {
     const { data, error } = await supabase.from('maps').select('*').eq('id', id).single();
     const saved = markerOf(data?.assets)?.data;
     if (error || !saved) return alert('2D 맵을 불러오지 못했습니다.');
+    stopPlay();
     setCurrentMapId(data.id); setMapName(data.name); setMapData({ ...emptyMap(), ...saved });
     setBoundaries(data.boundaries || []); setSpawnPoint(data.spawnPoint || null); setSelectedSheetId(saved.sheets?.[0]?.id || null);
     setSelectedEntityId(null); setSelectedBoundaryId(null); setBoundaryDraft(null);
@@ -318,7 +413,7 @@ export default function MapEditor2DWorkspace() {
 
   return <div style={containerStyle} onPointerUp={() => setIsPainting(false)} onPointerLeave={() => setIsPainting(false)}>
     <aside style={{ width: 330, flexShrink: 0, background: '#f9fafb', color: '#111827', borderRight: '1px solid #d1d5db', overflowY: 'auto', padding: 12, display: 'grid', alignContent: 'start', gap: 14 }}>
-      <div style={{ display: 'flex', gap: 6 }}><button type="button" onClick={createNew}>+ 새 맵</button><button type="button" onClick={saveMap} disabled={isSaving}>{isSaving ? '저장 중…' : '저장'}</button><button type="button" onClick={() => setIsFullscreen((value) => !value)}>{isFullscreen ? '축소' : '전체 화면'}</button></div>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}><button type="button" onClick={createNew}>+ 새 맵</button><button type="button" onClick={saveMap} disabled={isSaving || isPlaying}>{isSaving ? '저장 중…' : '저장'}</button><button type="button" onClick={() => setIsFullscreen((value) => !value)}>{isFullscreen ? '축소' : '전체 화면'}</button><button type="button" onClick={isPlaying ? stopPlay : startPlay} style={{ background: isPlaying ? '#dc2626' : '#16a34a', color: 'white', border: 0, borderRadius: 4, fontWeight: 800 }}>{isPlaying ? '■ 체험 종료' : '▶ 인게임 체험'}</button></div>
       <input value={mapName} onChange={(event) => setMapName(event.target.value)} aria-label="맵 이름" />
       <div style={{ maxHeight: 120, overflowY: 'auto', background: 'white', border: '1px solid #d1d5db' }}>{mapList.map((map) => <button type="button" key={map.id} onClick={() => loadMap(map.id)} style={{ width: '100%', display: 'flex', justifyContent: 'space-between', padding: 7, background: currentMapId === map.id ? '#dbeafe' : 'white', border: 0, borderBottom: '1px solid #eee' }}><span>{map.name}</span><span onClick={(event) => deleteMap(map.id, event)} style={{ color: '#dc2626' }}>×</span></button>)}</div>
 
@@ -329,8 +424,13 @@ export default function MapEditor2DWorkspace() {
       <section style={{ display: 'grid', gap: 7 }}><div style={{ display: 'flex', justifyContent: 'space-between' }}><b>스프라이트 시트</b><button type="button" onClick={() => fileInputRef.current?.click()}>이미지 추가</button></div>
         <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={uploadSheet} />
         <select value={selectedSheetId || ''} onChange={(event) => { setSelectedSheetId(event.target.value); setSelectedFrame(0); }}><option value="">시트를 선택하세요</option>{mapData.sheets.map((sheet) => <option key={sheet.id} value={sheet.id}>{sheet.name}</option>)}</select>
-        {selectedSheet && <><div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 5 }}><Field label="프레임 너비"><input type="number" min="1" value={selectedSheet.frameWidth} onChange={(event) => resizeFrames('frameWidth', event.target.value)} /></Field><Field label="프레임 높이"><input type="number" min="1" value={selectedSheet.frameHeight} onChange={(event) => resizeFrames('frameHeight', event.target.value)} /></Field></div><button type="button" onClick={detectFrames}>투명 배경 자동 분할</button><small style={{ color: '#4b5563' }}>{selectedSheet.frames?.length ? `투명 배경 기준 ${selectedSheet.frames.length}개 프레임` : '수동 격자 분할 사용 중'}</small>
-          <div style={{ maxHeight: 180, overflowY: 'auto', display: 'grid', gridTemplateColumns: 'repeat(7, 36px)', gap: 3, padding: 4, background: '#d1d5db' }}>{Array.from({ length: selectedSheet.frames?.length || selectedSheet.columns * selectedSheet.rows }, (_, frame) => <button type="button" key={frame} title={`프레임 ${frame}`} onClick={() => setSelectedFrame(frame)} style={{ width: 36, height: 36, padding: 1, border: frame === selectedFrame ? '2px solid #2563eb' : '1px solid #9ca3af', background: 'white' }}><Sprite sheet={selectedSheet} frame={frame} size={30} /></button>)}</div></>}
+        {selectedSheet && <><div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 5 }}><Field label="프레임 너비"><input type="number" min="1" value={selectedSheet.frameWidth} onChange={(event) => resizeFrames('frameWidth', event.target.value)} /></Field><Field label="프레임 높이"><input type="number" min="1" value={selectedSheet.frameHeight} onChange={(event) => resizeFrames('frameHeight', event.target.value)} /></Field></div><button type="button" onClick={detectFrames}>투명 배경 자동 분할</button><small style={{ color: '#4b5563' }}>{selectedSheet.frames?.length ? `투명 배경 기준 ${selectedSheet.frames.length}개 프레임 · 아래 시트에서 드래그하면 새 영역 추가` : '수동 격자 분할 사용 중'}</small>
+          {selectedSheet.frames && <div ref={frameEditorRef} onPointerDown={startFrameDraw} onPointerMove={moveFrameDraw} onPointerUp={finishFrameDraw} style={{ position: 'relative', width: '100%', aspectRatio: `${selectedSheet.imageWidth} / ${selectedSheet.imageHeight}`, backgroundImage: `url(${selectedSheet.dataUrl})`, backgroundSize: '100% 100%', backgroundRepeat: 'no-repeat', border: '1px solid #6b7280', touchAction: 'none', cursor: 'crosshair' }}>
+            {selectedSheet.frames.map((frame, index) => <button type="button" key={index} onPointerDown={(event) => { event.stopPropagation(); setSelectedFrame(index); }} title={`프레임 ${index + 1}`} style={{ position: 'absolute', left: `${frame.x / selectedSheet.imageWidth * 100}%`, top: `${frame.y / selectedSheet.imageHeight * 100}%`, width: `${frame.width / selectedSheet.imageWidth * 100}%`, height: `${frame.height / selectedSheet.imageHeight * 100}%`, border: index === selectedFrame ? '2px solid #facc15' : '1px solid rgba(37,99,235,0.8)', background: index === selectedFrame ? 'rgba(250,204,21,0.18)' : 'rgba(37,99,235,0.06)', padding: 0, cursor: 'pointer' }} />)}
+            {frameDraft && <span style={{ position: 'absolute', pointerEvents: 'none', left: `${frameDraft.x / selectedSheet.imageWidth * 100}%`, top: `${frameDraft.y / selectedSheet.imageHeight * 100}%`, width: `${frameDraft.width / selectedSheet.imageWidth * 100}%`, height: `${frameDraft.height / selectedSheet.imageHeight * 100}%`, border: '2px dashed #f97316', background: 'rgba(249,115,22,0.15)' }} />}
+          </div>}
+          {selectedSheet.frames?.[selectedFrame] && <div style={{ padding: 7, border: '1px solid #d1d5db', borderRadius: 5, display: 'grid', gap: 5 }}><b style={{ fontSize: 12 }}>선택 프레임 수동 조정</b><div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 3 }}>{['x', 'y', 'width', 'height'].map((field) => <Field key={field} label={field.toUpperCase()}><input type="number" min={field === 'width' || field === 'height' ? 1 : 0} value={selectedSheet.frames[selectedFrame][field]} onChange={(event) => updateSelectedFrame({ [field]: Number(event.target.value) })} style={{ width: '100%' }} /></Field>)}</div><div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}><button type="button" onClick={() => updateSelectedFrame({ x: selectedSheet.frames[selectedFrame].x - 1 })}>←</button><button type="button" onClick={() => updateSelectedFrame({ x: selectedSheet.frames[selectedFrame].x + 1 })}>→</button><button type="button" onClick={() => updateSelectedFrame({ y: selectedSheet.frames[selectedFrame].y - 1 })}>↑</button><button type="button" onClick={() => updateSelectedFrame({ y: selectedSheet.frames[selectedFrame].y + 1 })}>↓</button><button type="button" onClick={() => updateSelectedFrame({ width: selectedSheet.frames[selectedFrame].width - 1 })}>폭−</button><button type="button" onClick={() => updateSelectedFrame({ width: selectedSheet.frames[selectedFrame].width + 1 })}>폭+</button><button type="button" onClick={() => updateSelectedFrame({ height: selectedSheet.frames[selectedFrame].height - 1 })}>높이−</button><button type="button" onClick={() => updateSelectedFrame({ height: selectedSheet.frames[selectedFrame].height + 1 })}>높이+</button><button type="button" onClick={() => { setMapData((current) => ({ ...current, sheets: current.sheets.map((sheet) => sheet.id === selectedSheetId ? { ...sheet, frames: sheet.frames.filter((_, index) => index !== selectedFrame) } : sheet) })); setSelectedFrame(Math.max(0, selectedFrame - 1)); }} style={{ color: '#dc2626' }}>영역 삭제</button></div></div>}
+          <div style={{ maxHeight: 180, overflowY: 'auto', display: 'grid', gridTemplateColumns: 'repeat(7, 36px)', gap: 3, padding: 4, background: '#d1d5db' }}>{Array.from({ length: selectedSheet.frames?.length || selectedSheet.columns * selectedSheet.rows }, (_, frame) => <button type="button" key={frame} title={`프레임 ${frame}`} onClick={() => setSelectedFrame(frame)} style={{ width: 36, height: 36, padding: 1, border: frame === selectedFrame ? '2px solid #2563eb' : '1px solid #9ca3af', background: 'white' }}><Sprite sheet={selectedSheet} frame={frame} size={30} /></button>)}</div><button type="button" onClick={() => updateMap({ playerSprite: { sheetId: selectedSheetId, frame: selectedFrame } })}>현재 프레임을 플레이어로 지정</button></>}
       </section>
 
       <section style={{ display: 'grid', gap: 6 }}><div style={{ display: 'flex', justifyContent: 'space-between' }}><b>타일 레이어</b><button type="button" onClick={addLayer}>+ 추가</button></div>{[...mapData.layers].reverse().map((layer) => <div key={layer.id} style={{ display: 'flex', gap: 4 }}><button type="button" onClick={() => updateMap({ activeLayerId: layer.id })} style={{ flex: 1, background: layer.id === mapData.activeLayerId ? '#dbeafe' : 'white' }}>{layer.name}</button><button type="button" onClick={() => setMapData((current) => ({ ...current, layers: current.layers.map((item) => item.id === layer.id ? { ...item, visible: !item.visible } : item) }))}>{layer.visible ? '👁' : '—'}</button></div>)}</section>
@@ -340,16 +440,18 @@ export default function MapEditor2DWorkspace() {
       {selectedBoundary && <section style={{ display: 'grid', gap: 7, borderTop: '1px solid #d1d5db', paddingTop: 10 }}><b>{selectedBoundary.isFarmland ? '농경 구역' : selectedBoundary.isZone ? '이벤트 구역' : '경계선'} 설정</b>{selectedBoundary.isFarmland ? <Field label="구역 이름"><input value={selectedBoundary.name || ''} onChange={(event) => setBoundaries((current) => current.map((boundary) => boundary.id === selectedBoundary.id ? { ...boundary, name: event.target.value } : boundary))} /></Field> : selectedBoundary.isZone ? <><Field label="이벤트 종류"><select value={selectedBoundary.condition?.eventType || 'bubble'} onChange={(event) => setBoundaryCondition({ eventType: event.target.value })}><option value="bubble">말풍선</option><option value="message">메시지</option><option value="dialogue">대화</option></select></Field><Field label="메시지"><textarea rows={3} value={selectedBoundary.condition?.message || ''} onChange={(event) => setBoundaryCondition({ message: event.target.value })} /></Field><label style={{ fontSize: 12 }}><input type="checkbox" checked={selectedBoundary.condition?.triggerOnce !== false} onChange={(event) => setBoundaryCondition({ triggerOnce: event.target.checked })} /> 한 번만 실행</label></> : <p style={{ margin: 0, fontSize: 12 }}>플레이어가 통과할 수 없는 경계선입니다.</p>}<button type="button" onClick={() => { setBoundaries((current) => current.filter((boundary) => boundary.id !== selectedBoundary.id)); setSelectedBoundaryId(null); }} style={{ color: '#dc2626' }}>삭제</button></section>}
     </aside>
 
-    <main style={{ flex: 1, overflow: 'auto', background: '#111827', padding: 24 }}>
+    <main style={{ flex: 1, overflow: 'auto', background: '#111827', padding: 24, position: 'relative' }}>
+      {isPlaying && <div style={{ position: 'sticky', top: 0, left: 0, zIndex: 20, margin: '0 auto 10px', width: 'fit-content', maxWidth: 620, padding: '10px 16px', borderRadius: 12, background: 'rgba(15,23,42,0.94)', color: 'white', textAlign: 'center', whiteSpace: 'pre-line', boxShadow: '0 8px 24px rgba(0,0,0,0.35)' }}><b>2D 인게임 체험</b><div style={{ marginTop: 4, fontSize: 13 }}>{playMessage}</div></div>}
       <div style={{ marginBottom: 10, color: 'white', display: 'flex', gap: 12, alignItems: 'center', fontSize: 13 }}><span>{mapData.width} × {mapData.height} 타일</span><label>가로 <input type="number" min="4" max="100" value={mapData.width} onChange={(event) => updateMap({ width: Math.max(4, Math.min(100, Number(event.target.value) || 4)) })} style={{ width: 60 }} /></label><label>세로 <input type="number" min="4" max="100" value={mapData.height} onChange={(event) => updateMap({ height: Math.max(4, Math.min(100, Number(event.target.value) || 4)) })} style={{ width: 60 }} /></label><span>{['boundary', 'zone', 'farmland'].includes(mode) ? '클릭하거나 드래그해 구역 타일을 선택하세요.' : '드래그하여 연속으로 칠할 수 있습니다.'}</span></div>
       <div style={{ position: 'relative', width: gridWidth, height: gridHeight, display: 'grid', gridTemplateColumns: `repeat(${mapData.width}, ${mapData.tileSize}px)`, background: '#374151', userSelect: 'none' }}>
-        {Array.from({ length: mapData.width * mapData.height }, (_, index) => { const x = index % mapData.width; const y = Math.floor(index / mapData.width); const key = `${x},${y}`; const entity = entityByCell[key]; const boundary = boundaryByCell[key]; const selectedInDraft = boundaryDraft?.tiles?.[key]; return <button type="button" key={key} onPointerDown={(event) => { event.preventDefault(); setIsPainting(true); interact(x, y); }} onPointerEnter={() => { if (isPainting && (mode === 'tile' || mode === 'erase' || mode === 'boundary' || mode === 'zone' || mode === 'farmland')) interact(x, y); }} style={{ width: mapData.tileSize, height: mapData.tileSize, padding: 0, position: 'relative', border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', overflow: 'hidden' }}>
+        {Array.from({ length: mapData.width * mapData.height }, (_, index) => { const x = index % mapData.width; const y = Math.floor(index / mapData.width); const key = `${x},${y}`; const entity = entityByCell[key]; const boundary = boundaryByCell[key]; const selectedInDraft = boundaryDraft?.tiles?.[key]; const hasPlayer = isPlaying && playerPosition?.x === x && playerPosition?.y === y; return <button type="button" key={key} onPointerDown={(event) => { if (isPlaying) return; event.preventDefault(); setIsPainting(true); interact(x, y); }} onPointerEnter={() => { if (!isPlaying && isPainting && (mode === 'tile' || mode === 'erase' || mode === 'boundary' || mode === 'zone' || mode === 'farmland')) interact(x, y); }} style={{ width: mapData.tileSize, height: mapData.tileSize, padding: 0, position: 'relative', border: isPlaying ? 0 : '1px solid rgba(255,255,255,0.08)', background: 'transparent', overflow: 'hidden' }}>
           {mapData.layers.filter((layer) => layer.visible).map((layer) => { const tile = layer.tiles[key]; return tile ? <span key={layer.id} style={{ position: 'absolute', inset: 0 }}><Sprite sheet={sheetById[tile.sheetId]} frame={tile.frame} size={mapData.tileSize} /></span> : null; })}
-          {entity && <span style={{ position: 'absolute', inset: 0, outline: entity.id === selectedEntityId ? '3px solid #facc15' : 'none', zIndex: 3 }}><Sprite sheet={sheetById[entity.sheetId]} frame={entity.frame} size={mapData.tileSize} /></span>}
-          {(boundary || selectedInDraft) && <span style={{ position: 'absolute', inset: 1, zIndex: 4, pointerEvents: 'none', background: selectedInDraft ? 'rgba(250,204,21,0.35)' : boundary.isFarmland ? 'rgba(34,197,94,0.28)' : boundary.isZone ? 'rgba(59,130,246,0.28)' : 'rgba(239,68,68,0.28)', outline: boundary?.id === selectedBoundaryId ? '3px solid #facc15' : `2px solid ${boundary?.isFarmland ? '#22c55e' : boundary?.isZone ? '#3b82f6' : '#ef4444'}` }} />}
-          {spawnPoint?.x === x && spawnPoint?.z === y && <span title="스폰 위치" style={{ position: 'absolute', inset: 0, zIndex: 5, color: '#22c55e', fontSize: 24, textShadow: '0 1px 2px black' }}>⚑</span>}
+          {entity && <span style={{ position: 'absolute', inset: 0, outline: !isPlaying && entity.id === selectedEntityId ? '3px solid #facc15' : 'none', zIndex: 3 }}><Sprite sheet={sheetById[entity.sheetId]} frame={entity.frame} size={mapData.tileSize} /></span>}
+          {!isPlaying && (boundary || selectedInDraft) && <span style={{ position: 'absolute', inset: 1, zIndex: 4, pointerEvents: 'none', background: selectedInDraft ? 'rgba(250,204,21,0.35)' : boundary.isFarmland ? 'rgba(34,197,94,0.28)' : boundary.isZone ? 'rgba(59,130,246,0.28)' : 'rgba(239,68,68,0.28)', outline: boundary?.id === selectedBoundaryId ? '3px solid #facc15' : `2px solid ${boundary?.isFarmland ? '#22c55e' : boundary?.isZone ? '#3b82f6' : '#ef4444'}` }} />}
+          {!isPlaying && spawnPoint?.x === x && spawnPoint?.z === y && <span title="스폰 위치" style={{ position: 'absolute', inset: 0, zIndex: 5, color: '#22c55e', fontSize: 24, textShadow: '0 1px 2px black' }}>⚑</span>}
+          {hasPlayer && <span style={{ position: 'absolute', inset: 0, zIndex: 10, filter: 'drop-shadow(0 2px 2px rgba(0,0,0,0.7))' }}>{mapData.playerSprite ? <Sprite sheet={sheetById[mapData.playerSprite.sheetId]} frame={mapData.playerSprite.frame} size={mapData.tileSize} /> : <span style={{ fontSize: mapData.tileSize * 0.8 }}>🧍</span>}</span>}
         </button>; })}
-        <svg width={gridWidth} height={gridHeight} viewBox={`0 0 ${mapData.width} ${mapData.height}`} preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 6 }}>{shownBoundaries.filter((boundary) => boundary.points?.length).map((boundary) => { const points = boundary.points.map((point) => point.join(',')).join(' '); const color = boundary.id === selectedBoundaryId ? '#facc15' : boundary.isFarmland ? '#22c55e' : boundary.isZone ? '#3b82f6' : '#ef4444'; return boundary.isZone || boundary.isFarmland ? <polygon key={boundary.id} points={points} fill="rgba(0,0,0,0)" stroke={color} strokeWidth="0.12" /> : <polyline key={boundary.id} points={points} fill="none" stroke={color} strokeWidth="0.12" />; })}</svg>
+        {!isPlaying && <svg width={gridWidth} height={gridHeight} viewBox={`0 0 ${mapData.width} ${mapData.height}`} preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 6 }}>{shownBoundaries.filter((boundary) => boundary.points?.length).map((boundary) => { const points = boundary.points.map((point) => point.join(',')).join(' '); const color = boundary.id === selectedBoundaryId ? '#facc15' : boundary.isFarmland ? '#22c55e' : boundary.isZone ? '#3b82f6' : '#ef4444'; return boundary.isZone || boundary.isFarmland ? <polygon key={boundary.id} points={points} fill="rgba(0,0,0,0)" stroke={color} strokeWidth="0.12" /> : <polyline key={boundary.id} points={points} fill="none" stroke={color} strokeWidth="0.12" />; })}</svg>}
       </div>
     </main>
   </div>;

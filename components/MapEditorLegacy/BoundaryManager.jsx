@@ -56,11 +56,11 @@ export default function BoundaryManager() {
         const points = b.points || (b.start && b.end ? [b.start, b.end] : []);
         if (points.length < 2) return null;
 
-        if (isPlaying && !b.isZone && b.id !== collidedBoundaryId) return null; // Hide boundaries in play mode unless recently collided
+        if (isPlaying && !b.isFarmland && !b.isZone && b.id !== collidedBoundaryId) return null; // Hide boundaries in play mode unless recently collided
         if (isPlaying && b.isZone) return null; // Always hide zones in play mode
 
         const isSelected = selectedBoundaryId === b.id;
-        const color = b.isZone ? '#3b82f6' : '#ef4444';
+        const color = b.isFarmland ? '#22c55e' : b.isZone ? '#3b82f6' : '#ef4444';
         const opacity = isSelected || (isPlaying && !b.isZone && b.id === collidedBoundaryId) ? 0.8 : 0.4;
         
         return (
@@ -77,7 +77,7 @@ export default function BoundaryManager() {
               
               return (
                 <group key={i} position={[cx, 2.5, cz]} rotation={[0, angle, 0]}>
-                  <mesh>
+                  <mesh raycast={isPlaying || (mode !== 'select' && mode !== 'erase') ? () => null : undefined}>
                     <boxGeometry args={[0.2, 5, length + 0.1]} /> {/* +0.1 to bridge gaps */}
                     <meshBasicMaterial 
                       color={color} 
@@ -89,7 +89,7 @@ export default function BoundaryManager() {
                   </mesh>
                   {/* Draw border if selected */}
                   {isSelected && (
-                    <mesh>
+                    <mesh raycast={() => null}>
                       <boxGeometry args={[0.3, 5.1, length + 0.2]} />
                       <meshBasicMaterial color="#f59e0b" wireframe />
                     </mesh>
@@ -115,9 +115,9 @@ export default function BoundaryManager() {
             const cz = (p[1] + nextP[1]) / 2;
             
             return (
-              <mesh key={i} position={[cx, 2.5, cz]} rotation={[0, angle, 0]}>
+              <mesh raycast={() => null} key={i} position={[cx, 2.5, cz]} rotation={[0, angle, 0]}>
                 <boxGeometry args={[0.2, 5, length + 0.1]} />
-                <meshBasicMaterial color={boundaryDrawing.isZone ? "#3b82f6" : "#ef4444"} transparent opacity={0.5} />
+                <meshBasicMaterial color={boundaryDrawing.isFarmland ? "#22c55e" : boundaryDrawing.isZone ? "#3b82f6" : "#ef4444"} transparent opacity={0.5} />
               </mesh>
             );
           })}

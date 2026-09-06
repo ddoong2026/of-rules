@@ -258,6 +258,22 @@ const useMapStore = create((set, get) => ({
     customItems: state.customItems.map(i => i.id === id ? { ...i, ...updates } : i)
   })),
 
+  reclaimCustomAsset: (id) => set((state) => {
+    const asset = state.assets.find(a => a.id === id);
+    if (!asset?.customItemId) return state;
+    const baseId = asset.customItemId.replace('_identified', '');
+    const definition = state.customItems.find(item => item.id === baseId);
+    return {
+      assets: state.assets.filter(a => a.id !== id),
+      selectedAssetId: state.selectedAssetId === id ? null : state.selectedAssetId,
+      droppedItems: [...state.droppedItems, {
+        id: crypto.randomUUID(),
+        itemId: baseId + '_identified',
+        icon: definition?.icon || '📦',
+        position: [...asset.position]
+      }]
+    };
+  }),
   addDroppedItem: (item) => set((state) => ({ droppedItems: [...state.droppedItems, item] })),
   removeDroppedItem: (id) => set((state) => ({ droppedItems: state.droppedItems.filter(i => i.id !== id) }))
 }));

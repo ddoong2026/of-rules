@@ -13,11 +13,35 @@ const markerOf = (assets = []) => assets.find((asset) => asset.id === MARKER_ID)
 
 function Sprite({ sheet, frame = 0, size = 32 }) {
   if (!sheet) return null;
+  const detected = sheet.frames?.[frame];
+  if (detected) return <span aria-hidden="true" style={{ display: 'block', width: size, height: size, backgroundImage: `url(${sheet.dataUrl})`, backgroundRepeat: 'no-repeat', backgroundSize: `${sheet.imageWidth / detected.width * 100}% ${sheet.imageHeight / detected.height * 100}%`, backgroundPosition: `${-detected.x / detected.width * 100}% ${-detected.y / detected.height * 100}%`, imageRendering: 'pixelated' }} />;
   const columns = Math.max(1, sheet.columns || 1);
   const rows = Math.max(1, sheet.rows || 1);
   const column = frame % columns;
   const row = Math.floor(frame / columns);
   return <span aria-hidden="true" style={{ display: 'block', width: size, height: size, backgroundImage: `url(${sheet.dataUrl})`, backgroundRepeat: 'no-repeat', backgroundSize: `${columns * 100}% ${rows * 100}%`, backgroundPosition: `${columns === 1 ? 0 : column / (columns - 1) * 100}% ${rows === 1 ? 0 : row / (rows - 1) * 100}%`, imageRendering: 'pixelated' }} />;
+}
+
+function transparentFrames(image) {
+  const canvas = document.createElement('canvas');
+  canvas.width = image.width; canvas.height = image.height;
+  const context = canvas.getContext('2d', { willReadFrequently: true });
+  context.drawImage(image, 0, 0);
+  const pixels = context.getImageData(0, 0, image.width, image.height).data;
+  const occupiedColumns = Array(image.width).fill(false);
+  const occupiedRows = Array(image.height).fill(false);
+  for (let y = 0; y < image.height; y += 1) for (let x = 0; x < image.width; x += 1) {
+    if (pixels[(y * image.width + x) * 4 + 3] > 16) { occupiedColumns[x] = true; occupiedRows[y] = true; }
+  }
+  const runs = (values) => values.reduce((result, occupied, index) => {
+    const previous = values[index - 1];
+    if (occupied && !previous) result.push([index, index]);
+    else if (occupied) result[result.length - 1][1] = index;
+    return result;
+  }, []);
+  const columns = runs(occupiedColumns);
+  const rows = runs(occupiedRows);
+  return rows.flatMap(([top, bottom]) => columns.map(([left, right]) => ({ x: left, y: top, width: right - left + 1, height: bottom - top + 1 }))).filter((frame) => frame.width > 1 && frame.height > 1);
 }
 
 function ToolButton({ active, onClick, children }) {
@@ -92,9 +116,8 @@ export default function MapEditor2DWorkspace() {
       const image = new Image();
       image.onload = () => {
         const suggested = Math.min(32, image.width, image.height);
-        const frameWidth = Number(prompt('한 프레임의 가로 픽셀', String(suggested))) || suggested;
-        const frameHeight = Number(prompt('한 프레임의 세로 픽셀', String(suggested))) || suggested;
-        const sheet = { id: crypto.randomUUID(), name: file.name, dataUrl: reader.result, imageWidth: image.width, imageHeight: image.height, frameWidth, frameHeight, columns: Math.max(1, Math.floor(image.width / frameWidth)), rows: Math.max(1, Math.floor(image.height / frameHeight)) };
+        const frames = transparentFrames(image);
+        const sheet = { id: crypto.randomUUID(), name: file.name, dataUrl: reader.result, imageWidth: image.width, imageHeight: image.height, frameWidth: suggested, frameHeight: suggested, columns: Math.max(1, Math.floor(image.width / suggested)), rows: Math.max(1, Math.floor(image.height / suggested)), frames: frames.length ? frames : null };
         setMapData((current) => ({ ...current, sheets: [...current.sheets, sheet] }));
         setSelectedSheetId(sheet.id);
         setSelectedFrame(0);
@@ -108,9 +131,20 @@ export default function MapEditor2DWorkspace() {
     setMapData((current) => ({ ...current, sheets: current.sheets.map((sheet) => {
       if (sheet.id !== selectedSheetId) return sheet;
       const next = { ...sheet, [field]: Math.max(1, Number(value) || 1) };
-      return { ...next, columns: Math.max(1, Math.floor(next.imageWidth / next.frameWidth)), rows: Math.max(1, Math.floor(next.imageHeight / next.frameHeight)) };
+      return { ...next, columns: Math.max(1, Math.floor(next.imageWidth / next.frameWidth)), rows: Math.max(1, Math.floor(next.imageHeight / next.frameHeight)), frames: null };
     }) }));
     setSelectedFrame(0);
+  };
+  const detectFrames = () => {
+    if (!selectedSheet) return;
+    const image = new Image();
+    image.onload = () => {
+      const frames = transparentFrames(image);
+      if (!frames.length) return alert('투명 배경으로 나뉜 스프라이트를 찾지 못했습니다. 수동 분할을 사용해 주세요.');
+      setMapData((current) => ({ ...current, sheets: current.sheets.map((sheet) => sheet.id === selectedSheetId ? { ...sheet, frames } : sheet) }));
+      setSelectedFrame(0);
+    };
+    image.src = selectedSheet.dataUrl;
   };
 
   const interact = (x, y) => {
@@ -229,8 +263,8 @@ export default function MapEditor2DWorkspace() {
       <section style={{ display: 'grid', gap: 7 }}><div style={{ display: 'flex', justifyContent: 'space-between' }}><b>스프라이트 시트</b><button type="button" onClick={() => fileInputRef.current?.click()}>이미지 추가</button></div>
         <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={uploadSheet} />
         <select value={selectedSheetId || ''} onChange={(event) => { setSelectedSheetId(event.target.value); setSelectedFrame(0); }}><option value="">시트를 선택하세요</option>{mapData.sheets.map((sheet) => <option key={sheet.id} value={sheet.id}>{sheet.name}</option>)}</select>
-        {selectedSheet && <><div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 5 }}><Field label="프레임 너비"><input type="number" min="1" value={selectedSheet.frameWidth} onChange={(event) => resizeFrames('frameWidth', event.target.value)} /></Field><Field label="프레임 높이"><input type="number" min="1" value={selectedSheet.frameHeight} onChange={(event) => resizeFrames('frameHeight', event.target.value)} /></Field></div>
-          <div style={{ maxHeight: 180, overflowY: 'auto', display: 'grid', gridTemplateColumns: 'repeat(7, 36px)', gap: 3, padding: 4, background: '#d1d5db' }}>{Array.from({ length: selectedSheet.columns * selectedSheet.rows }, (_, frame) => <button type="button" key={frame} title={`프레임 ${frame}`} onClick={() => setSelectedFrame(frame)} style={{ width: 36, height: 36, padding: 1, border: frame === selectedFrame ? '2px solid #2563eb' : '1px solid #9ca3af', background: 'white' }}><Sprite sheet={selectedSheet} frame={frame} size={30} /></button>)}</div></>}
+        {selectedSheet && <><div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 5 }}><Field label="프레임 너비"><input type="number" min="1" value={selectedSheet.frameWidth} onChange={(event) => resizeFrames('frameWidth', event.target.value)} /></Field><Field label="프레임 높이"><input type="number" min="1" value={selectedSheet.frameHeight} onChange={(event) => resizeFrames('frameHeight', event.target.value)} /></Field></div><button type="button" onClick={detectFrames}>투명 배경 자동 분할</button><small style={{ color: '#4b5563' }}>{selectedSheet.frames?.length ? `투명 배경 기준 ${selectedSheet.frames.length}개 프레임` : '수동 격자 분할 사용 중'}</small>
+          <div style={{ maxHeight: 180, overflowY: 'auto', display: 'grid', gridTemplateColumns: 'repeat(7, 36px)', gap: 3, padding: 4, background: '#d1d5db' }}>{Array.from({ length: selectedSheet.frames?.length || selectedSheet.columns * selectedSheet.rows }, (_, frame) => <button type="button" key={frame} title={`프레임 ${frame}`} onClick={() => setSelectedFrame(frame)} style={{ width: 36, height: 36, padding: 1, border: frame === selectedFrame ? '2px solid #2563eb' : '1px solid #9ca3af', background: 'white' }}><Sprite sheet={selectedSheet} frame={frame} size={30} /></button>)}</div></>}
       </section>
 
       <section style={{ display: 'grid', gap: 6 }}><div style={{ display: 'flex', justifyContent: 'space-between' }}><b>타일 레이어</b><button type="button" onClick={addLayer}>+ 추가</button></div>{[...mapData.layers].reverse().map((layer) => <div key={layer.id} style={{ display: 'flex', gap: 4 }}><button type="button" onClick={() => updateMap({ activeLayerId: layer.id })} style={{ flex: 1, background: layer.id === mapData.activeLayerId ? '#dbeafe' : 'white' }}>{layer.name}</button><button type="button" onClick={() => setMapData((current) => ({ ...current, layers: current.layers.map((item) => item.id === layer.id ? { ...item, visible: !item.visible } : item) }))}>{layer.visible ? '👁' : '—'}</button></div>)}</section>

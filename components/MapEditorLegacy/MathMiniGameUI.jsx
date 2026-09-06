@@ -46,6 +46,13 @@ const getEmoji = (objName) => {
 };
 
 export default function MathMiniGameUI() {
+  const { mathMiniGame, currentMapId } = useMapStore();
+  if (!mathMiniGame.active || !mathMiniGame.questData) return null;
+  const { activeAsset, questId, currentQuestIndex } = mathMiniGame.questData;
+  return <MathMiniGameSession key={JSON.stringify([currentMapId, activeAsset.id, questId ?? currentQuestIndex])} />;
+}
+
+function MathMiniGameSession() {
   const { mathMiniGame, setMathMiniGame, currentMapId } = useMapStore();
   const { active, questData } = mathMiniGame;
   const { activeAsset, isAccepted, questId, currentQuestIndex, hasItems, randomMathParams } = questData || {};
@@ -53,6 +60,7 @@ export default function MathMiniGameUI() {
   const { completeQuest, addCompletedQuest, items, consumeItem, addItem } = useInventoryStore();
   const { user, role } = useAuth();
 
+  const submitting = useRef(false);
   const [mathAnswer, setMathAnswer] = useState('');
   const [feedback, setFeedback] = useState(null);
   const [isShaking, setIsShaking] = useState(false);
@@ -93,7 +101,7 @@ export default function MathMiniGameUI() {
   };
 
   const handleSubmit = async () => {
-    if (mathAnswer === '') return;
+    if (submitting.current || mathAnswer.trim() === '') return;
     if (!hasItems) {
       alert('아이템이 부족하여 진행할 수 없습니다.');
       return;
@@ -107,6 +115,7 @@ export default function MathMiniGameUI() {
     const correctAns = evaluateMath(target, unit, type, isCountQuestion);
 
     if (ans === correctAns) {
+      submitting.current = true;
       setFeedback('SUCCESS');
       
       setTimeout(async () => {
@@ -185,6 +194,7 @@ export default function MathMiniGameUI() {
             alert(`정답입니다! (${solvedCount}/${problemCount} 완료)\n동일한 문제가 계속됩니다.`);
             setMathAnswer('');
           }
+          submitting.current = false;
           setFeedback(null);
         } else {
           // Complete quest
@@ -242,6 +252,7 @@ export default function MathMiniGameUI() {
   };
 
   const handleClose = () => {
+    if (submitting.current) return;
     setMathMiniGame({ active: false, questData: null });
   };
 
@@ -460,6 +471,7 @@ export default function MathMiniGameUI() {
             animation: isShaking ? 'shake 0.5s' : 'none'
           }}>
             <input 
+              disabled={feedback === 'SUCCESS'}
               autoFocus
               type="number"
               step="any"
@@ -484,7 +496,7 @@ export default function MathMiniGameUI() {
             
             <button 
               onClick={handleSubmit}
-              disabled={!hasItems || !mathAnswer}
+              disabled={feedback === 'SUCCESS' || !hasItems || !mathAnswer}
               style={{
                 width: '100%',
                 padding: '1rem',

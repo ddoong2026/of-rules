@@ -102,6 +102,7 @@ export default function MapEditor2DWorkspace() {
   const activeLayer = mapData.layers.find((layer) => layer.id === mapData.activeLayerId) || mapData.layers[0];
   const sheetById = useMemo(() => Object.fromEntries(mapData.sheets.map((sheet) => [sheet.id, sheet])), [mapData.sheets]);
   const entityByCell = useMemo(() => Object.fromEntries(mapData.entities.map((entity) => [`${entity.x},${entity.y}`, entity])), [mapData.entities]);
+  const boundaryByCell = useMemo(() => Object.fromEntries(boundaries.flatMap((boundary) => Object.keys(boundary.tiles || {}).map((key) => [key, boundary]))), [boundaries]);
   const updateMap = (changes) => setMapData((current) => ({ ...current, ...changes }));
   const updateEntity = (id, changes) => setMapData((current) => ({ ...current, entities: current.entities.map((entity) => entity.id === id ? { ...entity, ...changes } : entity) }));
 
@@ -150,12 +151,13 @@ export default function MapEditor2DWorkspace() {
   const interact = (x, y) => {
     if (mode === 'spawn') return setSpawnPoint({ x, z: y });
     if (mode === 'boundary' || mode === 'zone' || mode === 'farmland') {
-      setBoundaryDraft((draft) => draft ? { ...draft, points: [...draft.points, [x + 0.5, y + 0.5]] } : {
+      const key = `${x},${y}`;
+      setBoundaryDraft((draft) => draft ? { ...draft, tiles: { ...draft.tiles, [key]: true } } : {
         id: crypto.randomUUID(),
         isZone: mode === 'zone',
         isFarmland: mode === 'farmland',
         name: mode === 'farmland' ? '농경 구역' : '',
-        points: [[x + 0.5, y + 0.5]],
+        tiles: { [key]: true },
         condition: { eventType: 'bubble', message: '', triggerOnce: true }
       });
       return;
@@ -169,7 +171,9 @@ export default function MapEditor2DWorkspace() {
       return;
     }
     if (mode === 'select') {
-      setSelectedEntityId(entityByCell[`${x},${y}`]?.id || null);
+      const key = `${x},${y}`;
+      setSelectedEntityId(entityByCell[key]?.id || null);
+      setSelectedBoundaryId(boundaryByCell[key]?.id || null);
       return;
     }
     if (mode === 'erase' && entityByCell[`${x},${y}`]) {
@@ -193,7 +197,7 @@ export default function MapEditor2DWorkspace() {
   };
 
   const finishBoundary = () => {
-    if (!boundaryDraft || boundaryDraft.points.length < (boundaryDraft.isFarmland ? 3 : 2)) return alert(boundaryDraft?.isFarmland ? '농경 구역은 세 점 이상 필요합니다.' : '경계선은 두 점 이상 필요합니다.');
+    if (!boundaryDraft || !Object.keys(boundaryDraft.tiles || {}).length) return alert('선택한 타일이 없습니다.');
     setBoundaries((current) => [...current, boundaryDraft]);
     setSelectedBoundaryId(boundaryDraft.id);
     setBoundaryDraft(null);
@@ -258,7 +262,7 @@ export default function MapEditor2DWorkspace() {
 
       <section style={{ display: 'grid', gap: 7 }}><b>도구</b><div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
         <ToolButton active={mode === 'tile'} onClick={() => setMode('tile')}>타일</ToolButton><ToolButton active={mode === 'erase'} onClick={() => setMode('erase')}>지우개</ToolButton><ToolButton active={mode === 'character'} onClick={() => setMode('character')}>캐릭터</ToolButton><ToolButton active={mode === 'select'} onClick={() => setMode('select')}>선택</ToolButton><ToolButton active={mode === 'boundary'} onClick={() => { setMode('boundary'); setBoundaryDraft(null); }}>경계선</ToolButton><ToolButton active={mode === 'zone'} onClick={() => { setMode('zone'); setBoundaryDraft(null); }}>이벤트 구역</ToolButton><ToolButton active={mode === 'farmland'} onClick={() => { setMode('farmland'); setBoundaryDraft(null); }}>농경 구역</ToolButton><ToolButton active={mode === 'spawn'} onClick={() => setMode('spawn')}>스폰</ToolButton>
-      </div>{boundaryDraft && <button type="button" onClick={finishBoundary}>경계선 완성</button>}</section>
+      </div>{boundaryDraft && <button type="button" onClick={finishBoundary}>선택 구역 완성</button>}</section>
 
       <section style={{ display: 'grid', gap: 7 }}><div style={{ display: 'flex', justifyContent: 'space-between' }}><b>스프라이트 시트</b><button type="button" onClick={() => fileInputRef.current?.click()}>이미지 추가</button></div>
         <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={uploadSheet} />
@@ -275,14 +279,15 @@ export default function MapEditor2DWorkspace() {
     </aside>
 
     <main style={{ flex: 1, overflow: 'auto', background: '#111827', padding: 24 }}>
-      <div style={{ marginBottom: 10, color: 'white', display: 'flex', gap: 12, alignItems: 'center', fontSize: 13 }}><span>{mapData.width} × {mapData.height} 타일</span><label>가로 <input type="number" min="4" max="100" value={mapData.width} onChange={(event) => updateMap({ width: Math.max(4, Math.min(100, Number(event.target.value) || 4)) })} style={{ width: 60 }} /></label><label>세로 <input type="number" min="4" max="100" value={mapData.height} onChange={(event) => updateMap({ height: Math.max(4, Math.min(100, Number(event.target.value) || 4)) })} style={{ width: 60 }} /></label><span>드래그하여 연속으로 칠할 수 있습니다.</span></div>
+      <div style={{ marginBottom: 10, color: 'white', display: 'flex', gap: 12, alignItems: 'center', fontSize: 13 }}><span>{mapData.width} × {mapData.height} 타일</span><label>가로 <input type="number" min="4" max="100" value={mapData.width} onChange={(event) => updateMap({ width: Math.max(4, Math.min(100, Number(event.target.value) || 4)) })} style={{ width: 60 }} /></label><label>세로 <input type="number" min="4" max="100" value={mapData.height} onChange={(event) => updateMap({ height: Math.max(4, Math.min(100, Number(event.target.value) || 4)) })} style={{ width: 60 }} /></label><span>{['boundary', 'zone', 'farmland'].includes(mode) ? '클릭하거나 드래그해 구역 타일을 선택하세요.' : '드래그하여 연속으로 칠할 수 있습니다.'}</span></div>
       <div style={{ position: 'relative', width: gridWidth, height: gridHeight, display: 'grid', gridTemplateColumns: `repeat(${mapData.width}, ${mapData.tileSize}px)`, background: '#374151', userSelect: 'none' }}>
-        {Array.from({ length: mapData.width * mapData.height }, (_, index) => { const x = index % mapData.width; const y = Math.floor(index / mapData.width); const key = `${x},${y}`; const entity = entityByCell[key]; return <button type="button" key={key} onPointerDown={(event) => { event.preventDefault(); setIsPainting(true); interact(x, y); }} onPointerEnter={() => { if (isPainting && (mode === 'tile' || mode === 'erase')) interact(x, y); }} style={{ width: mapData.tileSize, height: mapData.tileSize, padding: 0, position: 'relative', border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', overflow: 'hidden' }}>
+        {Array.from({ length: mapData.width * mapData.height }, (_, index) => { const x = index % mapData.width; const y = Math.floor(index / mapData.width); const key = `${x},${y}`; const entity = entityByCell[key]; const boundary = boundaryByCell[key]; const selectedInDraft = boundaryDraft?.tiles?.[key]; return <button type="button" key={key} onPointerDown={(event) => { event.preventDefault(); setIsPainting(true); interact(x, y); }} onPointerEnter={() => { if (isPainting && (mode === 'tile' || mode === 'erase' || mode === 'boundary' || mode === 'zone' || mode === 'farmland')) interact(x, y); }} style={{ width: mapData.tileSize, height: mapData.tileSize, padding: 0, position: 'relative', border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', overflow: 'hidden' }}>
           {mapData.layers.filter((layer) => layer.visible).map((layer) => { const tile = layer.tiles[key]; return tile ? <span key={layer.id} style={{ position: 'absolute', inset: 0 }}><Sprite sheet={sheetById[tile.sheetId]} frame={tile.frame} size={mapData.tileSize} /></span> : null; })}
           {entity && <span style={{ position: 'absolute', inset: 0, outline: entity.id === selectedEntityId ? '3px solid #facc15' : 'none', zIndex: 3 }}><Sprite sheet={sheetById[entity.sheetId]} frame={entity.frame} size={mapData.tileSize} /></span>}
+          {(boundary || selectedInDraft) && <span style={{ position: 'absolute', inset: 1, zIndex: 4, pointerEvents: 'none', background: selectedInDraft ? 'rgba(250,204,21,0.35)' : boundary.isFarmland ? 'rgba(34,197,94,0.28)' : boundary.isZone ? 'rgba(59,130,246,0.28)' : 'rgba(239,68,68,0.28)', outline: boundary?.id === selectedBoundaryId ? '3px solid #facc15' : `2px solid ${boundary?.isFarmland ? '#22c55e' : boundary?.isZone ? '#3b82f6' : '#ef4444'}` }} />}
           {spawnPoint?.x === x && spawnPoint?.z === y && <span title="스폰 위치" style={{ position: 'absolute', inset: 0, zIndex: 5, color: '#22c55e', fontSize: 24, textShadow: '0 1px 2px black' }}>⚑</span>}
         </button>; })}
-        <svg width={gridWidth} height={gridHeight} viewBox={`0 0 ${mapData.width} ${mapData.height}`} preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, pointerEvents: mode === 'select' ? 'auto' : 'none', zIndex: 6 }}>{shownBoundaries.map((boundary) => { const points = boundary.points.map((point) => point.join(',')).join(' '); const color = boundary.id === selectedBoundaryId ? '#facc15' : boundary.isFarmland ? '#22c55e' : boundary.isZone ? '#3b82f6' : '#ef4444'; const line = { stroke: color, strokeWidth: 0.12, vectorEffect: 'non-scaling-stroke', pointerEvents: mode === 'select' ? 'visiblePainted' : 'none' }; return boundary.isZone || boundary.isFarmland ? <polygon key={boundary.id} points={points} fill={boundary.isFarmland ? 'rgba(34,197,94,0.18)' : 'rgba(59,130,246,0.18)'} {...line} onClick={() => setSelectedBoundaryId(boundary.id)} /> : <polyline key={boundary.id} points={points} fill="none" {...line} onClick={() => setSelectedBoundaryId(boundary.id)} />; })}</svg>
+        <svg width={gridWidth} height={gridHeight} viewBox={`0 0 ${mapData.width} ${mapData.height}`} preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 6 }}>{shownBoundaries.filter((boundary) => boundary.points?.length).map((boundary) => { const points = boundary.points.map((point) => point.join(',')).join(' '); const color = boundary.id === selectedBoundaryId ? '#facc15' : boundary.isFarmland ? '#22c55e' : boundary.isZone ? '#3b82f6' : '#ef4444'; return boundary.isZone || boundary.isFarmland ? <polygon key={boundary.id} points={points} fill="rgba(0,0,0,0)" stroke={color} strokeWidth="0.12" /> : <polyline key={boundary.id} points={points} fill="none" stroke={color} strokeWidth="0.12" />; })}</svg>
       </div>
     </main>
   </div>;

@@ -14,7 +14,14 @@ const markerOf = (assets = []) => assets.find((asset) => asset.id === MARKER_ID)
 function Sprite({ sheet, frame = 0, size = 32 }) {
   if (!sheet) return null;
   const detected = sheet.frames?.[frame];
-  if (detected) return <span aria-hidden="true" style={{ display: 'block', width: size, height: size, backgroundImage: `url(${sheet.dataUrl})`, backgroundRepeat: 'no-repeat', backgroundSize: `${sheet.imageWidth / detected.width * 100}% ${sheet.imageHeight / detected.height * 100}%`, backgroundPosition: `${-detected.x / detected.width * 100}% ${-detected.y / detected.height * 100}%`, imageRendering: 'pixelated' }} />;
+  if (detected) {
+    const scale = Math.min(size / detected.width, size / detected.height);
+    const renderedWidth = sheet.imageWidth * scale;
+    const renderedHeight = sheet.imageHeight * scale;
+    const offsetX = (size - detected.width * scale) / 2 - detected.x * scale;
+    const offsetY = (size - detected.height * scale) / 2 - detected.y * scale;
+    return <span aria-hidden="true" style={{ display: 'block', width: size, height: size, backgroundImage: `url(${sheet.dataUrl})`, backgroundRepeat: 'no-repeat', backgroundSize: `${renderedWidth}px ${renderedHeight}px`, backgroundPosition: `${offsetX}px ${offsetY}px`, imageRendering: 'pixelated' }} />;
+  }
   const columns = Math.max(1, sheet.columns || 1);
   const rows = Math.max(1, sheet.rows || 1);
   const column = frame % columns;
@@ -28,20 +35,75 @@ function transparentFrames(image) {
   const context = canvas.getContext('2d', { willReadFrequently: true });
   context.drawImage(image, 0, 0);
   const pixels = context.getImageData(0, 0, image.width, image.height).data;
-  const occupiedColumns = Array(image.width).fill(false);
-  const occupiedRows = Array(image.height).fill(false);
-  for (let y = 0; y < image.height; y += 1) for (let x = 0; x < image.width; x += 1) {
-    if (pixels[(y * image.width + x) * 4 + 3] > 16) { occupiedColumns[x] = true; occupiedRows[y] = true; }
+  const alphaThreshold = 96;
+  const rowDensity = Array(image.height).fill(0);
+  const alphaAt = (x, y) => pixels[(y * image.width + x) * 4 + 3];
+  for (let y = 0; y < image.height; y += 1) {
+    for (let x = 0; x < image.width; x += 1) {
+      if (alphaAt(x, y) > alphaThreshold) rowDensity[y] += 1;
+    }
   }
-  const runs = (values) => values.reduce((result, occupied, index) => {
-    const previous = values[index - 1];
-    if (occupied && !previous) result.push([index, index]);
-    else if (occupied) result[result.length - 1][1] = index;
+
+  const findRuns = (values) => {
+    const result = [];
+    let start = null;
+    values.forEach((occupied, index) => {
+      if (occupied && start === null) start = index;
+      if (start !== null && (!occupied || index === values.length - 1)) {
+        result.push([start, occupied && index === values.length - 1 ? index : index - 1]);
+        start = null;
+      }
+    });
     return result;
-  }, []);
-  const columns = runs(occupiedColumns);
-  const rows = runs(occupiedRows);
-  return rows.flatMap(([top, bottom]) => columns.map(([left, right]) => ({ x: left, y: top, width: right - left + 1, height: bottom - top + 1 }))).filter((frame) => frame.width > 1 && frame.height > 1);
+  };
+
+  let rowBands = findRuns(rowDensity.map((count) => count >= Math.max(2, image.width * 0.002)));
+  if (!rowBands.length) return [];
+
+  const sortedHeights = rowBands.map(([top, bottom]) => bottom - top + 1).sort((a, b) => a - b);
+  const typicalHeight = sortedHeights[Math.floor(sortedHeights.length / 2)];
+  rowBands = rowBands.flatMap(([top, bottom]) => {
+    const height = bottom - top + 1;
+    if (height < typicalHeight * 1.55) return [[top, bottom]];
+    const searchStart = top + Math.floor(height * 0.35);
+    const searchEnd = top + Math.ceil(height * 0.65);
+    let splitAt = searchStart;
+    for (let y = searchStart + 1; y <= searchEnd; y += 1) {
+      if (rowDensity[y] < rowDensity[splitAt]) splitAt = y;
+    }
+    const minimumPartHeight = typicalHeight * 0.55;
+    if (splitAt - top < minimumPartHeight || bottom - splitAt < minimumPartHeight) return [[top, bottom]];
+    return [[top, splitAt], [splitAt + 1, bottom]];
+  });
+
+  const minimumFrameWidth = Math.max(3, Math.round(image.width * 0.02));
+  const padding = Math.max(1, Math.round(Math.min(image.width, image.height) * 0.002));
+  const frames = [];
+  rowBands.forEach(([top, bottom]) => {
+    const bandHeight = bottom - top + 1;
+    const columnDensity = Array(image.width).fill(0);
+    for (let y = top; y <= bottom; y += 1) {
+      for (let x = 0; x < image.width; x += 1) {
+        if (alphaAt(x, y) > alphaThreshold) columnDensity[x] += 1;
+      }
+    }
+    const columnRuns = findRuns(columnDensity.map((count) => count >= Math.max(2, bandHeight * 0.03)));
+    columnRuns.forEach(([left, right]) => {
+      if (right - left + 1 < minimumFrameWidth) return;
+      let minX = right; let maxX = left; let minY = bottom; let maxY = top; let found = false;
+      for (let y = top; y <= bottom; y += 1) for (let x = left; x <= right; x += 1) {
+        if (alphaAt(x, y) > alphaThreshold) {
+          minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+          minY = Math.min(minY, y); maxY = Math.max(maxY, y); found = true;
+        }
+      }
+      if (!found) return;
+      const x = Math.max(0, minX - padding);
+      const y = Math.max(0, minY - padding);
+      frames.push({ x, y, width: Math.min(image.width - x, maxX - minX + 1 + padding * 2), height: Math.min(image.height - y, maxY - minY + 1 + padding * 2) });
+    });
+  });
+  return frames;
 }
 
 function ToolButton({ active, onClick, children }) {

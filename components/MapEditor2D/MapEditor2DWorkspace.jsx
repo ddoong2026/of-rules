@@ -115,8 +115,15 @@ export default function MapEditor2DWorkspace() {
 
   const interact = (x, y) => {
     if (mode === 'spawn') return setSpawnPoint({ x, z: y });
-    if (mode === 'boundary' || mode === 'zone') {
-      setBoundaryDraft((draft) => draft ? { ...draft, points: [...draft.points, [x + 0.5, y + 0.5]] } : { id: crypto.randomUUID(), isZone: mode === 'zone', points: [[x + 0.5, y + 0.5]], condition: { eventType: 'bubble', message: '', triggerOnce: true } });
+    if (mode === 'boundary' || mode === 'zone' || mode === 'farmland') {
+      setBoundaryDraft((draft) => draft ? { ...draft, points: [...draft.points, [x + 0.5, y + 0.5]] } : {
+        id: crypto.randomUUID(),
+        isZone: mode === 'zone',
+        isFarmland: mode === 'farmland',
+        name: mode === 'farmland' ? '농경 구역' : '',
+        points: [[x + 0.5, y + 0.5]],
+        condition: { eventType: 'bubble', message: '', triggerOnce: true }
+      });
       return;
     }
     if (mode === 'character') {
@@ -127,7 +134,19 @@ export default function MapEditor2DWorkspace() {
       setMode('select');
       return;
     }
-    if (mode === 'select') return setSelectedEntityId(entityByCell[`${x},${y}`]?.id || null);
+    if (mode === 'select') {
+      setSelectedEntityId(entityByCell[`${x},${y}`]?.id || null);
+      return;
+    }
+    if (mode === 'erase' && entityByCell[`${x},${y}`]) {
+      updateMap({ entities: mapData.entities.filter((entity) => entity.id !== entityByCell[`${x},${y}`].id) });
+      setSelectedEntityId(null);
+      return;
+    }
+    if (mode === 'erase' && spawnPoint?.x === x && spawnPoint?.z === y) {
+      setSpawnPoint(null);
+      return;
+    }
     if (!activeLayer) return;
     const key = `${x},${y}`;
     setMapData((current) => ({ ...current, layers: current.layers.map((layer) => {
@@ -140,7 +159,7 @@ export default function MapEditor2DWorkspace() {
   };
 
   const finishBoundary = () => {
-    if (!boundaryDraft || boundaryDraft.points.length < 2) return alert('경계선은 두 점 이상 필요합니다.');
+    if (!boundaryDraft || boundaryDraft.points.length < (boundaryDraft.isFarmland ? 3 : 2)) return alert(boundaryDraft?.isFarmland ? '농경 구역은 세 점 이상 필요합니다.' : '경계선은 두 점 이상 필요합니다.');
     setBoundaries((current) => [...current, boundaryDraft]);
     setSelectedBoundaryId(boundaryDraft.id);
     setBoundaryDraft(null);
@@ -204,7 +223,7 @@ export default function MapEditor2DWorkspace() {
       <div style={{ maxHeight: 120, overflowY: 'auto', background: 'white', border: '1px solid #d1d5db' }}>{mapList.map((map) => <button type="button" key={map.id} onClick={() => loadMap(map.id)} style={{ width: '100%', display: 'flex', justifyContent: 'space-between', padding: 7, background: currentMapId === map.id ? '#dbeafe' : 'white', border: 0, borderBottom: '1px solid #eee' }}><span>{map.name}</span><span onClick={(event) => deleteMap(map.id, event)} style={{ color: '#dc2626' }}>×</span></button>)}</div>
 
       <section style={{ display: 'grid', gap: 7 }}><b>도구</b><div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-        <ToolButton active={mode === 'tile'} onClick={() => setMode('tile')}>타일</ToolButton><ToolButton active={mode === 'erase'} onClick={() => setMode('erase')}>지우개</ToolButton><ToolButton active={mode === 'character'} onClick={() => setMode('character')}>캐릭터</ToolButton><ToolButton active={mode === 'select'} onClick={() => setMode('select')}>선택</ToolButton><ToolButton active={mode === 'boundary'} onClick={() => { setMode('boundary'); setBoundaryDraft(null); }}>경계선</ToolButton><ToolButton active={mode === 'zone'} onClick={() => { setMode('zone'); setBoundaryDraft(null); }}>이벤트 구역</ToolButton><ToolButton active={mode === 'spawn'} onClick={() => setMode('spawn')}>스폰</ToolButton>
+        <ToolButton active={mode === 'tile'} onClick={() => setMode('tile')}>타일</ToolButton><ToolButton active={mode === 'erase'} onClick={() => setMode('erase')}>지우개</ToolButton><ToolButton active={mode === 'character'} onClick={() => setMode('character')}>캐릭터</ToolButton><ToolButton active={mode === 'select'} onClick={() => setMode('select')}>선택</ToolButton><ToolButton active={mode === 'boundary'} onClick={() => { setMode('boundary'); setBoundaryDraft(null); }}>경계선</ToolButton><ToolButton active={mode === 'zone'} onClick={() => { setMode('zone'); setBoundaryDraft(null); }}>이벤트 구역</ToolButton><ToolButton active={mode === 'farmland'} onClick={() => { setMode('farmland'); setBoundaryDraft(null); }}>농경 구역</ToolButton><ToolButton active={mode === 'spawn'} onClick={() => setMode('spawn')}>스폰</ToolButton>
       </div>{boundaryDraft && <button type="button" onClick={finishBoundary}>경계선 완성</button>}</section>
 
       <section style={{ display: 'grid', gap: 7 }}><div style={{ display: 'flex', justifyContent: 'space-between' }}><b>스프라이트 시트</b><button type="button" onClick={() => fileInputRef.current?.click()}>이미지 추가</button></div>
@@ -218,7 +237,7 @@ export default function MapEditor2DWorkspace() {
 
       {selectedEntity && <section style={{ display: 'grid', gap: 7, borderTop: '1px solid #d1d5db', paddingTop: 10 }}><b>캐릭터/NPC 설정</b><Field label="이름"><input value={selectedEntity.npcName || ''} onChange={(event) => updateEntity(selectedEntity.id, { npcName: event.target.value })} /></Field><div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 5 }}><Field label="X 타일"><input type="number" min="0" max={mapData.width - 1} value={selectedEntity.x} onChange={(event) => updateEntity(selectedEntity.id, { x: Math.max(0, Math.min(mapData.width - 1, Number(event.target.value) || 0)) })} /></Field><Field label="Y 타일"><input type="number" min="0" max={mapData.height - 1} value={selectedEntity.y} onChange={(event) => updateEntity(selectedEntity.id, { y: Math.max(0, Math.min(mapData.height - 1, Number(event.target.value) || 0)) })} /></Field></div><button type="button" disabled={!selectedSheet} onClick={() => updateEntity(selectedEntity.id, { sheetId: selectedSheetId, frame: selectedFrame })}>현재 선택 스프라이트 적용</button><Field label="대화"><textarea rows={3} value={selectedEntity.dialogue || ''} onChange={(event) => updateEntity(selectedEntity.id, { dialogue: event.target.value })} /></Field><QuestEditor entity={selectedEntity} onUpdate={(changes) => updateEntity(selectedEntity.id, changes)} /><button type="button" onClick={() => { updateMap({ entities: mapData.entities.filter((entity) => entity.id !== selectedEntity.id) }); setSelectedEntityId(null); }} style={{ color: '#dc2626' }}>캐릭터 삭제</button></section>}
 
-      {selectedBoundary && <section style={{ display: 'grid', gap: 7, borderTop: '1px solid #d1d5db', paddingTop: 10 }}><b>{selectedBoundary.isZone ? '이벤트 구역' : '경계선'} 설정</b><Field label="이벤트 종류"><select value={selectedBoundary.condition?.eventType || 'bubble'} onChange={(event) => setBoundaryCondition({ eventType: event.target.value })}><option value="bubble">말풍선</option><option value="message">메시지</option><option value="dialogue">대화</option></select></Field><Field label="메시지"><textarea rows={3} value={selectedBoundary.condition?.message || ''} onChange={(event) => setBoundaryCondition({ message: event.target.value })} /></Field><label style={{ fontSize: 12 }}><input type="checkbox" checked={selectedBoundary.condition?.triggerOnce !== false} onChange={(event) => setBoundaryCondition({ triggerOnce: event.target.checked })} /> 한 번만 실행</label><button type="button" onClick={() => { setBoundaries((current) => current.filter((boundary) => boundary.id !== selectedBoundary.id)); setSelectedBoundaryId(null); }} style={{ color: '#dc2626' }}>삭제</button></section>}
+      {selectedBoundary && <section style={{ display: 'grid', gap: 7, borderTop: '1px solid #d1d5db', paddingTop: 10 }}><b>{selectedBoundary.isFarmland ? '농경 구역' : selectedBoundary.isZone ? '이벤트 구역' : '경계선'} 설정</b>{selectedBoundary.isFarmland ? <Field label="구역 이름"><input value={selectedBoundary.name || ''} onChange={(event) => setBoundaries((current) => current.map((boundary) => boundary.id === selectedBoundary.id ? { ...boundary, name: event.target.value } : boundary))} /></Field> : selectedBoundary.isZone ? <><Field label="이벤트 종류"><select value={selectedBoundary.condition?.eventType || 'bubble'} onChange={(event) => setBoundaryCondition({ eventType: event.target.value })}><option value="bubble">말풍선</option><option value="message">메시지</option><option value="dialogue">대화</option></select></Field><Field label="메시지"><textarea rows={3} value={selectedBoundary.condition?.message || ''} onChange={(event) => setBoundaryCondition({ message: event.target.value })} /></Field><label style={{ fontSize: 12 }}><input type="checkbox" checked={selectedBoundary.condition?.triggerOnce !== false} onChange={(event) => setBoundaryCondition({ triggerOnce: event.target.checked })} /> 한 번만 실행</label></> : <p style={{ margin: 0, fontSize: 12 }}>플레이어가 통과할 수 없는 경계선입니다.</p>}<button type="button" onClick={() => { setBoundaries((current) => current.filter((boundary) => boundary.id !== selectedBoundary.id)); setSelectedBoundaryId(null); }} style={{ color: '#dc2626' }}>삭제</button></section>}
     </aside>
 
     <main style={{ flex: 1, overflow: 'auto', background: '#111827', padding: 24 }}>
@@ -229,7 +248,7 @@ export default function MapEditor2DWorkspace() {
           {entity && <span style={{ position: 'absolute', inset: 0, outline: entity.id === selectedEntityId ? '3px solid #facc15' : 'none', zIndex: 3 }}><Sprite sheet={sheetById[entity.sheetId]} frame={entity.frame} size={mapData.tileSize} /></span>}
           {spawnPoint?.x === x && spawnPoint?.z === y && <span title="스폰 위치" style={{ position: 'absolute', inset: 0, zIndex: 5, color: '#22c55e', fontSize: 24, textShadow: '0 1px 2px black' }}>⚑</span>}
         </button>; })}
-        <svg width={gridWidth} height={gridHeight} viewBox={`0 0 ${mapData.width} ${mapData.height}`} preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 6 }}>{shownBoundaries.map((boundary) => { const points = boundary.points.map((point) => point.join(',')).join(' '); const line = { stroke: boundary.id === selectedBoundaryId ? '#facc15' : boundary.isZone ? '#3b82f6' : '#ef4444', strokeWidth: 0.12, vectorEffect: 'non-scaling-stroke', pointerEvents: mode === 'select' ? 'visiblePainted' : 'none' }; return boundary.isZone ? <polygon key={boundary.id} points={points} fill="rgba(59,130,246,0.18)" {...line} onClick={() => setSelectedBoundaryId(boundary.id)} /> : <polyline key={boundary.id} points={points} fill="none" {...line} onClick={() => setSelectedBoundaryId(boundary.id)} />; })}</svg>
+        <svg width={gridWidth} height={gridHeight} viewBox={`0 0 ${mapData.width} ${mapData.height}`} preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, pointerEvents: mode === 'select' ? 'auto' : 'none', zIndex: 6 }}>{shownBoundaries.map((boundary) => { const points = boundary.points.map((point) => point.join(',')).join(' '); const color = boundary.id === selectedBoundaryId ? '#facc15' : boundary.isFarmland ? '#22c55e' : boundary.isZone ? '#3b82f6' : '#ef4444'; const line = { stroke: color, strokeWidth: 0.12, vectorEffect: 'non-scaling-stroke', pointerEvents: mode === 'select' ? 'visiblePainted' : 'none' }; return boundary.isZone || boundary.isFarmland ? <polygon key={boundary.id} points={points} fill={boundary.isFarmland ? 'rgba(34,197,94,0.18)' : 'rgba(59,130,246,0.18)'} {...line} onClick={() => setSelectedBoundaryId(boundary.id)} /> : <polyline key={boundary.id} points={points} fill="none" {...line} onClick={() => setSelectedBoundaryId(boundary.id)} />; })}</svg>
       </div>
     </main>
   </div>;

@@ -1,6 +1,6 @@
 'use client';
 
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Text, useCursor, Html, useGLTF, useTexture, Cloud, Stars } from '@react-three/drei';
 import { useEffect, useState, Suspense, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
@@ -86,16 +86,6 @@ function Building({ position, label, path, onClick, scale = 1 }) {
       )}
     </group>
   );
-}
-
-function BackgroundEffect({ zoomStage }) {
-  const { scene } = useThree();
-  
-  useEffect(() => {
-    scene.background = null; // Transparent to show CSS background
-  }, [scene]);
-
-  return null;
 }
 
 function TimeMachine({ position, scale = 1, onZoomStart, onZoomComplete, zoomStage, setZoomStage }) {
@@ -203,7 +193,6 @@ export default function Map3D() {
         }}
       />
       <Canvas style={{ position: 'relative', zIndex: 1 }} camera={{ position: [0, 40, 60], fov: 45 }} dpr={1} performance={{ min: 0.5 }}>
-        <BackgroundEffect zoomStage={zoomStage} />
         {/* Lighting */}
         <ambientLight intensity={1.5} />
         <directionalLight position={[50, 100, 50]} intensity={2} />

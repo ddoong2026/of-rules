@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import useMapStore from '@/store/useMapStore';
+import useInventoryStore from '@/store/useInventoryStore';
 import { supabase } from '@/lib/supabase';
 
 const PALETTE = [
@@ -40,10 +41,21 @@ export default function EditorUI({ onSave, isSaving }) {
     undo, history,
     sunTime, setSunTime,
     isPlaying, setIsPlaying,
-    selectedBoundaryId
+    selectedBoundaryId,
+    resetWaterToZero
   } = useMapStore();
 
   const fileInputRef = useRef(null);
+  const [availableModels, setAvailableModels] = useState([]);
+
+  useEffect(() => {
+    fetch('/api/models')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) setAvailableModels(data);
+      })
+      .catch(err => console.error('Failed to fetch models:', err));
+  }, []);
 
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
@@ -82,12 +94,25 @@ export default function EditorUI({ onSave, isSaving }) {
           {currentMapId ? mapName : '저장되지 않은 맵'}
         </div>
         
-        <button 
-          onClick={() => setIsPlaying(!isPlaying)}
-          style={{ padding: '0.4rem 1rem', background: isPlaying ? '#ef4444' : '#8b5cf6', color: 'white', borderRadius: '4px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}
-        >
-          {isPlaying ? '⏹️ 편집으로 돌아가기' : '🏃‍♂️ 캐릭터 체험하기'}
-        </button>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          {isPlaying && (
+            <button
+              onClick={() => {
+                useInventoryStore.getState().resetQuests();
+                alert('진행 중인 퀘스트와 완료한 퀘스트가 모두 초기화되었습니다.');
+              }}
+              style={{ padding: '0.4rem 1rem', background: '#3b82f6', color: 'white', borderRadius: '4px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}
+            >
+              🔄 퀘스트 초기화
+            </button>
+          )}
+          <button 
+            onClick={() => setIsPlaying(!isPlaying)}
+            style={{ padding: '0.4rem 1rem', background: isPlaying ? '#ef4444' : '#8b5cf6', color: 'white', borderRadius: '4px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}
+          >
+            {isPlaying ? '⏹️ 편집으로 돌아가기' : '🏃‍♂️ 캐릭터 체험하기'}
+          </button>
+        </div>
       </div>
       
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
@@ -113,9 +138,12 @@ export default function EditorUI({ onSave, isSaving }) {
         <h4 style={{ margin: '0 0 0.5rem 0', color: '#4b5563' }}>도구 선택</h4>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
           <ModeButton current={mode} id="none" label="👆 선택 해제" onClick={() => setMode('none')} />
-          <ModeButton current={mode} id="sculpt" label="⛰️ 지형 융기" onClick={() => setMode('sculpt')} />
-          <ModeButton current={mode} id="dig" label="⛏️ 파내기 (세로)" onClick={() => setMode('dig')} />
-          <ModeButton current={mode} id="carve" label="🕳️ 동굴 뚫기 (가로)" onClick={() => setMode('carve')} />
+          <ModeButton current={mode} id="sculptBase" label="🌱 지면 융기" onClick={() => setMode('sculptBase')} />
+          <ModeButton current={mode} id="sculptTop" label="⛰️ 산 융기" onClick={() => setMode('sculptTop')} />
+          <ModeButton current={mode} id="sculptWater" label="💧 물 융기" onClick={() => setMode('sculptWater')} />
+          <ModeButton current={mode} id="resetWater" label="🧽 물 지우기" onClick={() => setMode('resetWater')} />
+          <ModeButton current={mode} id="sculptBottom" label="🦇 동굴 레이어 융기" onClick={() => setMode('sculptBottom')} />
+          <ModeButton current={mode} id="dig" label="⛏️ 파내기" onClick={() => setMode('dig')} />
           <ModeButton current={mode} id="flatten" label="🚜 평지 만들기" onClick={() => setMode('flatten')} />
           <ModeButton current={mode} id="paint" label="🖌️ 색칠하기" onClick={() => setMode('paint')} />
           <ModeButton current={mode} id="water" label="💧 수원 배치" onClick={() => setMode('water')} />
@@ -127,6 +155,7 @@ export default function EditorUI({ onSave, isSaving }) {
           <ModeButton current={mode} id="spawn" label="🚩 스폰 위치" onClick={() => setMode('spawn')} />
           <ModeButton current={mode} id="erase" label="🗑️ 지우개" onClick={() => setMode('erase')} />
           <ModeButton current={mode === 'selectTarget' || mode === 'drawPath' ? 'select' : mode} id="select" label="🖱️ 선택/편집" onClick={() => setMode('select')} />
+          <ModeButton current={mode} id="itemManager" label="🎒 아이템 관리" onClick={() => setMode('itemManager')} />
         </div>
       </div>
 
@@ -138,14 +167,17 @@ export default function EditorUI({ onSave, isSaving }) {
         </div>
       )}
 
-      {/* Brush Settings (Sculpt, Dig, Carve, Flatten & Paint) */}
-      {(mode === 'sculpt' || mode === 'dig' || mode === 'carve' || mode === 'flatten' || mode === 'paint') && (
+      {/* Brush Settings (Sculpt, Dig, Carve, Flatten, Paint & ResetWater) */}
+      {(mode === 'sculptBase' || mode === 'sculptTop' || mode === 'sculptBottom' || mode === 'sculptWater' || mode === 'resetWater' || mode === 'flatten' || mode === 'paint' || mode === 'dig') && (
         <div style={{ background: '#f3f4f6', padding: '1rem', borderRadius: '6px' }}>
           <h4 style={{ margin: '0 0 0.5rem 0', color: '#4b5563' }}>브러시 설정</h4>
           <div style={{ marginBottom: '1rem' }}>
             <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '0.2rem' }}>크기: {brushSize}</label>
             <input type="range" min="1" max="10" value={brushSize} onChange={(e) => setBrushSize(parseInt(e.target.value))} style={{ width: '100%' }} />
+            <div style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '0.5rem' }}>
+            * Ctrl 키 + 클릭&드래그: 아래로 파내기
           </div>
+        </div>
           <div>
             <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '0.2rem' }}>강도: {brushIntensity}</label>
             <input type="range" min="0.1" max="5" step="0.1" value={brushIntensity} onChange={(e) => setBrushIntensity(parseFloat(e.target.value))} style={{ width: '100%' }} />
@@ -253,6 +285,11 @@ export default function EditorUI({ onSave, isSaving }) {
             배치된 에셋(나무, 바위 등)이나 바닥 타일, 경계선을 클릭하면 삭제됩니다.
           </p>
         </div>
+      )}
+
+      {/* Item Manager */}
+      {mode === 'itemManager' && (
+        <ItemManagerUI availableModels={availableModels} />
       )}
 
       {/* Select / Edit Mode */}
@@ -589,16 +626,312 @@ function PropertyEditor() {
             />
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-            <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>퀘스트 (Quest)</label>
-            <textarea 
-              className="glass-input" 
-              value={asset.quest || ''} 
-              onChange={(e) => updateAsset(asset.id, { quest: e.target.value })}
-              placeholder="퀘스트 내용"
-              rows={2}
-              style={{ padding: '0.4rem', resize: 'vertical' }}
-            />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', marginTop: '0.5rem', borderTop: '1px solid #d1d5db', paddingTop: '0.5rem' }}>
+            <label style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>퀘스트 목록 (순차 진행)</label>
+            
+            {(() => {
+              const quests = asset.quests || (asset.quest ? [{
+                title: asset.quest,
+                requireItem: asset.questRequireItem,
+                requireAmount: asset.questRequireAmount || 1,
+                rewardItem: asset.questRewardItem,
+                rewardAmount: asset.questRewardAmount || 1,
+                consumeItem: asset.questConsumeItem !== false
+              }] : []);
+
+              const updateQuests = (newQuests) => {
+                updateAsset(asset.id, { 
+                  quests: newQuests, 
+                  quest: null, questRequireItem: null, questRequireAmount: null, questRewardItem: null, questRewardAmount: null, questConsumeItem: null 
+                });
+              };
+
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {quests.map((q, i) => (
+                    <div key={i} style={{ background: 'rgba(255,255,255,0.5)', padding: '0.5rem', borderRadius: '4px', border: '1px solid #cbd5e1' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem' }}>
+                        <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>퀘스트 {i + 1}</span>
+                        <button onClick={() => {
+                          const newQ = [...quests]; newQ.splice(i, 1); updateQuests(newQ);
+                        }} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.8rem' }}>✖ 삭제</button>
+                      </div>
+                      
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                        <select
+                          className="glass-input"
+                          value={q.type || 'COLLECT'}
+                          onChange={(e) => { const newQ = [...quests]; newQ[i].type = e.target.value; updateQuests(newQ); }}
+                          style={{ padding: '0.4rem' }}
+                        >
+                          <option value="COLLECT">수집 퀘스트 (아이템 모으기)</option>
+                          <option value="MATH">수학 퀘스트 (어림하기 문제 직접 설정)</option>
+                          <option value="RANDOM_MATH">수학 퀘스트 (랜덤 어림하기 문제)</option>
+                        </select>
+
+                        {q.type === 'MATH' && (
+                          <div style={{ padding: '0.5rem', background: 'rgba(59, 130, 246, 0.1)', borderRadius: '4px', border: '1px solid #93c5fd', marginTop: '0.3rem', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                              <label style={{ fontSize: '0.75rem', fontWeight: 'bold', width: '60px' }}>문제 상황</label>
+                              <select 
+                                className="glass-input"
+                                value={q.mathContext || 'BUY_BOX'}
+                                onChange={(e) => { const newQ = [...quests]; newQ[i].mathContext = e.target.value; updateQuests(newQ); }}
+                                style={{ flex: 1, padding: '0.3rem', fontSize: '0.8rem' }}
+                              >
+                                <option value="BUY_BOX">묶음 포장/구매 (올림)</option>
+                                <option value="USE_BUNDLE">묶음 판매/사용 (버림)</option>
+                                <option value="RECORD">통계 기록 (반올림)</option>
+                                <option value="MEASURE">측정값 (소수점 어림)</option>
+                              </select>
+                            </div>
+                            
+                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                              <label style={{ fontSize: '0.75rem', fontWeight: 'bold', width: '60px' }}>연산 방식</label>
+                              <select 
+                                className="glass-input"
+                                value={q.mathType || 'CEIL'}
+                                onChange={(e) => { const newQ = [...quests]; newQ[i].mathType = e.target.value; updateQuests(newQ); }}
+                                style={{ flex: 1, padding: '0.3rem', fontSize: '0.8rem' }}
+                              >
+                                <option value="CEIL">올림</option>
+                                <option value="FLOOR">버림</option>
+                                <option value="ROUND">반올림</option>
+                              </select>
+                            </div>
+
+                            {(q.mathType === 'CEIL' || q.mathType === 'FLOOR' || !q.mathType) && (
+                              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                <label style={{ fontSize: '0.75rem', fontWeight: 'bold', width: '60px' }}>정답 기준</label>
+                                <select 
+                                  className="glass-input"
+                                  value={q.mathIsCountQuestion ? 'true' : 'false'}
+                                  onChange={(e) => { const newQ = [...quests]; newQ[i].mathIsCountQuestion = e.target.value === 'true'; updateQuests(newQ); }}
+                                  style={{ flex: 1, padding: '0.3rem', fontSize: '0.8rem' }}
+                                >
+                                  <option value="false">어림한 총 개수 묻기 (예: 2400개)</option>
+                                  <option value="true">상자/묶음의 수 묻기 (예: 24개)</option>
+                                </select>
+                              </div>
+                            )}
+
+                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                              <label style={{ fontSize: '0.75rem', fontWeight: 'bold', width: '60px' }}>대상 숫자</label>
+                              <input 
+                                type="number"
+                                step="any"
+                                className="glass-input"
+                                placeholder="예: 345, 12.3"
+                                value={q.mathTargetNumber || ''}
+                                onChange={(e) => { const newQ = [...quests]; newQ[i].mathTargetNumber = Number(e.target.value); updateQuests(newQ); }}
+                                style={{ flex: 1, padding: '0.3rem', fontSize: '0.8rem' }}
+                              />
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                              <label style={{ fontSize: '0.75rem', fontWeight: 'bold', width: '60px' }}>어림 단위</label>
+                              <select 
+                                className="glass-input"
+                                value={q.mathUnit || 10}
+                                onChange={(e) => { const newQ = [...quests]; newQ[i].mathUnit = Number(e.target.value); updateQuests(newQ); }}
+                                style={{ flex: 1, padding: '0.3rem', fontSize: '0.8rem' }}
+                              >
+                                <option value="1000">천의 자리까지 (백의 자리에서 어림)</option>
+                                <option value="100">백의 자리까지 (십의 자리에서 어림)</option>
+                                <option value="10">십의 자리까지 (일의 자리에서 어림)</option>
+                                <option value="1">일의 자리까지 (소수 첫째 자리에서 어림)</option>
+                                <option value="0.1">소수 첫째 자리까지 (소수 둘째 자리에서 어림)</option>
+                                <option value="0.01">소수 둘째 자리까지 (소수 셋째 자리에서 어림)</option>
+                              </select>
+                            </div>
+                            
+                            <button
+                              onClick={() => {
+                                const num = q.mathTargetNumber || 0;
+                                const unit = q.mathUnit || 10;
+                                const context = q.mathContext || 'BUY_BOX';
+                                const isCountQuestion = q.mathIsCountQuestion ?? false;
+                                let text = '';
+                                if (context === 'BUY_BOX') {
+                                  if (isCountQuestion) {
+                                    text = `제가 물건을 ${num}개 모았어요. 이 물건을 ${unit}개씩 상자에 남김없이 모두 담으려면, 필요한 상자는 총 몇 개인가요?`;
+                                  } else {
+                                    text = `제가 물건을 ${num}개 모았어요. 이 물건을 ${unit}개씩 상자에 남김없이 모두 담으려면, 필요한 상자에는 총 몇 개의 물건을 담을 수 있나요? (어림하여 ${unit}의 자리까지 나타내기)`;
+                                  }
+                                }
+                                else if (context === 'USE_BUNDLE') {
+                                  if (isCountQuestion) {
+                                    text = `제가 물건을 ${num}개 모았어요. 이 물건을 ${unit}개씩 묶어서 팔려고 합니다. 낱개는 팔 수 없다고 할 때, 최대 몇 묶음까지 만들 수 있나요?`;
+                                  } else {
+                                    text = `제가 물건을 ${num}개 모았어요. 이 물건을 ${unit}개씩 묶어서 팔려고 합니다. 낱개는 팔 수 없다고 할 때, 묶음으로 파는 물건의 총 개수는 몇 개인가요? (어림하여 ${unit}의 자리까지 나타내기)`;
+                                  }
+                                }
+                                else if (context === 'RECORD') text = `기록장에 수확량을 실제 개수와 가장 가깝게 대략적으로 적어야 해요. 현재 정확한 수확량은 ${num}입니다. 어떻게 적어야 할까요? (어림하여 ${unit}의 자리까지 나타내기)`;
+                                else if (context === 'MEASURE') text = `이번에 측정한 무게(또는 길이)가 ${num}입니다. 이 값을 ${unit} 단위까지 어림해서 알려주세요! (어떤 어림 방식을 쓸지 문제에 맞게 수정해주세요)`;
+                                
+                                const newQ = [...quests]; 
+                                newQ[i].mathProblemText = text; 
+                                updateQuests(newQ);
+                              }}
+                              style={{ padding: '0.4rem', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', marginTop: '0.2rem' }}
+                            >
+                              ✨ 문제 텍스트 자동 생성 (아래 입력창에 채워집니다)
+                            </button>
+                            <textarea
+                              className="glass-input"
+                              value={q.mathProblemText || ''}
+                              onChange={(e) => { const newQ = [...quests]; newQ[i].mathProblemText = e.target.value; updateQuests(newQ); }}
+                              placeholder="수학 미니게임에서 띄울 문제를 입력하세요"
+                              rows={2}
+                              style={{ flex: 1, padding: '0.4rem', fontSize: '0.8rem', marginTop: '0.3rem', resize: 'vertical' }}
+                            />
+                          </div>
+                        )}
+
+                        {q.type === 'RANDOM_MATH' && (
+                          <div style={{ padding: '0.5rem', background: 'rgba(168, 85, 247, 0.1)', borderRadius: '4px', border: '1px solid #d8b4fe', marginTop: '0.3rem', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                            <div style={{ fontSize: '0.75rem', color: '#6b21a8', marginBottom: '0.2rem' }}>
+                              💡 올림/버림/반올림 중 하나가 랜덤하게 출제되며, 숫자와 단위도 무작위로 생성됩니다.
+                            </div>
+                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                              <label style={{ fontSize: '0.75rem', fontWeight: 'bold', width: '60px' }}>구체물</label>
+                              <input 
+                                type="text"
+                                className="glass-input"
+                                placeholder="예: 사과, 도토리, 밧줄"
+                                value={q.mathObject || ''}
+                                onChange={(e) => { const newQ = [...quests]; newQ[i].mathObject = e.target.value; updateQuests(newQ); }}
+                                style={{ flex: 1, padding: '0.3rem', fontSize: '0.8rem' }}
+                              />
+                            </div>
+                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                              <label style={{ fontSize: '0.75rem', fontWeight: 'bold', width: '60px' }}>출제 문제 수</label>
+                              <input 
+                                type="number"
+                                className="glass-input"
+                                value={q.mathProblemCount || 1}
+                                onChange={(e) => { const newQ = [...quests]; newQ[i].mathProblemCount = Number(e.target.value); updateQuests(newQ); }}
+                                style={{ flex: 1, padding: '0.3rem', fontSize: '0.8rem' }}
+                                min="1"
+                                max="10"
+                              />
+                            </div>
+                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                              <label style={{ fontSize: '0.75rem', fontWeight: 'bold', width: '60px' }}>보상 지급 방식</label>
+                              <select 
+                                className="glass-input"
+                                value={q.mathRewardMode || 'ALL_AT_ONCE'}
+                                onChange={(e) => { const newQ = [...quests]; newQ[i].mathRewardMode = e.target.value; updateQuests(newQ); }}
+                                style={{ flex: 1, padding: '0.3rem', fontSize: '0.8rem' }}
+                              >
+                                <option value="ALL_AT_ONCE">모든 문제를 다 풀면 한 번에 보상</option>
+                                <option value="PER_PROBLEM">1문제 맞힐 때마다 즉시 보상 (반복 지급)</option>
+                              </select>
+                            </div>
+                          </div>
+                        )}
+
+                        <textarea 
+                          className="glass-input" 
+                          value={q.title || ''} 
+                          onChange={(e) => { const newQ = [...quests]; newQ[i].title = e.target.value; updateQuests(newQ); }}
+                          placeholder={q.type === 'MATH' ? "문제 지문을 여기에 적어주세요." : q.type === 'RANDOM_MATH' ? "(문제 지문은 구체물을 바탕으로 게임 플레이 중 랜덤 생성됩니다)" : "예: 촌장님을 위해 사과 3개를 가져다주세요!"}
+                          rows={2}
+                          style={{ padding: '0.4rem', resize: 'vertical' }}
+                          disabled={q.type === 'RANDOM_MATH'}
+                        />
+                        
+                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                          <select 
+                            className="glass-input"
+                            value={q.requireItem || ''}
+                            onChange={(e) => { const newQ = [...quests]; newQ[i].requireItem = e.target.value; updateQuests(newQ); }}
+                            style={{ padding: '0.4rem', flex: 1 }}
+                          >
+                            <option value="">(요구 아이템 없음)</option>
+                            <optgroup label="기본 채집 아이템">
+                              <option value="도토리">🌰 도토리</option>
+                              <option value="나뭇가지">🌿 나뭇가지</option>
+                              <option value="나무껍질">📜 나무껍질</option>
+                              <option value="나무뿌리">🌱 나무뿌리</option>
+                              <option value="rock">🪨 바위(돌)</option>
+                            </optgroup>
+                            <optgroup label="생성된 커스텀 아이템">
+                              {useMapStore.getState().customItems?.map(item => (
+                                <option key={item.id} value={item.id}>{item.icon} {item.name}</option>
+                              ))}
+                            </optgroup>
+                          </select>
+                          <input 
+                            type="number"
+                            className="glass-input"
+                            placeholder="수량"
+                            value={q.requireAmount || 1}
+                            onChange={(e) => { const newQ = [...quests]; newQ[i].requireAmount = Number(e.target.value); updateQuests(newQ); }}
+                            style={{ width: '60px', padding: '0.4rem' }}
+                            min="1"
+                          />
+                        </div>
+
+                        {q.requireItem && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <input 
+                              type="checkbox" 
+                              id={`consumeItem_${asset.id}_${i}`}
+                              checked={q.consumeItem !== false} 
+                              onChange={(e) => { const newQ = [...quests]; newQ[i].consumeItem = e.target.checked; updateQuests(newQ); }}
+                            />
+                            <label htmlFor={`consumeItem_${asset.id}_${i}`} style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>완료 시 아이템 가져가기 (소모)</label>
+                          </div>
+                        )}
+
+                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                          <select 
+                            className="glass-input"
+                            value={q.rewardItem || ''}
+                            onChange={(e) => { const newQ = [...quests]; newQ[i].rewardItem = e.target.value; updateQuests(newQ); }}
+                            style={{ padding: '0.4rem', flex: 1 }}
+                          >
+                            <option value="">(보상 없음)</option>
+                            <option value="money">💰 돈 (기본 화폐)</option>
+                            <optgroup label="기본 채집 아이템">
+                              <option value="도토리">🌰 도토리</option>
+                              <option value="나뭇가지">🌿 나뭇가지</option>
+                              <option value="나무껍질">📜 나무껍질</option>
+                              <option value="나무뿌리">🌱 나무뿌리</option>
+                              <option value="rock">🪨 바위(돌)</option>
+                            </optgroup>
+                            <optgroup label="생성된 커스텀 아이템">
+                              {useMapStore.getState().customItems?.map(item => (
+                                <option key={item.id} value={item.id}>{item.icon} {item.name}</option>
+                              ))}
+                            </optgroup>
+                          </select>
+                          <input 
+                            type="number"
+                            className="glass-input"
+                            placeholder="수량"
+                            value={q.rewardAmount || 1}
+                            onChange={(e) => { const newQ = [...quests]; newQ[i].rewardAmount = Number(e.target.value); updateQuests(newQ); }}
+                            style={{ width: '60px', padding: '0.4rem' }}
+                            min="1"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  
+                  <button 
+                    onClick={() => {
+                      updateQuests([...quests, { title: '', requireAmount: 1, rewardAmount: 1, consumeItem: true }]);
+                    }}
+                    style={{ padding: '0.5rem', background: '#e2e8f0', color: '#334155', border: '1px dashed #94a3b8', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                  >
+                    + 퀘스트 추가
+                  </button>
+                </div>
+              );
+            })()}
           </div>
         </>
       )}
@@ -665,10 +998,138 @@ function PropertyEditor() {
       </div>
       
       {!isNPC && (
-        <p style={{ fontSize: '0.8rem', color: '#6b7280' }}>
-          이 에셋은 편집할 수 있는 속성이 없습니다.
-        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', marginTop: '0.5rem' }}>
+          <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>채집 시 드롭 아이템 (Drop Item)</label>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <select 
+              className="glass-input"
+              value={asset.dropItemId || ''}
+              onChange={(e) => updateAsset(asset.id, { dropItemId: e.target.value })}
+              style={{ padding: '0.4rem', flex: 1 }}
+            >
+              <option value="">(없음)</option>
+              <option value="money">돈 (기본 화폐)</option>
+              {useMapStore.getState().customItems?.map(item => (
+                <option key={item.id} value={item.id}>{item.icon} {item.name}</option>
+              ))}
+            </select>
+            <input 
+              type="number"
+              className="glass-input"
+              placeholder="수량"
+              value={asset.dropItemAmount || 1}
+              onChange={(e) => updateAsset(asset.id, { dropItemAmount: Number(e.target.value) })}
+              style={{ width: '60px', padding: '0.4rem' }}
+              min="1"
+            />
+          </div>
+        </div>
       )}
+    </div>
+  );
+}
+
+function ItemManagerUI({ availableModels = [] }) {
+  const { customItems, addCustomItem, removeCustomItem, updateCustomItem } = useMapStore();
+  const [newItemName, setNewItemName] = useState('');
+  const [newItemIcon, setNewItemIcon] = useState('📦');
+  const [newLinkedAsset, setNewLinkedAsset] = useState('');
+
+  const handleAdd = () => {
+    if (!newItemName.trim()) return;
+    addCustomItem({
+      id: 'item_' + Date.now(),
+      name: newItemName.trim(),
+      icon: newItemIcon,
+      linkedAsset: newLinkedAsset || null
+    });
+    setNewItemName('');
+    setNewLinkedAsset('');
+  };
+
+  return (
+    <div style={{ background: '#fdf4ff', padding: '1rem', borderRadius: '6px' }}>
+      <h4 style={{ margin: '0 0 0.5rem 0', color: '#86198f' }}>🎒 커스텀 아이템 관리</h4>
+      <p style={{ fontSize: '0.8rem', color: '#701a75', marginBottom: '1rem' }}>
+        맵에서 사용할 수집 아이템이나 퀘스트 목표 아이템을 만드세요. 3D 에셋을 연동하면 마인크래프트처럼 바닥에 설치할 수 있습니다.
+      </p>
+      
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+        <input 
+          type="text" 
+          className="glass-input" 
+          placeholder="아이콘 (예: 🍎)" 
+          value={newItemIcon}
+          onChange={(e) => setNewItemIcon(e.target.value)}
+          style={{ width: '50px', padding: '0.4rem', textAlign: 'center' }}
+        />
+        <input 
+          type="text" 
+          className="glass-input" 
+          placeholder="새 아이템 이름" 
+          value={newItemName}
+          onChange={(e) => setNewItemName(e.target.value)}
+          style={{ flex: 1, padding: '0.4rem' }}
+        />
+        <select
+          value={newLinkedAsset}
+          onChange={(e) => setNewLinkedAsset(e.target.value)}
+          style={{ padding: '0.4rem', borderRadius: '4px', border: '1px solid #d1d5db' }}
+        >
+          <option value="">(연동 안함)</option>
+          {ASSETS.map(a => (
+            <option key={a.id} value={a.id}>{a.name}</option>
+          ))}
+          {availableModels.map(m => (
+            <option key={m} value={`models/${m}`}>{m}</option>
+          ))}
+        </select>
+        <button 
+          onClick={handleAdd}
+          style={{ padding: '0.4rem 1rem', background: '#d946ef', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', flexShrink: 0 }}
+        >
+          등록
+        </button>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+        {customItems?.map(item => (
+          <div key={item.id} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', background: 'white', padding: '0.5rem', borderRadius: '4px', border: '1px solid #f0abfc' }}>
+            <span style={{ fontSize: '1.2rem' }}>{item.icon}</span>
+            <input 
+              type="text" 
+              className="glass-input"
+              value={item.name}
+              onChange={(e) => updateCustomItem(item.id, { name: e.target.value })}
+              style={{ flex: 1, padding: '0.2rem', border: 'none', borderBottom: '1px solid #e5e7eb', borderRadius: 0, background: 'transparent' }}
+            />
+            <select
+              value={item.linkedAsset || ''}
+              onChange={(e) => updateCustomItem(item.id, { linkedAsset: e.target.value || null })}
+              style={{ padding: '0.2rem', borderRadius: '4px', border: '1px solid #d1d5db', fontSize: '0.8rem' }}
+            >
+              <option value="">(연동 안함)</option>
+              {ASSETS.map(a => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+              {availableModels.map(m => (
+                <option key={m} value={`models/${m}`}>{m}</option>
+              ))}
+            </select>
+            <button 
+              onClick={() => removeCustomItem(item.id)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: '1.2rem' }}
+            >
+              ×
+            </button>
+          </div>
+        ))}
+        {(!customItems || customItems.length === 0) && (
+          <div style={{ textAlign: 'center', color: '#9ca3af', fontSize: '0.9rem', padding: '1rem 0' }}>
+            등록된 커스텀 아이템이 없습니다.
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -12,7 +12,8 @@ export default function VoxelCanvas() {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
+    const mountTimer = setTimeout(() => setMounted(true), 0);
+    return () => clearTimeout(mountTimer);
   }, []);
 
   useEffect(() => {

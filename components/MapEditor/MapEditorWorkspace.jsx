@@ -7,7 +7,7 @@ import EditorCanvas from './EditorCanvas';
 import EditorUI from './EditorUI';
 
 export default function MapEditorWorkspace() {
-  const { currentMapId, mapName, setMapName, heights, colors, assets, decals, boundaries, spawnPoint, loadMap, resetMap } = useMapStore();
+  const { currentMapId, mapName, setMapName, heightsBase, heightsTop, heightsBottom, heightsWater, colors, assets, decals, boundaries, spawnPoint, customItems, loadMap, resetMap } = useMapStore();
   const [mapList, setMapList] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -15,8 +15,19 @@ export default function MapEditorWorkspace() {
   const setCameraMode = useMapStore(state => state.setCameraMode);
   const isCameraMode = useMapStore(state => state.isCameraMode);
 
+  const fetchMaps = async () => {
+    setIsLoading(true);
+    const { data, error } = await supabase
+      .from('maps')
+      .select('id, name, created_at, updated_at, assets')
+      .order('updated_at', { ascending: false });
+
+    if (data) setMapList(data.filter(map => !map.assets?.some(asset => asset.id === '__map2d__')));
+    setIsLoading(false);
+  };
+
   useEffect(() => {
-    fetchMaps();
+    const initialFetchTimer = setTimeout(fetchMaps, 0);
     
     // Global keyboard listener for Space bar (Camera Mode)
     const handleKeyDown = (e) => {
@@ -47,22 +58,12 @@ export default function MapEditorWorkspace() {
     window.addEventListener('keyup', handleKeyUp);
 
     return () => {
+      clearTimeout(initialFetchTimer);
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
       setCameraMode(false); // Cleanup
     };
   }, [setCameraMode]);
-
-  const fetchMaps = async () => {
-    setIsLoading(true);
-    const { data, error } = await supabase
-      .from('maps')
-      .select('id, name, created_at, updated_at')
-      .order('updated_at', { ascending: false });
-    
-    if (data) setMapList(data);
-    setIsLoading(false);
-  };
 
   const handleCreateNewMap = () => {
     if(confirm('새 맵을 만드시겠습니까? 작업 중인 내용은 저장되지 않습니다.')) {
@@ -90,14 +91,25 @@ export default function MapEditorWorkspace() {
     setIsSaving(true);
     
     // Convert Float32Array to standard Arrays for JSONB storage
-    const heightsArray = Array.from(heights);
+    const heightsBaseArray = Array.from(heightsBase);
+    const heightsTopArray = Array.from(heightsTop);
+    const heightsBottomArray = Array.from(heightsBottom);
+    const heightsWaterArray = Array.from(heightsWater);
     const colorsArray = Array.from(colors);
 
     const mapData = {
       name: mapName,
-      heights: heightsArray,
+      heights: {
+        base: heightsBaseArray,
+        top: heightsTopArray,
+        bottom: heightsBottomArray,
+        water: heightsWaterArray
+      },
       colors: colorsArray,
-      assets: assets,
+      assets: [
+        { id: '__customItems__', type: 'system', data: customItems || [] },
+        ...assets
+      ],
       decals: decals,
       boundaries: boundaries || [],
       spawnPoint: spawnPoint || null,

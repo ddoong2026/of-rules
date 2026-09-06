@@ -24,7 +24,7 @@ export default function ReceivedLawsTab() {
   };
 
   useEffect(() => {
-    fetchLaws();
+    const initialFetchTimer = setTimeout(fetchLaws, 0);
 
     const channel = supabase.channel('public:laws_gov')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'laws' }, () => {
@@ -32,7 +32,10 @@ export default function ReceivedLawsTab() {
       })
       .subscribe();
 
-    return () => supabase.removeChannel(channel);
+    return () => {
+      clearTimeout(initialFetchTimer);
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const handleCreateDecree = (law) => {

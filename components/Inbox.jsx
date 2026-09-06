@@ -20,7 +20,9 @@ export default function Inbox() {
       const stored = localStorage.getItem(`read_messages_${user.id}`);
       if (stored) {
         try {
-          setReadIds(JSON.parse(stored));
+          const parsedReadIds = JSON.parse(stored);
+          const readTimer = setTimeout(() => setReadIds(parsedReadIds), 0);
+          return () => clearTimeout(readTimer);
         } catch (e) {
           console.error(e);
         }
@@ -83,11 +85,14 @@ export default function Inbox() {
   };
 
   useEffect(() => {
-    fetchMessages();
+    const initialFetchTimer = setTimeout(fetchMessages, 0);
     
     // 간단한 폴링 (실시간 반영을 위함)
     const interval = setInterval(fetchMessages, 10000);
-    return () => clearInterval(interval);
+    return () => {
+      clearTimeout(initialFetchTimer);
+      clearInterval(interval);
+    };
   }, [user, role]);
 
   // 외부 클릭 시 드롭다운 닫기

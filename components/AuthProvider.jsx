@@ -2,6 +2,8 @@
 
 import { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { legacyQuestKey } from '@/lib/questIdentity.mjs';
+import useInventoryStore from '@/store/useInventoryStore';
 
 const AuthContext = createContext({});
 
@@ -59,7 +61,11 @@ export const AuthProvider = ({ children }) => {
     if (user) {
       userSub = supabase.channel(`public:users:${user.id}`)
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'users', filter: `id=eq.${user.id}` }, (payload) => {
-          setRole(prev => ({ ...prev, balance: payload.new.balance, job: payload.new.job }));
+          setRole(prev => ({ 
+            ...prev, 
+            balance: payload.new.balance !== undefined ? payload.new.balance : prev.balance, 
+            job: payload.new.job !== undefined ? payload.new.job : prev.job 
+          }));
         })
         .subscribe();
     }
@@ -68,7 +74,7 @@ export const AuthProvider = ({ children }) => {
     }
   }, [user]);
 
-  const fetchUserRole = async (userId) => {
+  async function fetchUserRole(userId) {
     const { data, error } = await supabase
       .from('users')
       .select('role, name, department, balance, job')
@@ -85,11 +91,29 @@ export const AuthProvider = ({ children }) => {
     const { data: tresData } = await supabase.from('settings').select('value').eq('key', 'treasury_balance').single();
     if (tresData) setTreasury(parseInt(tresData.value || '0', 10));
     
+    // Fetch completed quests to prevent repeating
+    const { data: questLogs } = await supabase
+      .from('activity_logs')
+      .select('details')
+      .eq('user_id', userId)
+      .eq('action_type', 'QUEST_COMPLETED');
+    
+    if (questLogs) {
+      const completedTitles = questLogs.map(({ details }) => {
+        if (details?.quest_id) return details.quest_id;
+        if (!details?.title) return null;
+        return details.asset_id
+          ? legacyQuestKey(details.map_id, details.asset_id, details.title)
+          : details.title;
+      }).filter(Boolean);
+      useInventoryStore.getState().setCompletedQuests(completedTitles);
+    }
+    
     setLoading(false);
   };
 
   return (
-    <AuthContext.Provider value={{ user, role, currency, treasury, loading }}>
+    <AuthContext.Provider value={{ user, role, currency, treasury, loading, refreshUser: () => user && fetchUserRole(user.id) }}>
       {children}
     </AuthContext.Provider>
   );

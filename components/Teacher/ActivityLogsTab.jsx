@@ -7,11 +7,7 @@ export default function ActivityLogsTab() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchLogs();
-  }, []);
-
-  const fetchLogs = async () => {
+  async function fetchLogs() {
     // Fetch from activity_logs table joining users table for user_name
     const { data, error } = await supabase
       .from('activity_logs')
@@ -22,6 +18,11 @@ export default function ActivityLogsTab() {
     if (data) setLogs(data);
     setLoading(false);
   };
+
+  useEffect(() => {
+    const initialFetchTimer = setTimeout(fetchLogs, 0);
+    return () => clearTimeout(initialFetchTimer);
+  }, []);
 
   if (loading) return <div>로딩중...</div>;
 

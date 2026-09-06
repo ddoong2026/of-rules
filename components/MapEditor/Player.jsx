@@ -37,7 +37,10 @@ export default function Player() {
   const { scene, animations } = useGLTF('/models/charactor2.glb');
   const { actions } = useAnimations(animations, group);
   const { camera, scene: glScene } = useThree();
-  const heights = useMapStore((state) => state.heights);
+  const heightsTop = useMapStore((state) => state.heightsTop);
+  const heightsWater = useMapStore((state) => state.heightsWater);
+  const heightsBottom = useMapStore((state) => state.heightsBottom);
+  const heightsBase = useMapStore((state) => state.heightsBase);
   const assets = useMapStore((state) => state.assets);
 
   const [keys, setKeys] = useState({ w: false, a: false, s: false, d: false, shift: false, space: false, control: false });
@@ -53,6 +56,9 @@ export default function Player() {
   const [playerBubble, setPlayerBubble] = useState(null);
   const triggeredZones = useRef(new Set());
   const lastZoneTriggerTime = useRef(0);
+  const zoomLevel = useRef(1.0);
+
+  const lastClickTimeRef = useRef(0);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -91,8 +97,52 @@ export default function Player() {
     };
 
     const handleMouseDown = (e) => {
+      // 우클릭(설치) 처리
+      if (e.button === 2 && document.pointerLockElement === canvas) {
+        if (useMapStore.getState().mineMiniGame.active) return;
+        if (!group.current) return;
+
+        const invState = useInventoryStore.getState();
+        const mapState = useMapStore.getState();
+        const selectedItem = invState.items[invState.selectedSlot];
+
+        if (selectedItem) {
+          const baseType = selectedItem.type.replace('_identified', '');
+          const customDef = mapState.customItems.find(c => c.id === baseType);
+          if (customDef && customDef.linkedAsset) {
+            // 설치 위치 계산: 플레이어 정면 3칸 앞
+            const playerPos = group.current.position;
+            const forward = new THREE.Vector3(0, 0, 1).applyEuler(new THREE.Euler(0, yaw.current, 0));
+            const placeDist = 3.0;
+            const targetX = playerPos.x + forward.x * placeDist;
+            const targetZ = playerPos.z + forward.z * placeDist;
+            
+            // 바닥 높이 계산
+            const targetY = getWalkableHeight(targetX, playerPos.y, targetZ);
+
+            // 아이템 1개 소모
+            invState.consumeItem(selectedItem.type, 1);
+            
+            // 맵에 에셋 추가 (customItemId를 함께 저장하여 나중에 회수 시 사용)
+            mapState.addAsset({
+              id: 'asset_' + Date.now(),
+              type: customDef.linkedAsset,
+              position: [targetX, targetY, targetZ],
+              rotation: [0, 0, 0],
+              scale: [1, 1, 1],
+              customItemId: baseType // 커스텀 아이템 원본 ID 저장
+            });
+            return;
+          }
+        }
+      }
+
       // 좌클릭이고 마우스 잠금 상태일 때 순수 거리/방향 수학으로 채집 판정
       if (e.button === 0 && document.pointerLockElement === canvas) {
+        const now = Date.now();
+        const isDoubleClick = (now - lastClickTimeRef.current) < 300;
+        lastClickTimeRef.current = now;
+
         if (useMapStore.getState().mineMiniGame.active) return;
         if (!group.current) return;
         
@@ -100,8 +150,8 @@ export default function Player() {
         // 캐릭터의 정면 벡터 (X, Z 평면)
         const forward = new THREE.Vector3(0, 0, 1).applyEuler(new THREE.Euler(0, yaw.current, 0));
         
+        let bestScore = -Infinity;
         let closestAssetId = null;
-        let minDistance = 2.5; // 최대 채집 거리
         
         for (const asset of assets) {
           if (asset.minedAt) continue;
@@ -113,13 +163,17 @@ export default function Player() {
           const dz = assetZ - playerPos.z;
           const distance = Math.sqrt(dx*dx + dz*dz);
           
-          if (distance < minDistance) {
-            const dir = new THREE.Vector3(dx, 0, dz).normalize();
+          if (distance < 2.5) {
+            const dir = distance > 0.001 ? new THREE.Vector3(dx, 0, dz).normalize() : new THREE.Vector3(0,0,1);
             const dot = forward.dot(dir);
             
             if (dot > 0.3 || distance < 1.0) {
-              minDistance = distance;
-              closestAssetId = asset.id;
+              // 바라보는 방향(dot)을 우선시하고, 그 다음 거리를 고려
+              const score = (dot > 0.3 ? dot : 0) - (distance / 2.5);
+              if (score > bestScore) {
+                bestScore = score;
+                closestAssetId = asset.id;
+              }
             }
           }
         }
@@ -129,6 +183,22 @@ export default function Player() {
           const isTree = targetAsset?.type === 'tree';
           const isNPC = targetAsset?.type?.startsWith('caveman');
           
+          // 사용자가 설치한 아이템 회수 처리 (더블클릭으로 회수)
+          if (targetAsset.customItemId) {
+            if (isDoubleClick) {
+              const baseId = targetAsset.customItemId.replace('_identified', '');
+              const customDef = useMapStore.getState().customItems?.find(c => c.id === baseId);
+              useMapStore.getState().addDroppedItem({
+                id: 'dropped_' + Date.now(),
+                itemId: baseId + '_identified', // 다시 획득 시 이모지가 보이도록 식별된 상태로 드롭
+                icon: customDef ? customDef.icon : '📦',
+                position: [...targetAsset.position]
+              });
+              useMapStore.getState().removeAsset(targetAsset.id);
+            }
+            return;
+          }
+
           const hasDialogueEnabled = targetAsset.hasDialogue === true || (isNPC && targetAsset.hasDialogue !== false);
 
           if (hasDialogueEnabled) {
@@ -140,17 +210,28 @@ export default function Player() {
           }
 
           // 시작! (수학 채집 미니게임)
-          useMapStore.getState().setMineMiniGame(true, closestAssetId, targetAsset?.type);
-          if (document.pointerLockElement === canvas) {
-            document.exitPointerLock();
+          // 나무와 돌만 캘 수 있도록 제한
+          if (isTree || targetAsset?.type === 'rock') {
+            useMapStore.getState().setMineMiniGame(true, closestAssetId, targetAsset?.type);
+            if (document.pointerLockElement === canvas) {
+              document.exitPointerLock();
+            }
           }
         }
+      }
+    };
+
+    const handleWheel = (e) => {
+      if (document.pointerLockElement === canvas) {
+        zoomLevel.current += Math.sign(e.deltaY) * 0.15;
+        zoomLevel.current = Math.max(0.3, Math.min(5.0, zoomLevel.current));
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
     window.addEventListener('mousedown', handleMouseDown);
+    window.addEventListener('wheel', handleWheel);
     if (canvas) canvas.addEventListener('click', onCanvasClick);
     document.addEventListener('mousemove', onMouseMove);
 
@@ -158,6 +239,7 @@ export default function Player() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('mousedown', handleMouseDown);
+      window.removeEventListener('wheel', handleWheel);
       if (canvas) canvas.removeEventListener('click', onCanvasClick);
       document.removeEventListener('mousemove', onMouseMove);
     };
@@ -170,8 +252,9 @@ export default function Player() {
 
   const physicsRaycaster = useMemo(() => new THREE.Raycaster(), []);
 
-  // Get mathematical terrain height at (x, z)
-  const getTerrainHeight = (x, z) => {
+  // Generic mathematical height at (x, z) for a given layer array
+  const getLayerHeight = (heightsArray, x, z) => {
+    if (!heightsArray) return 0;
     const halfSize = 25;
     const segSize = 50 / GRID_SIZE;
     
@@ -191,10 +274,10 @@ export default function Player() {
     const tx = gridX - x0;
     const tz = gridZ - z0;
 
-    const h00 = heights[z0 * (GRID_SIZE + 1) + x0] || 0;
-    const h10 = heights[z0 * (GRID_SIZE + 1) + x1] || 0;
-    const h01 = heights[z1 * (GRID_SIZE + 1) + x0] || 0;
-    const h11 = heights[z1 * (GRID_SIZE + 1) + x1] || 0;
+    const h00 = heightsArray[z0 * (GRID_SIZE + 1) + x0] || 0;
+    const h10 = heightsArray[z0 * (GRID_SIZE + 1) + x1] || 0;
+    const h01 = heightsArray[z1 * (GRID_SIZE + 1) + x0] || 0;
+    const h11 = heightsArray[z1 * (GRID_SIZE + 1) + x1] || 0;
 
     // Bilinear interpolation
     const h0 = h00 * (1 - tx) + h10 * tx;
@@ -202,54 +285,62 @@ export default function Player() {
     return h0 * (1 - tz) + h1 * tz;
   };
 
-  const terrainMeshRef = useRef(null);
+  const getTerrainHeight = (x, z) => getLayerHeight(heightsTop, x, z);
 
-  const getTerrainHeightRaycast = (x, y, z) => {
-    // 1. Check if we are near any cave. If not, fallback to fast 2D lookup.
-    const { csgOperations } = useMapStore.getState();
-    let isNearCave = false;
-    if (csgOperations.length > 0) {
-      for (const op of csgOperations) {
-        if (op.shape === 'sphere') {
-          const dx = x - op.position[0];
-          const dz = z - op.position[2];
-          if (dx*dx + dz*dz < (op.radius + 3)**2) {
-            isNearCave = true; break;
-          }
-        } else if (op.shape === 'capsule') {
-          const minX = Math.min(op.start[0], op.end[0]) - op.radius - 3;
-          const maxX = Math.max(op.start[0], op.end[0]) + op.radius + 3;
-          const minZ = Math.min(op.start[2], op.end[2]) - op.radius - 3;
-          const maxZ = Math.max(op.start[2], op.end[2]) + op.radius + 3;
-          if (x >= minX && x <= maxX && z >= minZ && z <= maxZ) {
-            isNearCave = true; break;
-          }
-        }
-      }
+  function getWalkableHeight(x, y, z) {
+    const topH = getLayerHeight(heightsTop, x, z);
+    const bottomH = getLayerHeight(heightsBottom, x, z);
+    const baseH = getLayerHeight(heightsBase, x, z);
+
+    // Player's feet are at roughly `y`. Determine which layer they are standing on.
+    
+    // 1. 산 위나 평지에 있는 경우
+    // 이 검사는 아래에서 isCaveEntrance 검사 이후에 수행됩니다.
+    // Terrain.jsx의 렌더링 로직과 동일하게 타일 4꼭지점을 검사하여 시각적 구멍과 물리적 구멍을 완벽히 일치시킵니다.
+    const gridX = (x + 25) / (50 / GRID_SIZE);
+    const gridZ = (z + 25) / (50 / GRID_SIZE);
+    const x0 = Math.floor(gridX);
+    const x1 = Math.min(GRID_SIZE, x0 + 1);
+    const z0 = Math.floor(gridZ);
+    const z1 = Math.min(GRID_SIZE, z0 + 1);
+
+    const i00 = z0 * (GRID_SIZE + 1) + x0;
+    const i10 = z0 * (GRID_SIZE + 1) + x1;
+    const i01 = z1 * (GRID_SIZE + 1) + x0;
+    const i11 = z1 * (GRID_SIZE + 1) + x1;
+
+    const hasCaveTile = (heightsBottom[i00] > heightsBase[i00] + 0.1) || 
+                        (heightsBottom[i10] > heightsBase[i10] + 0.1) || 
+                        (heightsBottom[i01] > heightsBase[i01] + 0.1) || 
+                        (heightsBottom[i11] > heightsBase[i11] + 0.1);
+                        
+    const isOutsideTile = (heightsTop[i00] <= heightsBase[i00] + 0.1) || 
+                          (heightsTop[i10] <= heightsBase[i10] + 0.1) || 
+                          (heightsTop[i01] <= heightsBase[i01] + 0.1) || 
+                          (heightsTop[i11] <= heightsBase[i11] + 0.1);
+                          
+    const isCaveEntrance = hasCaveTile && isOutsideTile;
+
+    // 1. 동굴 입구 타일인 경우 (Top 렌더링이 생략된 구멍)
+    // 시각적으로 뚫려있으므로 무조건 Base를 밟습니다. Top은 투명벽이 됩니다.
+    if (isCaveEntrance) {
+      return baseH;
     }
 
-    if (!isNearCave) return getTerrainHeight(x, z);
-
-    // 2. Cache terrain mesh to avoid slow glScene.traverse every frame
-    if (!terrainMeshRef.current || !terrainMeshRef.current.visible) {
-      let found = null;
-      glScene.traverse((child) => {
-        if (child.name === 'terrainMesh' && child.visible) {
-          found = child;
-        }
-      });
-      terrainMeshRef.current = found;
+    // 2. 산 위나 평지에 있는 경우
+    // y 좌표가 Top 표면 근처이거나 그 이상일 때 (지붕 위를 걸을 때)
+    if (y >= topH - 1.5) {
+      return topH;
     }
     
-    if (!terrainMeshRef.current) return getTerrainHeight(x, z);
-    
-    // Cast ray from slightly above the player's current y position
-    physicsRaycaster.set(new THREE.Vector3(x, y + 1.5, z), new THREE.Vector3(0, -1, 0));
-    const intersects = physicsRaycaster.intersectObject(terrainMeshRef.current);
-    if (intersects.length > 0) {
-      return intersects[0].point.y;
+    // 3. 동굴 안쪽에 있는 경우 (입구를 통과한 후)
+    // 지붕(Top)보다 아래에 있고, 동굴(Bottom)이 파여있는 경우
+    if (bottomH > baseH) {
+      return baseH;
     }
-    return getTerrainHeight(x, z);
+    
+    // 4. 꽉 막힌 산 내부이거나 동굴이 없는 곳 (충돌을 위해 제일 높은 층 반환)
+    return topH;
   };
 
   const hasSpawned = useRef(false);
@@ -271,15 +362,18 @@ export default function Player() {
     if (group.current && !hasSpawned.current) {
       const spawnPoint = useMapStore.getState().spawnPoint;
       let spawnX = 0;
+      let spawnY = null;
       let spawnZ = 0;
       let found = false;
 
       if (spawnPoint) {
         if (Array.isArray(spawnPoint)) {
           spawnX = spawnPoint[0] || 0;
+          spawnY = spawnPoint[1] !== undefined ? spawnPoint[1] : null;
           spawnZ = spawnPoint[2] || 0;
         } else {
           spawnX = spawnPoint.x || 0;
+          spawnY = spawnPoint.y !== undefined ? spawnPoint.y : null;
           spawnZ = spawnPoint.z || 0;
         }
         found = true;
@@ -302,12 +396,17 @@ export default function Player() {
         }
       }
 
-      const terrainH = getTerrainHeightRaycast(spawnX, 100, spawnZ);
+      // If the user specified a precise Y coordinate when clicking (like inside a cave),
+      // use that Y to find the exact walkable height (which layer they clicked on).
+      // If not, assume they are falling from the sky (Y=100) and land on the topmost layer.
+      const searchY = spawnY !== null ? spawnY : 100;
+      const terrainH = getWalkableHeight(spawnX, searchY, spawnZ);
+      
       // Spawn slightly above the ground (at least height 2) so they fall naturally
       group.current.position.set(spawnX, Math.max(2, terrainH + 2), spawnZ);
       hasSpawned.current = true;
     }
-  }, [heights]);
+  }, [heightsTop]);
 
   const currentVelocity = useRef(new THREE.Vector3());
   const smoothedPlayerPos = useRef(new THREE.Vector3());
@@ -365,7 +464,7 @@ export default function Player() {
     // Lock character's visual rotation directly to camera's yaw (fixed behind head)
     group.current.rotation.y = yaw.current;
 
-    const currentTerrainHeight = getTerrainHeightRaycast(group.current.position.x, group.current.position.y, group.current.position.z);
+    const currentTerrainHeight = getWalkableHeight(group.current.position.x, group.current.position.y, group.current.position.z);
     
     // Apply movement with slope restriction on XZ
     let nextX = group.current.position.x + currentVelocity.current.x * delta;
@@ -373,7 +472,7 @@ export default function Player() {
     
     const dist = Math.sqrt((nextX - group.current.position.x)**2 + (nextZ - group.current.position.z)**2);
     let canMoveXZ = true;
-    const nextTerrainHeight = getTerrainHeightRaycast(nextX, group.current.position.y, nextZ);
+    const nextTerrainHeight = getWalkableHeight(nextX, group.current.position.y, nextZ);
     
     if (dist > 0.0001) {
       const slope = (nextTerrainHeight - currentTerrainHeight) / dist;
@@ -386,8 +485,12 @@ export default function Player() {
       }
     }
 
-    // Block water entry (Invisible Wall at water's edge)
-    if (nextTerrainHeight < -0.3) {
+    // Block deep water entry based on mathematical depth
+    const waterHeight = getLayerHeight(heightsWater, nextX, nextZ);
+    const waterDepth = waterHeight - nextTerrainHeight;
+    
+    // User requested: Block movement if water depth > 0.4 (knee deep)
+    if (waterDepth > 0.4) {
       canMoveXZ = false;
       currentVelocity.current.x = 0;
       currentVelocity.current.z = 0;
@@ -554,7 +657,7 @@ export default function Player() {
     group.current.position.y += currentVelocity.current.y * delta;
 
     // Ground Collision & Jumping
-    const currentGroundHeight = getTerrainHeightRaycast(group.current.position.x, group.current.position.y, group.current.position.z);
+    const currentGroundHeight = getWalkableHeight(group.current.position.x, group.current.position.y, group.current.position.z);
     const distToGround = group.current.position.y - currentGroundHeight;
     
     // Character is grounded if exactly on/below ground, OR very close while falling/running (prevents flying off slopes)
@@ -685,7 +788,7 @@ export default function Player() {
       group.current.position.z = Math.cos(angle) * 24;
     }
 
-    const offset3rd = new THREE.Vector3(0, 0.1, -1.0);
+    const offset3rd = new THREE.Vector3(0, 0.1, -1.0).multiplyScalar(zoomLevel.current);
     const offset1st = new THREE.Vector3(0, 0.35, 0.15); // near head
     
     const currentOffset = new THREE.Vector3();
@@ -697,7 +800,7 @@ export default function Player() {
     const idealCameraPos = targetLookAt.clone().add(currentOffset);
     
     // Prevent camera from clipping through the terrain
-    const camGroundHeight = getTerrainHeightRaycast(idealCameraPos.x, idealCameraPos.y, idealCameraPos.z);
+    const camGroundHeight = getWalkableHeight(idealCameraPos.x, idealCameraPos.y, idealCameraPos.z);
     if (idealCameraPos.y < camGroundHeight + 0.5) {
       idealCameraPos.y = camGroundHeight + 0.5;
     }

@@ -9,7 +9,7 @@ export default function PetitionForm({ onSuccess }) {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(false);
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -27,6 +27,33 @@ export default function PetitionForm({ onSuccess }) {
     if (error) {
       alert('오류가 발생했습니다: ' + error.message);
     } else {
+      // Fetch dynamic reward setting
+      const { data: setting } = await supabase
+        .from('settings')
+        .select('value')
+        .eq('key', 'reward_petition_create')
+        .single();
+        
+      const rewardAmount = parseInt(setting?.value || '0', 10);
+      
+      if (rewardAmount > 0) {
+        const { error: rpcError } = await supabase.rpc('process_transaction', {
+          p_user_id: user.id,
+          p_amount: rewardAmount,
+          p_description: '청원 작성 보상',
+          p_type: 'ETC'
+        });
+        if (rpcError) {
+          alert('보상 지급 중 오류가 발생했습니다: ' + rpcError.message);
+          console.error('Transaction error:', rpcError);
+        } else {
+          alert(`청원 작성 보상으로 ${rewardAmount} 지급되었습니다!`);
+          if (refreshUser) refreshUser();
+        }
+      } else {
+        alert('청원이 성공적으로 등록되었습니다! (현재 교사 설정에서 보상 금액이 0이라 돈은 지급되지 않습니다)');
+      }
+      
       window.dispatchEvent(new CustomEvent('show-pet'));
       onSuccess();
     }

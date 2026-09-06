@@ -1,12 +1,14 @@
 'use client';
 
 import { useRef, useEffect, useMemo, useState } from 'react';
-import useMapStore, { GRID_SIZE } from '@/store/useMapStore';
-import useInventoryStore from '@/store/useInventoryStore';
-import { useTexture, Html, useGLTF, useAnimations, TransformControls, Line } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
+import { Html, useGLTF, useAnimations, useTexture, TransformControls, Line } from '@react-three/drei';
 import * as THREE from 'three';
 import { SkeletonUtils } from 'three-stdlib';
+import useMapStore, { GRID_SIZE } from '@/store/useMapStore';
+import useInventoryStore from '@/store/useInventoryStore';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/components/AuthProvider';
 
 function Tree() {
   return (
@@ -24,7 +26,7 @@ function Tree() {
 }
 
 function Rock() {
-  const rotation = useMemo(() => [Math.random() * Math.PI, Math.random() * Math.PI, 0], []);
+  const rotation = [Math.PI * 0.17, Math.PI * 0.31, 0];
   return (
     <mesh position={[0, 0.4, 0]} rotation={rotation}>
       <dodecahedronGeometry args={[0.8, 0]} />
@@ -169,6 +171,8 @@ function AssetOverlay({ asset, isPlaying, mode, onSelect }) {
   const [currentBubbleText, setCurrentBubbleText] = useState('');
   const [isNear, setIsNear] = useState(false);
   const overlayGroupRef = useRef();
+  const activeQuests = useInventoryStore(state => state.activeQuests);
+  const completedQuests = useInventoryStore(state => state.completedQuests);
 
   useFrame(({ camera }) => {
     if (!isPlaying || !overlayGroupRef.current) return;
@@ -214,7 +218,7 @@ function AssetOverlay({ asset, isPlaying, mode, onSelect }) {
   const displayName = asset.npcName || defaultNames[asset.type] || (asset.type.startsWith('caveman') ? 'NPC' : asset.type);
 
   // 에셋 타입별 적절한 말풍선 높이 설정 (local Y)
-  const yOffset = asset.type.startsWith('caveman') ? 3.75 : 3.0;
+  const yOffset = asset.type.startsWith('caveman') ? 0.8 : 0.4;
 
   return (
     <group position={[0, 0, 0]} ref={overlayGroupRef}>
@@ -266,6 +270,20 @@ function AssetOverlay({ asset, isPlaying, mode, onSelect }) {
           </div>
         </Html>
       )}
+
+      {/* 퀘스트 마커 (플레이 모드) */}
+      {isPlaying && asset.quest && !completedQuests.includes(asset.quest) && (
+        <Html position={[0, yOffset - 0.3, 0]} center sprite zIndexRange={[100, 0]} distanceFactor={1.5}>
+          <div style={{
+            fontSize: '2.5rem',
+            textShadow: '0 2px 6px rgba(0,0,0,0.6)',
+            pointerEvents: 'none'
+          }}>
+            {activeQuests.find(q => q.assetId === asset.id) ? '❓' : '❗'}
+          </div>
+        </Html>
+      )}
+
       {!isPlaying && (asset.npcName || asset.hasDialogue || asset.bubbleDialogue || asset.roamRadius > 0 || asset.type.startsWith('caveman')) && (
         <Html position={[0, yOffset, 0]} center sprite zIndexRange={[100, 0]} distanceFactor={1.5}>
           <div 
@@ -295,6 +313,11 @@ function NPC({ asset, isPlaying, roaming, mode, onSelect }) {
   const { actions } = useAnimations(animations, clone);
   const npcGroupRef = useRef();
   const walkActionRef = useRef(null);
+  const actionsRef = useRef(null);
+
+  useEffect(() => {
+    actionsRef.current = actions;
+  }, [actions]);
 
   // Check player distance
   useFrame(({ camera }) => {
@@ -315,15 +338,16 @@ function NPC({ asset, isPlaying, roaming, mode, onSelect }) {
 
   // Animation handling
   useEffect(() => {
-    if (!actions || Object.keys(actions).length === 0) return;
+    const mutableActions = actionsRef.current;
+    if (!mutableActions || Object.keys(mutableActions).length === 0) return;
     
-    const actionNames = Object.keys(actions);
+    const actionNames = Object.keys(mutableActions);
     const walkName = actionNames.find(n => n.toLowerCase().includes('walk')) || actionNames.find(n => n.toLowerCase().includes('run'));
-    const walkAction = walkName ? actions[walkName] : null;
+    const walkAction = walkName ? mutableActions[walkName] : null;
     walkActionRef.current = walkAction;
 
     if (roaming && walkAction) {
-      walkAction.timeScale = 0.8; // 자연스러운 보폭 재생 속도
+      walkAction.setEffectiveTimeScale(0.8); // 자연스러운 보폭 재생 속도
       walkAction.reset().fadeIn(0.2).play();
     } else {
       if (walkAction && walkAction.isRunning()) {
@@ -332,7 +356,7 @@ function NPC({ asset, isPlaying, roaming, mode, onSelect }) {
     }
 
     return () => {
-      Object.values(actions).forEach(a => a?.stop());
+      Object.values(mutableActions).forEach(a => a?.stop());
     };
   }, [actions, roaming, isPlaying]);
 
@@ -351,7 +375,7 @@ function MineableAsset({ asset, onInteract, mode, isPlaying, children }) {
   const groupRef = useRef();
   const jiggleTimeRef = useRef(0);
   
-  const { selectedAssetId, heights } = useMapStore();
+  const { selectedAssetId, heightsTop } = useMapStore();
   const isSelected = mode === 'select' && selectedAssetId === id;
   
   const roamRadius = (type.startsWith('caveman') && asset.roamRadius) ? asset.roamRadius : 0;
@@ -372,7 +396,8 @@ function MineableAsset({ asset, onInteract, mode, isPlaying, children }) {
     
     if (['one-way', 'round-trip', 'repeat'].includes(asset.pathMode)) {
       if (asset.pathPoints && asset.pathPoints.length > 0) {
-        setRoaming(true);
+        const startTimer = setTimeout(() => setRoaming(true), 0);
+        return () => clearTimeout(startTimer);
       }
       return;
     }
@@ -444,9 +469,9 @@ function MineableAsset({ asset, onInteract, mode, isPlaying, children }) {
               const nextWorldX = position[0] + nextLocalX;
               const nextWorldZ = position[2] + nextLocalZ;
               
-              if (heights && !isPathMode) {
-                const nextY = getTerrainHeightAt(nextWorldX, nextWorldZ, heights);
-                const currentY = getTerrainHeightAt(position[0] + currentLocalPos.current.x, position[2] + currentLocalPos.current.z, heights);
+              if (heightsTop && !isPathMode) {
+                const nextY = getTerrainHeightAt(nextWorldX, nextWorldZ, heightsTop);
+                const currentY = getTerrainHeightAt(position[0] + currentLocalPos.current.x, position[2] + currentLocalPos.current.z, heightsTop);
                 
                 // 물속(-0.1 미만) 진입 불가 및 급격한 경사(0.5 이상 차이) 진입 불가
                 if (nextY < -0.1 || Math.abs(nextY - currentY) > 0.5) {
@@ -476,7 +501,7 @@ function MineableAsset({ asset, onInteract, mode, isPlaying, children }) {
                   const minDist = myRadius + otherRadius;
                   
                   // Y축 차이 검사 (다른 에셋이 같은 층에 있는지)
-                  const myY = heights ? getTerrainHeightAt(nextWorldX, nextWorldZ, heights) : position[1];
+                  const myY = heightsTop ? getTerrainHeightAt(nextWorldX, nextWorldZ, heightsTop) : position[1];
                   const otherY = other.position[1];
                   if (distSq < minDist * minDist && Math.abs(myY - otherY) < 1.0) {
                     canMove = false;
@@ -538,7 +563,7 @@ function MineableAsset({ asset, onInteract, mode, isPlaying, children }) {
           
           const worldX = position[0] + currentLocalPos.current.x;
           const worldZ = position[2] + currentLocalPos.current.z;
-          const groundY = heights ? getTerrainHeightAt(worldX, worldZ, heights) : position[1];
+          const groundY = heightsTop ? getTerrainHeightAt(worldX, worldZ, heightsTop) : position[1];
           groupRef.current.position.set(worldX, groundY, worldZ);
         }
       } else if (!isPlaying && (roamRadius > 0 || ['one-way', 'round-trip', 'repeat'].includes(asset.pathMode))) {
@@ -622,7 +647,7 @@ function MineableAsset({ asset, onInteract, mode, isPlaying, children }) {
             const rz = Math.sin(theta) * roamRadius * 2;
             const worldX = position[0] + rx;
             const worldZ = position[2] + rz;
-            const y = heights ? getTerrainHeightAt(worldX, worldZ, heights) : position[1];
+            const y = heightsTop ? getTerrainHeightAt(worldX, worldZ, heightsTop) : position[1];
             points.push(new THREE.Vector3(rx, y - position[1] + 0.1, rz));
           }
           return (
@@ -648,13 +673,13 @@ function MineableAsset({ asset, onInteract, mode, isPlaying, children }) {
               const t = j / segments;
               const px = p1.x * (1 - t) + p2.x * t;
               const pz = p1.z * (1 - t) + p2.z * t;
-              const py = heights ? getTerrainHeightAt(px, pz, heights) : p1.y || 0;
+              const py = heightsTop ? getTerrainHeightAt(px, pz, heightsTop) : p1.y || 0;
               points.push(new THREE.Vector3(px - position[0], py - position[1] + 0.2, pz - position[2]));
             }
           }
           if (!isClosed) {
             const lastP = pts[pts.length - 1];
-            const lastPy = heights ? getTerrainHeightAt(lastP.x, lastP.z, heights) : lastP.y || 0;
+            const lastPy = heightsTop ? getTerrainHeightAt(lastP.x, lastP.z, heightsTop) : lastP.y || 0;
             points.push(new THREE.Vector3(lastP.x - position[0], lastPy - position[1] + 0.2, lastP.z - position[2]));
           } else if (points.length > 0) {
             points.push(points[0]); // close the loop for Line component
@@ -706,8 +731,9 @@ function DecalItem({ decal, onErase }) {
 export default function AssetManager() {
   const { mode, assets, decals, removeAsset, updateAsset, removeDecal, isPlaying } = useMapStore();
   const { addItem } = useInventoryStore();
+  const { user } = useAuth();
 
-  const handleInteract = (id, type, isEraseMode) => {
+  const handleInteract = async (id, type, isEraseMode) => {
     if (isEraseMode) {
       removeAsset(id);
     } else {
@@ -716,8 +742,30 @@ export default function AssetManager() {
       } else {
         removeAsset(id);
       }
-      if (type !== 'tree') {
-        addItem(type, 1);
+      
+      const asset = assets.find(a => a.id === id);
+      if (asset && asset.dropItemId) {
+        if (asset.dropItemId === 'money' && user) {
+          try {
+            await supabase.rpc('process_transaction', {
+              p_user_id: user.id,
+              p_amount: asset.dropItemAmount || 1,
+              p_description: '채집 보상',
+              p_type: 'ETC'
+            });
+          } catch(e) {
+            console.error('Money drop failed', e);
+          }
+        } else {
+          addItem(asset.dropItemId, asset.dropItemAmount || 1);
+        }
+      } else {
+        if (type === 'tree') {
+          const treeItems = ['도토리', '나뭇가지', '나무껍질', '나무뿌리'];
+          addItem(treeItems[Math.floor(Math.random() * treeItems.length)], 1);
+        } else {
+          addItem(type, 1);
+        }
       }
     }
   };
@@ -737,21 +785,6 @@ export default function AssetManager() {
     return () => clearInterval(interval);
   }, [isPlaying]);
 
-  useEffect(() => {
-    const handleGlobalJiggle = (e) => {
-      if (!isPlaying) return;
-      const { type } = e.detail;
-      if (type === 'tree') {
-        const items = ['도토리', '나뭇가지', '나무껍질', '나무뿌리'];
-        const randomItem = items[Math.floor(Math.random() * items.length)];
-        addItem(randomItem, 1);
-      }
-    };
-    
-    window.addEventListener('mine-jiggle', handleGlobalJiggle);
-    return () => window.removeEventListener('mine-jiggle', handleGlobalJiggle);
-  }, [isPlaying, addItem]);
-
   const handleEraseDecal = (e, id) => {
     if (mode === 'erase') {
       e.stopPropagation();
@@ -762,6 +795,9 @@ export default function AssetManager() {
   const renderAssetInner = (asset, roaming, handleClick) => {
     if (asset.type.startsWith('caveman')) {
       return <NPC asset={asset} isPlaying={isPlaying} roaming={roaming} mode={mode} onSelect={handleClick} />;
+    }
+    if (asset.type.startsWith('models/')) {
+      return <GenericGLTFAsset url={`/${asset.type}`} />;
     }
     switch(asset.type) {
       case 'tree': return <Tree />;
@@ -796,7 +832,144 @@ export default function AssetManager() {
       {decals.map(decal => (
         <DecalItem key={decal.id} decal={decal} onErase={handleEraseDecal} />
       ))}
+      
+      {useMapStore(state => state.droppedItems).map(item => (
+        <DroppedItem key={item.id} item={item} isPlaying={isPlaying} />
+      ))}
     </>
+  );
+}
+
+function DroppedItem({ item, isPlaying }) {
+  const groupRef = useRef();
+  const collectedRef = useRef(false);
+  const { removeDroppedItem } = useMapStore();
+  const addItem = useInventoryStore(state => state.addItem);
+  
+  useFrame(({ clock, camera }) => {
+    if (!groupRef.current) return;
+    
+    // 둥둥 떠다니는 애니메이션
+    groupRef.current.position.y = item.position[1] + Math.sin(clock.elapsedTime * 3) * 0.2 + 0.5;
+    groupRef.current.rotation.y += 0.02;
+
+    if (isPlaying) {
+      // 카메라(플레이어)와의 거리 계산하여 자동 획득
+      const dist = camera.position.distanceTo(groupRef.current.position);
+      if (dist < 1.5 && !collectedRef.current) { // 획득 반경
+        // Store removal is visible on the next render; prevent another frame
+        // from granting the same dropped entity again in the meantime.
+        collectedRef.current = true;
+        addItem(item.itemId, 1);
+        removeDroppedItem(item.id);
+      }
+    }
+  });
+
+  return (
+    <group ref={groupRef} position={[item.position[0], item.position[1], item.position[2]]}>
+      <Html center sprite zIndexRange={[100, 0]} distanceFactor={3}>
+        <div style={{ fontSize: '2rem', filter: 'drop-shadow(0px 4px 8px rgba(0,0,0,0.5))' }}>
+          {item.icon}
+        </div>
+      </Html>
+    </group>
+  );
+}
+
+function CampfireEffect({ position }) {
+  const flameRef = useRef();
+  const innerFlameRef = useRef();
+  const lightRef = useRef();
+  const smokeRefs = useRef([]);
+
+  useFrame(({ clock }) => {
+    const time = clock.elapsedTime;
+    if (flameRef.current) {
+      flameRef.current.scale.set(
+        0.85 + Math.sin(time * 11) * 0.12,
+        0.9 + Math.sin(time * 8.3) * 0.18,
+        0.85 + Math.cos(time * 9) * 0.1
+      );
+      flameRef.current.rotation.y = time * 1.7;
+    }
+    if (innerFlameRef.current) {
+      innerFlameRef.current.position.y = 0.02 + Math.sin(time * 13) * 0.025;
+      innerFlameRef.current.rotation.y = -time * 2.1;
+    }
+    if (lightRef.current) {
+      lightRef.current.intensity = 2.1 + Math.sin(time * 17) * 0.35 + Math.sin(time * 7) * 0.2;
+    }
+    smokeRefs.current.forEach((smoke, index) => {
+      if (!smoke) return;
+      const cycle = (time * 0.22 + index / 3) % 1;
+      smoke.position.y = 0.35 + cycle * 0.75;
+      smoke.position.x = Math.sin(time * 1.3 + index * 2.4) * 0.07 * cycle;
+      smoke.scale.setScalar(0.04 + cycle * 0.12);
+      smoke.material.opacity = (1 - cycle) * 0.22;
+    });
+  });
+
+  return (
+    <group position={position}>
+      <group ref={flameRef}>
+        <mesh position={[0, 0.23, 0]}>
+          <coneGeometry args={[0.16, 0.48, 8]} />
+          <meshBasicMaterial color="#ff5a0a" transparent opacity={0.82} depthWrite={false} toneMapped={false} />
+        </mesh>
+        <mesh ref={innerFlameRef} position={[0, 0.17, 0.015]}>
+          <coneGeometry args={[0.09, 0.34, 7]} />
+          <meshBasicMaterial color="#ffd84d" transparent opacity={0.95} depthWrite={false} toneMapped={false} />
+        </mesh>
+      </group>
+      {[0, 1, 2].map((index) => (
+        <mesh key={index} ref={(node) => { smokeRefs.current[index] = node; }}>
+          <sphereGeometry args={[1, 8, 8]} />
+          <meshBasicMaterial color="#64748b" transparent opacity={0.15} depthWrite={false} />
+        </mesh>
+      ))}
+      <pointLight ref={lightRef} color="#ff7a18" intensity={2.2} distance={5} decay={2} position={[0, 0.35, 0]} />
+    </group>
+  );
+}
+
+function GenericGLTFAsset({ url }) {
+  const { scene } = useGLTF(url);
+  const isCampfire = /born[_-]?fire/i.test(url);
+  const { clonedScene, modelScale, yOffset, effectPosition } = useMemo(() => {
+    const clonedScene = scene.clone();
+    clonedScene.traverse((child) => {
+      if (child.isMesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+      }
+    });
+
+    // Calculate bounding box to snap the bottom of the asset to the ground
+    clonedScene.position.set(0, 0, 0);
+    clonedScene.scale.set(1, 1, 1);
+    clonedScene.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(clonedScene);
+    const size = box.getSize(new THREE.Vector3());
+    const targetHeight = isCampfire ? 0.4 : 1;
+    const modelScale = !box.isEmpty() && size.y > 0 ? targetHeight / size.y : 1;
+    const center = box.getCenter(new THREE.Vector3());
+
+    return {
+      clonedScene,
+      modelScale,
+      yOffset: box.isEmpty() ? 0 : -box.min.y * modelScale,
+      effectPosition: [center.x * modelScale, targetHeight * 0.38, center.z * modelScale]
+    };
+  }, [scene, isCampfire]);
+
+  return (
+    <group>
+      <group position={[0, yOffset, 0]}>
+        <primitive object={clonedScene} scale={modelScale} />
+      </group>
+      {isCampfire && <CampfireEffect position={effectPosition} />}
+    </group>
   );
 }
 

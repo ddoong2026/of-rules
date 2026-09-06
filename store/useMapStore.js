@@ -25,7 +25,10 @@ const useMapStore = create((set, get) => ({
   // Map Data
   currentMapId: null,
   mapName: '새 맵',
-  heights: new Float32Array(VERTEX_COUNT).fill(0),
+  heightsBase: new Float32Array(VERTEX_COUNT).fill(0),
+  heightsTop: new Float32Array(VERTEX_COUNT).fill(0), // 기본 높이 0
+  heightsBottom: new Float32Array(VERTEX_COUNT).fill(0),
+  heightsWater: new Float32Array(VERTEX_COUNT).fill(-0.01),
   colors: new Float32Array(VERTEX_COUNT * 3).fill(1), // initialized to white or grass
   assets: [], // { id, type, position: [x,y,z] }
   decals: [], // { id, url, position: [x,y,z], scale: [x,y,z] }
@@ -33,12 +36,18 @@ const useMapStore = create((set, get) => ({
   boundaries: [], // { id, start: [x,z], end: [x,z], condition: { type: 'item_count', itemType: 'rock', amount: 5 } }
   boundaryDrawing: null, // { start: [x,z], current: [x,z] }
   spawnPoint: null, // { x, z }
+  customItems: [], // { id, name, type (e.g. 'mineral', 'material', 'quest') }
+  droppedItems: [], // { id, itemId, icon, position: [x,y,z] }
   
+  heights: new Float32Array(VERTEX_COUNT).fill(0), // Legacy single-layer heights
+
   // Fluid Data (Dynamic Water)
   waterSources: [], // { x, z, amount }
 
   // Mini Game State
+  // Mini Game State
   mineMiniGame: { active: false, assetId: null, assetType: null },
+  mathMiniGame: { active: false, questData: null },
   activeDialogue: false,
 
   // Actions
@@ -54,14 +63,27 @@ const useMapStore = create((set, get) => ({
   setCameraMode: (isCameraMode) => set({ isCameraMode }),
   setIsPlaying: (isPlaying) => set({ isPlaying, boundaryDrawing: null }),
   setSunTime: (time) => set({ sunTime: time }),
+  setSpawnPoint: (point) => set({ spawnPoint: point }),
   setMineMiniGame: (active, assetId = null, assetType = null) => set({ mineMiniGame: { active, assetId, assetType } }),
+  setMathMiniGame: (state) => set({ mathMiniGame: { ...get().mathMiniGame, ...state } }),
   setActiveDialogue: (active) => set({ activeDialogue: active }),
-  setSpawnPoint: (pt) => set({ spawnPoint: pt }),
   setTransformMode: (mode) => set({ transformMode: mode }),
   
+  // Update functions
+  updateHeightsBase: (h) => set({ heightsBase: h }),
+  updateHeightsTop: (h) => set({ heightsTop: h }),
+  updateHeightsBottom: (h) => set({ heightsBottom: h }),
+  updateHeightsWater: (h) => set({ heightsWater: h }),
+  updateColors: (c) => set({ colors: c }),
+  updateHeights: (h) => set({ heights: h }), // Legacy update
+
   saveHistory: () => set((state) => {
     const newHistory = [...state.history, { 
-      heights: new Float32Array(state.heights), 
+      heightsBase: new Float32Array(state.heightsBase),
+      heightsTop: new Float32Array(state.heightsTop), 
+      heightsBottom: new Float32Array(state.heightsBottom), 
+      heightsWater: new Float32Array(state.heightsWater),
+      heights: new Float32Array(state.heights), // Legacy
       colors: new Float32Array(state.colors) 
     }];
     if (newHistory.length > 20) newHistory.shift(); // Keep max 20 states
@@ -73,7 +95,11 @@ const useMapStore = create((set, get) => ({
     const newHistory = [...state.history];
     const previousState = newHistory.pop();
     return { 
-      heights: previousState.heights, 
+      heightsBase: previousState.heightsBase,
+      heightsTop: previousState.heightsTop, 
+      heightsBottom: previousState.heightsBottom, 
+      heightsWater: previousState.heightsWater,
+      heights: previousState.heights, // Legacy
       colors: previousState.colors, 
       history: newHistory 
     };
@@ -81,24 +107,77 @@ const useMapStore = create((set, get) => ({
   
   loadMap: (mapData) => {
     // Parse jsonb arrays back to typed arrays
-    const heights = new Float32Array(mapData.heights || VERTEX_COUNT);
-    const colors = new Float32Array(mapData.colors || VERTEX_COUNT * 3);
+    let heightsBase, heightsTop, heightsBottom, heightsWater, heightsLegacy;
     
-    if (!mapData.colors || mapData.colors.length === 0) {
-      // Default to green if no colors
-      for(let i=0; i<VERTEX_COUNT*3; i+=3) {
-        colors[i] = 0.24; // R
-        colors[i+1] = 0.55; // G
-        colors[i+2] = 0.25; // B
+    // Parse Top / Legacy Heights
+    if (mapData.heights && !Array.isArray(mapData.heights) && mapData.heights.top !== undefined) {
+      heightsTop = new Float32Array(mapData.heights.top);
+      heightsLegacy = new Float32Array(mapData.heights.top); // sync for legacy
+    } else if (Array.isArray(mapData.heights)) {
+      heightsTop = new Float32Array(mapData.heights);
+      heightsLegacy = new Float32Array(mapData.heights); // sync for legacy
+    } else {
+      heightsTop = new Float32Array(VERTEX_COUNT).fill(10);
+      heightsLegacy = new Float32Array(VERTEX_COUNT).fill(10);
+    }
+
+    // Parse Base
+    if (mapData.heights && !Array.isArray(mapData.heights) && mapData.heights.base !== undefined) {
+      heightsBase = new Float32Array(mapData.heights.base);
+    } else {
+      heightsBase = new Float32Array(heightsTop); // Fallback to Top heights
+    }
+
+    // Parse Bottom (Cave Ceiling)
+    if (mapData.heights && !Array.isArray(mapData.heights) && mapData.heights.bottom !== undefined) {
+      heightsBottom = new Float32Array(mapData.heights.bottom);
+    } else {
+      heightsBottom = new Float32Array(heightsBase); // Fallback to Base heights (no cave)
+    }
+
+    // Parse Water
+    if (mapData.heights && !Array.isArray(mapData.heights) && mapData.heights.water !== undefined) {
+      heightsWater = new Float32Array(mapData.heights.water);
+      // Migrate legacy water heights from 0 or -0.01 to -0.2
+      for (let i = 0; i < heightsWater.length; i++) {
+        if (Math.abs(heightsWater[i]) < 0.02 || Math.abs(heightsWater[i] - (-0.01)) < 0.02) {
+          heightsWater[i] = -0.2;
+        }
       }
+    } else {
+      heightsWater = new Float32Array(VERTEX_COUNT).fill(-0.2);
+    }
+    
+    // Parse Colors
+    let colors = new Float32Array(VERTEX_COUNT * 3);
+    if (mapData.colors) {
+      colors = new Float32Array(mapData.colors);
+    } else {
+      for (let i = 0; i < VERTEX_COUNT * 3; i += 3) {
+        colors[i] = 0.24; colors[i + 1] = 0.55; colors[i + 2] = 0.25;
+      }
+    }
+
+    // Extract customItems from assets array if present (workaround for DB schema limitation)
+    let actualAssets = mapData.assets || [];
+    let customItems = mapData.customItems || [];
+    
+    const sysAssetIndex = actualAssets.findIndex(a => a.id === '__customItems__');
+    if (sysAssetIndex !== -1) {
+      customItems = actualAssets[sysAssetIndex].data || [];
+      actualAssets = actualAssets.filter(a => a.id !== '__customItems__');
     }
 
     set({
       currentMapId: mapData.id,
-      mapName: mapData.name || '새 맵',
-      heights,
+      mapName: mapData.name,
+      heightsBase,
+      heightsTop,
+      heightsBottom,
+      heightsWater,
+      heights: heightsLegacy,
       colors,
-      assets: mapData.assets || [],
+      assets: actualAssets,
       decals: mapData.decals || [],
       csgOperations: mapData.csgOperations || [],
       boundaries: mapData.boundaries || [],
@@ -106,6 +185,7 @@ const useMapStore = create((set, get) => ({
       selectedBoundaryId: null,
       selectedAssetId: null,
       boundaryDrawing: null,
+      customItems: customItems,
       history: [], // Reset history on load
     });
   },
@@ -118,7 +198,11 @@ const useMapStore = create((set, get) => ({
     set({
       currentMapId: null,
       mapName: '새 맵',
-      heights: new Float32Array(VERTEX_COUNT).fill(0),
+      heightsBase: new Float32Array(VERTEX_COUNT).fill(0),
+      heightsTop: new Float32Array(VERTEX_COUNT).fill(0),
+      heightsBottom: new Float32Array(VERTEX_COUNT).fill(0),
+      heightsWater: new Float32Array(VERTEX_COUNT).fill(-0.2), // 땅(0)보다 0.2 낮게 설정
+      heights: new Float32Array(VERTEX_COUNT).fill(0), // Legacy
       colors,
       assets: [],
       decals: [],
@@ -128,12 +212,20 @@ const useMapStore = create((set, get) => ({
       selectedBoundaryId: null,
       selectedAssetId: null,
       boundaryDrawing: null,
+      customItems: [],
       history: [], // Reset history on new map
     });
   },
 
-  updateHeights: (newHeights) => set({ heights: newHeights }),
+  updateHeightsBase: (newHeights) => set({ heightsBase: newHeights }),
+  updateHeightsTop: (newHeights) => set({ heightsTop: newHeights }),
+  updateHeightsBottom: (newHeights) => set({ heightsBottom: newHeights }),
+  updateHeightsWater: (newHeights) => set({ heightsWater: newHeights }),
   updateColors: (newColors) => set({ colors: newColors }),
+  resetWaterToZero: () => set((state) => {
+    state.saveHistory();
+    return { heightsWater: new Float32Array(VERTEX_COUNT).fill(0) };
+  }),
   
   addAsset: (asset) => set((state) => ({ assets: [...state.assets, asset] })),
   removeAsset: (id) => set((state) => ({ assets: state.assets.filter(a => a.id !== id), selectedAssetId: state.selectedAssetId === id ? null : state.selectedAssetId })),
@@ -159,6 +251,15 @@ const useMapStore = create((set, get) => ({
   
   addCsgOperation: (op) => set((state) => ({ csgOperations: [...state.csgOperations, op] })),
   removeCsgOperation: (id) => set((state) => ({ csgOperations: state.csgOperations.filter(op => op.id !== id) })),
+
+  addCustomItem: (item) => set((state) => ({ customItems: [...state.customItems, item] })),
+  removeCustomItem: (id) => set((state) => ({ customItems: state.customItems.filter(i => i.id !== id) })),
+  updateCustomItem: (id, updates) => set((state) => ({
+    customItems: state.customItems.map(i => i.id === id ? { ...i, ...updates } : i)
+  })),
+
+  addDroppedItem: (item) => set((state) => ({ droppedItems: [...state.droppedItems, item] })),
+  removeDroppedItem: (id) => set((state) => ({ droppedItems: state.droppedItems.filter(i => i.id !== id) }))
 }));
 
 export default useMapStore;

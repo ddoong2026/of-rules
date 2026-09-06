@@ -20,7 +20,11 @@ export default function Login() {
     let finalEmail = identifier.trim();
     // 이메일 형식이 아닌 경우 (학번만 입력한 경우) 자동 변환
     if (!finalEmail.includes('@')) {
-      if (/^\d+$/.test(finalEmail)) {
+      if (/^m\d+$/.test(finalEmail) || /^math\d+$/.test(finalEmail)) {
+        // 수학 체험 전용 계정 (예: m10101 -> m10101@class.com)
+        finalEmail = `${finalEmail}@class.com`;
+      } else if (/^\d+$/.test(finalEmail)) {
+        // 일반 학생 계정 (예: 10101 -> s10101@class.com)
         finalEmail = `s${finalEmail}@class.com`;
       } else {
         finalEmail = `${finalEmail}@class.com`;
@@ -58,7 +62,7 @@ export default function Login() {
               className="glass-input" 
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
-              placeholder="예: 10203"
+              placeholder="예: 10203 (수학체험은 m10203)"
               required
             />
           </div>

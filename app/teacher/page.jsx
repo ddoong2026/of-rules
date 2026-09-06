@@ -5,8 +5,11 @@ import { useAuth } from '@/components/AuthProvider';
 import { supabase } from '@/lib/supabase';
 import ActivityLogsTab from '@/components/Teacher/ActivityLogsTab';
 import EconomyAdminTab from '@/components/Teacher/EconomyAdminTab';
+import QuestLogsTab from '@/components/Teacher/QuestLogsTab';
 import dynamic from 'next/dynamic';
 const MapEditorWorkspace = dynamic(() => import('@/components/MapEditor/MapEditorWorkspace'), { ssr: false });
+const MapEditorLegacyWorkspace = dynamic(() => import('@/components/MapEditorLegacy/MapEditorWorkspace'), { ssr: false });
+const MapEditor2DWorkspace = dynamic(() => import('@/components/MapEditor2D/MapEditor2DWorkspace'), { ssr: false });
 const VoxelEditorWorkspace = dynamic(() => import('@/components/VoxelEditor/VoxelEditorWorkspace'), { ssr: false });
 import styles from './teacher.module.css';
 
@@ -36,6 +39,7 @@ export default function TeacherDashboard() {
   const [isSavingEconomy, setIsSavingEconomy] = useState(false);
 
   // --- Create Tab State ---
+  const [accountType, setAccountType] = useState('NORMAL'); // 'NORMAL' | 'MATH_ONLY'
   const [grade, setGrade] = useState('1');
   const [classNum, setClassNum] = useState('1');
   const [startNum, setStartNum] = useState('1');
@@ -57,7 +61,7 @@ export default function TeacherDashboard() {
     }
   }, [activeTab, role]);
 
-  const fetchEconomyData = async () => {
+  async function fetchEconomyData() {
     const { data: curData } = await supabase.from('settings').select('value').eq('key', 'currency_name').single();
     if (curData) setCurrencyName(curData.value);
 
@@ -106,7 +110,7 @@ export default function TeacherDashboard() {
     }
   };
 
-  const fetchStudents = async () => {
+  async function fetchStudents() {
     setIsLoadingStudents(true);
     const { data, error } = await supabase
       .from('users')
@@ -144,14 +148,25 @@ export default function TeacherDashboard() {
       if (missingArray.includes(i)) continue;
       
       const studentNumberStr = `${grade}${classNum.padStart(2, '0')}${i.toString().padStart(2, '0')}`;
-      const email = `s${studentNumberStr}@class.com`;
-      const name = `${grade}학년 ${classNum}반 ${i}번`;
+      
+      let email, role, namePrefix;
+      if (accountType === 'MATH_ONLY') {
+        email = `m${studentNumberStr}@class.com`;
+        role = 'GUEST_MATH';
+        namePrefix = '[수학체험] ';
+      } else {
+        email = `s${studentNumberStr}@class.com`;
+        role = 'CITIZEN';
+        namePrefix = '';
+      }
+      
+      const name = `${namePrefix}${grade}학년 ${classNum}반 ${i}번`;
       
       usersToCreate.push({
         student_number: parseInt(studentNumberStr, 10),
         name,
         email,
-        role: 'CITIZEN',
+        role,
         department: null
       });
     }
@@ -278,6 +293,12 @@ export default function TeacherDashboard() {
         >
           🗺️ 3D 맵 에디터
         </button>
+        <button 
+          className={`${styles.tabBtn} ${activeTab === 'quest' ? styles.active : ''}`}
+          onClick={() => setActiveTab('quest')}
+        >
+          🎯 학습 현황(퀘스트)
+        </button>
       </div>
 
       <div className={`glass-panel ${styles.panel}`}>
@@ -285,9 +306,16 @@ export default function TeacherDashboard() {
           <>
             <p style={{fontSize: '0.9rem', color: 'var(--danger)', marginBottom: '1.5rem', textAlign: 'center'}}>
               * 초기 발급되는 비밀번호는 <strong>123456</strong> 으로 통일됩니다.<br/>
-              * 이메일은 <code>s[학번]@class.com</code> 형식으로 자동 생성됩니다.
+              * 일반 학생 이메일은 <code>s[학번]@class.com</code>, 수학 체험 계정은 <code>m[학번]@class.com</code> 형식으로 자동 생성됩니다.
             </p>
             <form onSubmit={handleCreateSubmit}>
+              <div className={styles.inputGroup} style={{ marginBottom: '1rem' }}>
+                <label>계정 용도 선택</label>
+                <select className="glass-input" value={accountType} onChange={(e) => setAccountType(e.target.value)}>
+                  <option value="NORMAL">일반 학생 계정 (모든 기능 사용)</option>
+                  <option value="MATH_ONLY">수학 체험 전용 계정 (맵 탐험 기능만 사용)</option>
+                </select>
+              </div>
               <div className={styles.formGrid}>
                 <div className={styles.inputGroup}>
                   <label>학년</label>
@@ -552,15 +580,23 @@ export default function TeacherDashboard() {
           </div>
         )}
         {activeTab === 'logs' && <ActivityLogsTab />}
+        {activeTab === 'quest' && <QuestLogsTab />}
         {activeTab === 'map-editor' && (
           <div className={styles.manageSection} style={{ padding: 0 }}>
             <div style={{ padding: '1rem', background: '#f3f4f6', borderBottom: '1px solid #d1d5db', display: 'flex', gap: '1rem' }}>
               <button 
                 className="glass-button"
+                style={{ background: editorType === 'heightmap_legacy' ? 'var(--primary)' : 'white', color: editorType === 'heightmap_legacy' ? 'white' : 'black' }}
+                onClick={() => setEditorType('heightmap_legacy')}
+              >
+                🗺️ 기본 지형 (이전 버전)
+              </button>
+              <button 
+                className="glass-button"
                 style={{ background: editorType === 'heightmap' ? 'var(--primary)' : 'white', color: editorType === 'heightmap' ? 'white' : 'black' }}
                 onClick={() => setEditorType('heightmap')}
               >
-                🗺️ 둥근 지형 에디터 (기존)
+                ⛰️ 4중 레이어 지형 (동굴 기능)
               </button>
               <button 
                 className="glass-button"
@@ -569,8 +605,18 @@ export default function TeacherDashboard() {
               >
                 🧱 복셀 에디터 (마인크래프트형)
               </button>
+              <button
+                className="glass-button"
+                style={{ background: editorType === '2d' ? 'var(--primary)' : 'white', color: editorType === '2d' ? 'white' : 'black' }}
+                onClick={() => setEditorType('2d')}
+              >
+                🎨 2D 스프라이트 맵
+              </button>
             </div>
-            {editorType === 'heightmap' ? <MapEditorWorkspace /> : <VoxelEditorWorkspace />}
+            {editorType === 'heightmap_legacy' && <MapEditorLegacyWorkspace />}
+            {editorType === 'heightmap' && <MapEditorWorkspace />}
+            {editorType === 'voxel' && <VoxelEditorWorkspace />}
+            {editorType === '2d' && <MapEditor2DWorkspace />}
           </div>
         )}
       </div>

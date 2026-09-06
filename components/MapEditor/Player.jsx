@@ -445,6 +445,7 @@ export default function Player() {
       const { items } = useInventoryStore.getState();
       
       for (const b of boundaries) {
+        if (b.isFarmland) continue;
         let isActive = true;
         if (b.condition && !b.isZone) {
           let currentAmount = 0;

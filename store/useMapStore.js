@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { isInsideFarmland } from '../lib/farmland.mjs';
 
 export const GRID_SIZE = 50;
 export const VERTEX_COUNT = (GRID_SIZE + 1) * (GRID_SIZE + 1);
@@ -41,7 +42,7 @@ const useMapStore = create((set, get) => ({
   activeDialogue: false,
 
   // Actions
-  setMode: (mode) => set({ mode }),
+  setMode: (mode) => set({ mode, boundaryDrawing: null }),
   setMapName: (name) => set({ mapName: name }),
   setBrushSize: (size) => set({ brushSize: size }),
   setBrushIntensity: (intensity) => set({ brushIntensity: intensity }),
@@ -51,7 +52,7 @@ const useMapStore = create((set, get) => ({
   setSelectedBoundaryId: (id) => set({ selectedBoundaryId: id, selectedAssetId: null }),
   setSelectedDecalImage: (url) => set({ selectedDecalImage: url }),
   setCameraMode: (isCameraMode) => set({ isCameraMode }),
-  setIsPlaying: (isPlaying) => set({ isPlaying }),
+  setIsPlaying: (isPlaying) => set({ isPlaying, boundaryDrawing: null }),
   setSunTime: (time) => set({ sunTime: time }),
   setMineMiniGame: (active, assetId = null, assetType = null) => set({ mineMiniGame: { active, assetId, assetType } }),
   setActiveDialogue: (active) => set({ activeDialogue: active }),
@@ -102,6 +103,9 @@ const useMapStore = create((set, get) => ({
       csgOperations: mapData.csgOperations || [],
       boundaries: mapData.boundaries || [],
       spawnPoint: mapData.spawnPoint || null,
+      selectedBoundaryId: null,
+      selectedAssetId: null,
+      boundaryDrawing: null,
       history: [], // Reset history on load
     });
   },
@@ -121,6 +125,9 @@ const useMapStore = create((set, get) => ({
       csgOperations: [],
       boundaries: [],
       spawnPoint: null,
+      selectedBoundaryId: null,
+      selectedAssetId: null,
+      boundaryDrawing: null,
       history: [], // Reset history on new map
     });
   },
@@ -137,6 +144,8 @@ const useMapStore = create((set, get) => ({
   addDecal: (decal) => set((state) => ({ decals: [...state.decals, decal] })),
   removeDecal: (id) => set((state) => ({ decals: state.decals.filter(d => d.id !== id) })),
   
+  canFarmAt: (x, z) => isInsideFarmland(get().boundaries, x, z),
+
   addBoundary: (boundary) => set((state) => ({ boundaries: [...state.boundaries, boundary] })),
   removeBoundary: (id) => set((state) => ({ boundaries: state.boundaries.filter(b => b.id !== id), selectedBoundaryId: state.selectedBoundaryId === id ? null : state.selectedBoundaryId })),
   updateBoundary: (id, updates) => set((state) => ({

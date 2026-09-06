@@ -122,12 +122,21 @@ export default function EditorUI({ onSave, isSaving }) {
           <ModeButton current={mode} id="asset" label="🌲 에셋 배치" onClick={() => setMode('asset')} />
           <ModeButton current={mode} id="decal" label="🛣️ 도로/타일" onClick={() => setMode('decal')} />
           <ModeButton current={mode} id="boundary" label="🚧 경계선" onClick={() => setMode('boundary')} />
+          <ModeButton current={mode} id="farmland" label="🌾 농경 구역" onClick={() => setMode('farmland')} />
           <ModeButton current={mode} id="zone" label="🌟 이벤트 구역" onClick={() => setMode('zone')} />
           <ModeButton current={mode} id="spawn" label="🚩 스폰 위치" onClick={() => setMode('spawn')} />
           <ModeButton current={mode} id="erase" label="🗑️ 지우개" onClick={() => setMode('erase')} />
           <ModeButton current={mode === 'selectTarget' || mode === 'drawPath' ? 'select' : mode} id="select" label="🖱️ 선택/편집" onClick={() => setMode('select')} />
         </div>
       </div>
+
+      {mode === 'farmland' && (
+        <div style={{ padding: '1rem', background: '#ecfdf5', borderRadius: '6px', color: '#166534', fontSize: '0.85rem' }}>
+          <strong>신석기 시대 · 농사 가능 지역</strong>
+          <p>마우스를 누른 채 농사 가능한 땅의 둘레를 그려주세요. 놓으면 시작점과 끝점이 자동으로 연결됩니다. 선이 서로 교차하지 않게 그려주세요.</p>
+          <p>초록색 선 안쪽이 농사 가능 지역입니다. 선택/편집으로 이름을 바꾸거나 삭제할 수 있습니다. 설정 후 맵을 저장해주세요.</p>
+        </div>
+      )}
 
       {/* Brush Settings (Sculpt, Dig, Carve, Flatten & Paint) */}
       {(mode === 'sculpt' || mode === 'dig' || mode === 'carve' || mode === 'flatten' || mode === 'paint') && (
@@ -312,6 +321,20 @@ function PropertyEditor() {
     const boundary = boundaries.find(b => b.id === selectedBoundaryId);
     if (!boundary) return <div style={{ fontSize: '0.8rem', color: '#ef4444' }}>찾을 수 없습니다.</div>;
     
+    if (boundary.isFarmland) {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', color: '#166534' }}>
+          <strong>🌾 농경 구역 설정</strong>
+          <label>구역 이름
+            <input value={boundary.name || ''} onChange={(e) => updateBoundary(boundary.id, { name: e.target.value })} style={{ width: '100%', padding: '0.5rem', boxSizing: 'border-box' }} />
+          </label>
+          <p style={{ fontSize: '0.85rem' }}>초록색 선으로 둘러싸인 땅을 농사 가능 지역으로 지정합니다. 캐릭터는 자유롭게 통과할 수 있습니다. 모양을 바꾸려면 삭제 후 다시 그려주세요.</p>
+          <button onClick={() => removeBoundary(boundary.id)}>농경 구역 삭제</button>
+          <button onClick={() => setSelectedBoundaryId(null)}>선택 해제</button>
+        </div>
+      );
+    }
+
     if (boundary.isZone) {
       return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', marginTop: '1rem' }}>

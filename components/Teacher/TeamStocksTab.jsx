@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import styles from './TeamStocksTab.module.css';
 
 export default function TeamStocksTab() {
   const [teams, setTeams] = useState([]);
@@ -62,19 +63,18 @@ export default function TeamStocksTab() {
     if (error) return alert(error.message); load();
   };
 
-  return <div>
-    <h3 style={{ color: 'var(--primary)' }}>모둠 주식 · 배당 관리</h3>
-    <p>모둠 코드는 독서오름나무의 모둠 코드와 정확히 같아야 합니다. 경험치 1은 배당 재원 1로 적립됩니다.</p>
-    <form onSubmit={createTeam} style={{ display: 'flex', gap: '0.5rem', margin: '1rem 0' }}>
+  return <div className={styles.layout}>
+    <div className={styles.intro}><h3>모둠 주식 · 배당 관리</h3><p>모둠 코드는 독서오름나무의 모둠 코드와 정확히 같아야 합니다. 경험치 1은 배당 재원 1로 적립됩니다.</p></div>
+    <form onSubmit={createTeam} className={styles.createForm}>
       <input className="glass-input" value={name} onChange={e => setName(e.target.value)} placeholder="모둠 이름" required />
       <input className="glass-input" value={code} onChange={e => setCode(e.target.value)} placeholder="코드 (예: G1)" required />
       <button className="glass-button" type="submit">모둠 만들기</button>
     </form>
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(180px,1fr))', gap: '0.75rem', marginBottom: '1rem' }}>
-      {teams.map(team => <div key={team.id} className="glass-panel" style={{ padding: '0.75rem' }}><b>{team.name}</b> ({team.code})<br />배당 재원: {team.dividend_pool}<div style={{display:'flex',gap:'0.4rem',marginTop:'0.5rem'}}><button onClick={()=>issue(team)}>초기 주식 발행</button><button onClick={()=>adjustPool(team)}>재원 조정</button><button onClick={()=>payDividend(team)}>배당 지급</button></div></div>)}
+    <div className={styles.teamGrid}>
+      {teams.map(team => <div key={team.id} className={styles.teamCard}><div className={styles.teamName}>{team.name} <span className={styles.code}>({team.code})</span></div><div className={styles.pool}>배당 재원 {team.dividend_pool.toLocaleString()}</div><div className={styles.actions}><button className="glass-button" onClick={()=>issue(team)}>초기 주식 발행</button><button className="glass-button" onClick={()=>adjustPool(team)}>재원 조정</button><button className="glass-button" onClick={()=>payDividend(team)}>배당 지급</button></div></div>)}
     </div>
-    <table style={{ width: '100%' }}><thead><tr><th>학번</th><th>학생</th><th>모둠 배정</th></tr></thead><tbody>
-      {students.map(student => <tr key={student.id}><td>{student.student_number}</td><td>{student.name}</td><td><select value={student.teamId} onChange={e => assign(student.id, e.target.value)}><option value="">미배정</option>{teams.map(team => <option key={team.id} value={team.id}>{team.name} ({team.code})</option>)}</select></td></tr>)}
-    </tbody></table>
+    <section className={styles.studentPanel}><h4>학생 모둠 배정</h4><div className={styles.tableWrap}><table className={styles.table}><thead><tr><th>학번</th><th>학생</th><th>모둠 배정</th></tr></thead><tbody>
+      {students.map(student => <tr key={student.id}><td>{student.student_number}</td><td>{student.name}</td><td><select className={styles.select} value={student.teamId} onChange={e => assign(student.id, e.target.value)}><option value="">미배정</option>{teams.map(team => <option key={team.id} value={team.id}>{team.name} ({team.code})</option>)}</select></td></tr>)}
+    </tbody></table></div></section>
   </div>;
 }

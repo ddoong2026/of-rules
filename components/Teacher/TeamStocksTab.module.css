@@ -1,0 +1,20 @@
+.layout { max-width: 1100px; margin: 0 auto; display: grid; gap: 1.5rem; }
+.intro h3 { margin: 0 0 .4rem; color: var(--primary); font-size: 1.4rem; }
+.intro p { margin: 0; color: var(--text-muted); }
+.createForm { display: grid; grid-template-columns: minmax(180px, 1fr) 150px auto; gap: .75rem; align-items: end; }
+.teamGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1rem; }
+.teamCard { padding: 1.1rem; border: 1px solid var(--border-color); border-radius: 14px; background: rgba(255,255,255,.55); }
+.teamName { font-size: 1.05rem; font-weight: 700; }
+.code { color: var(--text-muted); font-size: .85rem; }
+.pool { margin: .65rem 0 .9rem; color: var(--primary); font-weight: 700; }
+.actions { display: flex; flex-wrap: wrap; gap: .45rem; }
+.actions button { padding: .45rem .65rem; font-size: .82rem; }
+.studentPanel { overflow: hidden; border: 1px solid var(--border-color); border-radius: 14px; background: rgba(255,255,255,.5); }
+.studentPanel h4 { margin: 0; padding: 1rem 1.15rem; border-bottom: 1px solid var(--border-color); }
+.tableWrap { overflow-x: auto; }
+.table { width: 100%; border-collapse: collapse; min-width: 520px; }
+.table th, .table td { padding: .75rem 1rem; text-align: left; border-bottom: 1px solid var(--border-color); }
+.table th { background: rgba(255,255,255,.65); color: var(--text-muted); font-size: .85rem; }
+.table tr:last-child td { border-bottom: 0; }
+.select { min-width: 150px; padding: .4rem .5rem; border: 1px solid var(--border-color); border-radius: 7px; background: white; }
+@media (max-width: 640px) { .createForm { grid-template-columns: 1fr; } }

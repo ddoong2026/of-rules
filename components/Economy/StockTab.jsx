@@ -6,14 +6,15 @@ import { useAuth } from '@/components/AuthProvider';
 
 export default function StockTab() {
   const { user, currency, role, refreshUser } = useAuth();
-  const [stocks, setStocks] = useState([]); const [holdings, setHoldings] = useState([]); const [orders, setOrders] = useState([]);
+  const [stocks, setStocks] = useState([]); const [holdings, setHoldings] = useState([]); const [orders, setOrders] = useState([]); const [overview, setOverview] = useState([]);
   const load = async () => {
-    const [a,b,c] = await Promise.all([
+    const [a,b,c,d] = await Promise.all([
       supabase.from('stocks').select('*, stock_teams(name,code,dividend_pool)').not('team_id','is',null).order('name'),
       supabase.from('user_stocks').select('*, stocks(name,current_price,team_id)').eq('user_id',user.id),
       supabase.from('stock_orders').select('*, stocks(name)').eq('user_id',user.id).eq('status','OPEN').order('created_at',{ascending:false})
+      ,supabase.rpc('get_team_stock_overview')
     ]);
-    setStocks(a.data || []); setHoldings(b.data || []); setOrders(c.data || []);
+    setStocks(a.data || []); setHoldings(b.data || []); setOrders(c.data || []); setOverview(d.data || []);
   };
   useEffect(() => { if (user) load(); }, [user]);
   const order = async (stock, side) => {
@@ -33,6 +34,7 @@ export default function StockTab() {
       <div style={{display:'flex',gap:'0.5rem'}}><button className="glass-button" disabled={role?.role==='GUEST_MATH'} onClick={()=>order(stock,'BUY')}>매수 주문</button><button className="glass-button" disabled={role?.role==='GUEST_MATH'} onClick={()=>order(stock,'SELL')}>매도 주문</button></div>
     </div>)}</div>
     <div className="glass-panel" style={{padding:'1rem'}}><h3>💼 내 보유 주식</h3>{holdings.length ? holdings.map(h => <p key={h.id}>{h.stocks?.name}: <b>{h.quantity}주</b> · 평단 {Math.round(h.average_price)} · 평가 {Math.round(h.quantity*h.stocks.current_price).toLocaleString()} {currency}</p>) : <p>보유 주식이 없습니다.</p>}</div>
+    <div className="glass-panel" style={{padding:'1rem'}}><h3>👥 모둠 주주 · 배당 현황</h3><div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(240px,1fr))',gap:'1rem'}}>{overview.map(team => <div key={team.team_id} style={{padding:'1rem',border:'1px solid var(--border-color)',borderRadius:'10px'}}><b>{team.name}</b> <small>({team.code})</small><p>발행 {team.issued_shares}주 · 보유 {team.total_held}주<br/>배당 재원 {team.dividend_pool.toLocaleString()} {currency}<br/>예상 1주 배당 {team.estimated_dividend_per_share.toLocaleString()} {currency}</p><details><summary>주주 {team.shareholders.length}명 보기</summary>{team.shareholders.length ? <ul>{team.shareholders.map(owner=><li key={owner.student_number}>{owner.name} · {owner.quantity}주</li>)}</ul> : <p>아직 주주가 없습니다.</p>}</details></div>)}</div></div>
     <div className="glass-panel" style={{padding:'1rem'}}><h3>🧾 내 미체결 주문</h3>{orders.length ? orders.map(o => <p key={o.id}>{o.stocks?.name} {o.side==='BUY'?'매수':'매도'} {o.remaining_quantity}주 @ {o.limit_price} <button onClick={()=>cancel(o.id)}>취소</button></p>) : <p>미체결 주문이 없습니다.</p>}</div>
   </div>;
 }

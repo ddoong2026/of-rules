@@ -11,6 +11,8 @@
 .actions button { padding: .45rem .65rem; font-size: .82rem; }
 .studentPanel { overflow: hidden; border: 1px solid var(--border-color); border-radius: 14px; background: rgba(255,255,255,.5); }
 .studentPanel h4 { margin: 0; padding: 1rem 1.15rem; border-bottom: 1px solid var(--border-color); }
+.bulkBar { display: flex; align-items: center; gap: .7rem; flex-wrap: wrap; padding: .8rem 1.15rem; background: rgba(255,255,255,.35); border-bottom: 1px solid var(--border-color); }
+.bulkBar span { color: var(--text-muted); font-size: .9rem; margin-right: auto; }
 .tableWrap { overflow-x: auto; }
 .table { width: 100%; border-collapse: collapse; min-width: 520px; }
 .table th, .table td { padding: .75rem 1rem; text-align: left; border-bottom: 1px solid var(--border-color); }

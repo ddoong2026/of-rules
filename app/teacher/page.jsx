@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import ActivityLogsTab from '@/components/Teacher/ActivityLogsTab';
 import EconomyAdminTab from '@/components/Teacher/EconomyAdminTab';
 import QuestLogsTab from '@/components/Teacher/QuestLogsTab';
+import TeamStocksTab from '@/components/Teacher/TeamStocksTab';
 import dynamic from 'next/dynamic';
 const MapEditorWorkspace = dynamic(() => import('@/components/MapEditor/MapEditorWorkspace'), { ssr: false });
 const MapEditorLegacyWorkspace = dynamic(() => import('@/components/MapEditorLegacy/MapEditorWorkspace'), { ssr: false });
@@ -280,6 +281,9 @@ export default function TeacherDashboard() {
           onClick={() => setActiveTab('economy')}
         >
           💰 경제 관리
+        </button>
+        <button className={`${styles.tabBtn} ${activeTab === 'team-stocks' ? styles.active : ''}`} onClick={() => setActiveTab('team-stocks')}>
+          📈 모둠 주식
         </button>
         <button 
           className={`${styles.tabBtn} ${activeTab === 'logs' ? styles.active : ''}`}
@@ -579,6 +583,7 @@ export default function TeacherDashboard() {
             <EconomyAdminTab />
           </div>
         )}
+        {activeTab === 'team-stocks' && <TeamStocksTab />}
         {activeTab === 'logs' && <ActivityLogsTab />}
         {activeTab === 'quest' && <QuestLogsTab />}
         {activeTab === 'map-editor' && (

@@ -1,0 +1,23 @@
+.page { display: grid; gap: 1.5rem; }
+.hero { padding: 1.5rem; text-align: center; background: linear-gradient(135deg, rgba(99,102,241,.16), rgba(16,185,129,.13)); }
+.hero h2 { color: var(--primary); font-size: 1.65rem; margin-bottom: .35rem; }
+.hero p { color: var(--text-muted); font-size: .95rem; }
+.stockGrid, .overviewGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1rem; }
+.stockCard { padding: 1.15rem; position: relative; overflow: hidden; }
+.stockCard::after { content:'🌱'; position:absolute; right: .8rem; top:.55rem; font-size: 1.6rem; opacity:.35; }
+.teamTitle { font-weight: 700; font-size: 1.08rem; }
+.code { color: var(--text-muted); font-size:.82rem; }
+.price { color: var(--primary); font-size: 1.55rem; margin: .45rem 0; }
+.facts { color: var(--text-muted); font-size: .88rem; line-height: 1.7; }
+.tradeButtons { display: flex; gap: .55rem; margin-top: .9rem; }
+.buy, .sell { flex: 1; color: white; border: 0; }
+.buy { background: var(--secondary); }.sell { background: #f97316; }
+.section { padding: 1.2rem; }.section h3 { color: var(--primary); font-size: 1.12rem; margin-bottom: .8rem; }
+.empty { color: var(--text-muted); text-align: center; padding: .8rem; }
+.holding { padding: .75rem; border-radius: 10px; background: rgba(255,255,255,.42); margin-top: .5rem; }
+.overviewCard { padding: 1rem; border: 1px solid var(--border-color); border-radius: 13px; background: rgba(255,255,255,.42); }
+.overviewCard p { margin: .55rem 0; color: var(--text-muted); font-size:.9rem; line-height:1.65; }
+.overviewCard summary { cursor:pointer; color:var(--primary); font-weight:600; }.overviewCard ul { margin: .5rem 0 0 1.1rem; font-size:.88rem; }
+.order { display:flex; align-items:center; gap:.7rem; padding:.7rem 0; border-bottom:1px dashed var(--border-solid); font-size:.9rem; }.order:last-child { border-bottom:0; }
+.cancel { margin-left:auto; padding:.35rem .6rem; border:0; border-radius:7px; background:#fee2e2; color:#b91c1c; cursor:pointer; }
+@media (max-width: 520px) { .hero { padding:1.1rem; }.hero h2{font-size:1.35rem;} }

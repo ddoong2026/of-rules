@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/components/AuthProvider';
+import styles from './StockTab.module.css';
 
 export default function StockTab() {
   const { user, currency, role, refreshUser } = useAuth();
@@ -26,15 +27,15 @@ export default function StockTab() {
   };
   const cancel = async (id) => { await supabase.rpc('cancel_team_stock_order',{p_order_id:id}); load(); };
   if (!user) return null;
-  return <div style={{display:'grid',gap:'1.25rem'}}>
-    <div><h2 style={{color:'var(--primary)'}}>📈 모둠 주식 거래소</h2><p>가격은 마지막 실제 체결가입니다. 매수·매도 희망 가격이 만날 때만 거래됩니다.</p></div>
-    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(230px,1fr))',gap:'1rem'}}>{stocks.map(stock => <div className="glass-panel" key={stock.id} style={{padding:'1rem'}}>
-      <b>{stock.stock_teams?.name}</b> <small>({stock.stock_teams?.code})</small><h3>{stock.current_price.toLocaleString()} {currency}</h3>
-      <p style={{fontSize:'0.85rem'}}>배당 재원: {stock.stock_teams?.dividend_pool?.toLocaleString() || 0} {currency}<br/>발행 주식: {stock.issued_shares}주</p>
-      <div style={{display:'flex',gap:'0.5rem'}}><button className="glass-button" disabled={role?.role==='GUEST_MATH'} onClick={()=>order(stock,'BUY')}>매수 주문</button><button className="glass-button" disabled={role?.role==='GUEST_MATH'} onClick={()=>order(stock,'SELL')}>매도 주문</button></div>
+  return <div className={styles.page}>
+    <div className={`glass-panel ${styles.hero}`}><h2>🌟 우리 모둠 응원 투자소</h2><p>친구들의 노력으로 배당 재원이 쌓여요. 원하는 가격이 만나면 거래가 이루어져요.</p></div>
+    <div className={styles.stockGrid}>{stocks.map(stock => <div className={`glass-panel ${styles.stockCard}`} key={stock.id}>
+      <div className={styles.teamTitle}>{stock.stock_teams?.name} <span className={styles.code}>({stock.stock_teams?.code})</span></div><h3 className={styles.price}>{stock.current_price.toLocaleString()} {currency}</h3>
+      <p className={styles.facts}>🍀 배당 재원 {stock.stock_teams?.dividend_pool?.toLocaleString() || 0} {currency}<br/>🎟️ 발행 주식 {stock.issued_shares}주</p>
+      <div className={styles.tradeButtons}><button className={`glass-button ${styles.buy}`} disabled={role?.role==='GUEST_MATH'} onClick={()=>order(stock,'BUY')}>응원 주식 사기</button><button className={`glass-button ${styles.sell}`} disabled={role?.role==='GUEST_MATH'} onClick={()=>order(stock,'SELL')}>주식 팔기</button></div>
     </div>)}</div>
-    <div className="glass-panel" style={{padding:'1rem'}}><h3>💼 내 보유 주식</h3>{holdings.length ? holdings.map(h => <p key={h.id}>{h.stocks?.name}: <b>{h.quantity}주</b> · 평단 {Math.round(h.average_price)} · 평가 {Math.round(h.quantity*h.stocks.current_price).toLocaleString()} {currency}</p>) : <p>보유 주식이 없습니다.</p>}</div>
-    <div className="glass-panel" style={{padding:'1rem'}}><h3>👥 모둠 주주 · 배당 현황</h3><div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(240px,1fr))',gap:'1rem'}}>{overview.map(team => <div key={team.team_id} style={{padding:'1rem',border:'1px solid var(--border-color)',borderRadius:'10px'}}><b>{team.name}</b> <small>({team.code})</small><p>발행 {team.issued_shares}주 · 보유 {team.total_held}주<br/>배당 재원 {team.dividend_pool.toLocaleString()} {currency}<br/>예상 1주 배당 {team.estimated_dividend_per_share.toLocaleString()} {currency}</p><details><summary>주주 {team.shareholders.length}명 보기</summary>{team.shareholders.length ? <ul>{team.shareholders.map(owner=><li key={owner.student_number}>{owner.name} · {owner.quantity}주</li>)}</ul> : <p>아직 주주가 없습니다.</p>}</details></div>)}</div></div>
-    <div className="glass-panel" style={{padding:'1rem'}}><h3>🧾 내 미체결 주문</h3>{orders.length ? orders.map(o => <p key={o.id}>{o.stocks?.name} {o.side==='BUY'?'매수':'매도'} {o.remaining_quantity}주 @ {o.limit_price} <button onClick={()=>cancel(o.id)}>취소</button></p>) : <p>미체결 주문이 없습니다.</p>}</div>
+    <div className={`glass-panel ${styles.section}`}><h3>🎒 내가 가진 응원 주식</h3>{holdings.length ? holdings.map(h => <div className={styles.holding} key={h.id}>{h.stocks?.name}: <b>{h.quantity}주</b> · 산 가격 {Math.round(h.average_price)} · 지금 가치 {Math.round(h.quantity*h.stocks.current_price).toLocaleString()} {currency}</div>) : <p className={styles.empty}>아직 가진 주식이 없어요. 마음에 드는 모둠을 응원해 보세요!</p>}</div>
+    <div className={`glass-panel ${styles.section}`}><h3>👥 모둠 친구들과 배당 소식</h3><div className={styles.overviewGrid}>{overview.map(team => <div key={team.team_id} className={styles.overviewCard}><b>{team.name}</b> <span className={styles.code}>({team.code})</span><p>🎟️ 발행 {team.issued_shares}주 · 친구들이 가진 주식 {team.total_held}주<br/>🍀 모인 배당 {team.dividend_pool.toLocaleString()} {currency}<br/>🎁 지금 나누면 1주당 약 {team.estimated_dividend_per_share.toLocaleString()} {currency}</p><details><summary>주주 {team.shareholders.length}명 보기</summary>{team.shareholders.length ? <ul>{team.shareholders.map(owner=><li key={owner.student_number}>{owner.name} · {owner.quantity}주</li>)}</ul> : <p>아직 주주가 없어요.</p>}</details></div>)}</div></div>
+    <div className={`glass-panel ${styles.section}`}><h3>⏳ 기다리는 내 주문</h3>{orders.length ? orders.map(o => <div className={styles.order} key={o.id}>{o.stocks?.name} {o.side==='BUY'?'사기':'팔기'} {o.remaining_quantity}주 · {o.limit_price} {currency}<button className={styles.cancel} onClick={()=>cancel(o.id)}>주문 취소</button></div>) : <p className={styles.empty}>기다리는 주문이 없어요.</p>}</div>
   </div>;
 }

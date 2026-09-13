@@ -1,0 +1,11 @@
+{
+  "source": "character-base.glb",
+  "output": "character-web.glb",
+  "vertices": 2620,
+  "polygons": 5159,
+  "height_m": 1.6,
+  "textures": 0,
+  "rigged": false,
+  "review": "geometry inspected; costume and colors pending",
+  "bytes": 399352
+}

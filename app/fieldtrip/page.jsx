@@ -44,6 +44,11 @@ export default function FieldTripPage() {
       <h1 style={{ color: 'var(--primary)', marginBottom: '1rem', fontSize: '2rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
         🚀 수학이란 무엇인가
       </h1>
+      <Link href="/fieldtrip/history" className="glass-panel" style={{ display: 'block', padding: '1.5rem', marginBottom: '1.5rem', background: '#173f36', color: 'white' }}>
+        <small>새로운 탐구 수업 · 기존 학급 계정 연동</small>
+        <h2 style={{ fontSize: '1.6rem', margin: '0.4rem 0' }}>역사 탐구 교실 →</h2>
+        <p>관찰에서 시작해, 옛사람의 하루를 기록하다</p>
+      </Link>
       
       <div className="glass-panel" style={{ padding: '2rem', minHeight: '60vh' }}>
         <h2 style={{ fontSize: '1.5rem', color: '#4b5563', marginBottom: '1.5rem' }}>

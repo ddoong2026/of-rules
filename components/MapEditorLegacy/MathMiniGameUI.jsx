@@ -117,7 +117,7 @@ export default function MathMiniGameUI() {
         // Consume items on first correct answer if not already consumed
         if (isAccepted.requireItem && isAccepted.consumeItem !== false && !isAccepted.itemsConsumed) {
           consumeItem(isAccepted.requireItem, isAccepted.requireAmount);
-          useInventoryStore.getState().updateActiveQuest(activeAsset.id, { itemsConsumed: true });
+          useInventoryStore.getState().updateActiveQuest(activeAsset.id, isAccepted.questId || isAccepted.title, { itemsConsumed: true });
         }
 
         // Give partial reward if PER_PROBLEM
@@ -146,7 +146,7 @@ export default function MathMiniGameUI() {
           // Move to next problem
           if (isAccepted.originalType === 'RANDOM_MATH') {
             const newParams = generateMathProblem(isAccepted.mathObject);
-            useInventoryStore.getState().updateActiveQuest(activeAsset.id, {
+            useInventoryStore.getState().updateActiveQuest(activeAsset.id, isAccepted.questId || isAccepted.title, {
               mathSolvedCount: solvedCount,
               title: newParams.title,
               mathType: newParams.type,
@@ -171,7 +171,7 @@ export default function MathMiniGameUI() {
             alert(`정답입니다! (${solvedCount}/${problemCount} 완료)\n다음 문제로 넘어갑니다.`);
             setMathAnswer('');
           } else {
-            useInventoryStore.getState().updateActiveQuest(activeAsset.id, { mathSolvedCount: solvedCount });
+            useInventoryStore.getState().updateActiveQuest(activeAsset.id, isAccepted.questId || isAccepted.title, { mathSolvedCount: solvedCount });
             setMathMiniGame({
               active: true,
               questData: {
@@ -214,12 +214,12 @@ export default function MathMiniGameUI() {
                 user_id: user.id,
                 action_type: 'QUEST_COMPLETED',
                 description: `퀘스트 완료: ${isAccepted.title}`,
-                details: { map_id: currentMapId, asset_id: activeAsset.id, title: isAccepted.title, reward: isAccepted.rewardItem }
+                details: { map_id: currentMapId, asset_id: activeAsset.id, quest_id: questId, title: isAccepted.title, reward: isAccepted.rewardItem }
               }]);
             } catch (e) {}
           }
 
-          completeQuest(activeAsset.id);
+          completeQuest(activeAsset.id, isAccepted.questId || isAccepted.title);
           addCompletedQuest(questId);
           // Auto close without alert, wait for success animation
           setMathMiniGame({ active: false, questData: null });

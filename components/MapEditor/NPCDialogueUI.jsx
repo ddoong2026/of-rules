@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { getQuestId, isQuestCompleted, matchesActiveQuest } from '@/lib/questIdentity.mjs';
 import useMapStore from '@/store/useMapStore';
 import useInventoryStore from '@/store/useInventoryStore';
 import { supabase } from '@/lib/supabase';
@@ -231,8 +232,7 @@ export default function NPCDialogueUI() {
 
             // Find current quest
             const currentQuestIndex = npcQuests.findIndex((q, idx) => {
-              const questId = q.type === 'RANDOM_MATH' ? `random_math_${activeAsset.id}_${idx}` : q.title;
-              return !completedQuests.includes(questId);
+              return !isQuestCompleted(completedQuests, currentMapId, activeAsset.id, npcQuests, idx);
             });
             
             if (currentQuestIndex === -1) {
@@ -253,8 +253,8 @@ export default function NPCDialogueUI() {
             }
 
             const currentQuest = npcQuests[currentQuestIndex];
-            const questId = currentQuest.type === 'RANDOM_MATH' ? `random_math_${activeAsset.id}_${currentQuestIndex}` : currentQuest.title;
-            const isAccepted = activeQuests.find(q => q.assetId === activeAsset.id && (q.questId === questId || (!q.questId && q.title === currentQuest.title)));
+            const questId = getQuestId(currentMapId, activeAsset.id, currentQuest, currentQuestIndex);
+            const isAccepted = activeQuests.find(q => matchesActiveQuest(q, currentMapId, activeAsset.id, currentQuest, currentQuestIndex));
 
             let questToRender = currentQuest;
 
@@ -285,6 +285,7 @@ export default function NPCDialogueUI() {
                           e.stopPropagation();
                           const accepted = acceptQuest({
                             assetId: activeAsset.id,
+                            mapId: currentMapId,
                             questId: questId,
                             title: currentQuest.title,
                             description: currentQuest.description,
@@ -366,11 +367,11 @@ export default function NPCDialogueUI() {
                           user_id: user.id,
                           action_type: 'QUEST_COMPLETED',
                           description: `퀘스트 완료: ${isAccepted.title}`,
-                          details: { map_id: currentMapId, asset_id: activeAsset.id, title: isAccepted.title, reward: isAccepted.rewardItem }
+                          details: { map_id: currentMapId, asset_id: activeAsset.id, quest_id: questId, title: isAccepted.title, reward: isAccepted.rewardItem }
                         }]);
                       }
 
-                      completeQuest(activeAsset.id);
+                      completeQuest(activeAsset.id, isAccepted.questId || isAccepted.title);
                       addCompletedQuest(questId);
                       alert('퀘스트를 완료하고 보상을 받았습니다!');
                       closeDialogue();
@@ -388,9 +389,9 @@ export default function NPCDialogueUI() {
                                   activeAsset,
                                   isAccepted,
                                   questId,
-                                  currentQuestIndex: activeAsset.quests.findIndex(q => q.title === (isAccepted.originalTitle || isAccepted.title)),
+                                  currentQuestIndex,
                                   hasItems,
-                                  randomMathParams: randomMathParams[activeAsset.quests.findIndex(q => q.title === (isAccepted.originalTitle || isAccepted.title))]
+                                  randomMathParams: randomMathParams[currentQuestIndex]
                                 }
                               });
                               setActiveDialogue(false);

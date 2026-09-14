@@ -28,6 +28,11 @@
 .notice { border:1px solid #e6cf9b; background:#fff6df; border-radius:10px; padding:14px 18px; margin:16px 0; font-size:14px; }
 .error { background:#fff0ee; color:#943c31; padding:14px; border-radius:8px; margin:12px 0; }
 .grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+.observationGrid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; width:100%; max-width:max(360px,calc(150dvh - 690px)); }
+.inSession { padding-top:14px; }
+.inSession .header { margin:10px 0 16px; }
+.inSession .header h1 { font-size:28px; }
+.inSession .header .eyebrow { margin:0; }
 .picture { position:relative; aspect-ratio:1.5; overflow:hidden; background:#e7e8d9; border:1px solid #cbd1bd; border-radius:10px; touch-action:none; }
 .picture:focus-visible { outline:3px solid #b78939; }
 .pictureContent { position:absolute; inset:0; transform-origin:0 0; background:linear-gradient(145deg,#d9e2ce,#eee4c8); }
@@ -53,3 +58,50 @@
 @media(max-width:1000px) { .root{padding:22px;} .layout{grid-template-columns:1fr;} .roster{grid-template-columns:repeat(2,minmax(0,1fr));} }
 @media(max-width:600px) { .root{padding:16px;} .header{align-items:flex-start;flex-direction:column;} .hero{padding:23px;} .seal{display:none;} .grid{gap:8px;} .tools{font-size:11px;flex-wrap:wrap;} }
 @media(prefers-reduced-motion:reduce) { .root * { scroll-behavior:auto!important; animation:none!important; transition:none!important; } }
+/* Full-window classroom workspace; the board owns all available space. */
+.root { position:fixed; inset:0; z-index:100; max-width:none; margin:0; padding:0; min-height:0; height:100dvh; overflow:auto; display:flex; flex-direction:column; }
+.root .header { flex-shrink:0; min-height:50px; margin:0; padding:6px 12px; gap:14px; border-bottom:1px solid #d9dfd6; background:#fffef8; }
+.root .header h1 { font-size:19px; letter-spacing:-.5px; margin:0; }
+.header .status { margin-left:auto; padding:5px 10px; }
+.header .back { white-space:nowrap; }
+.root .previewControls { flex-shrink:0; margin:0; padding:0; border-bottom:1px solid #ddd9c7; background:#fff6df; font-size:13px; }
+.previewControls summary { padding:7px 12px; }
+.previewControls > strong,.previewControls > .row { margin:8px 12px; }
+.root .steps { flex-shrink:0; border-radius:0; margin:0; padding:2px; }
+.root .layout { padding:12px; }
+.observationWorkspace { flex:1; display:flex; flex-direction:column; min-height:360px; overflow:hidden; }
+.boardToolbar { display:flex; align-items:center; flex-wrap:wrap; gap:6px; padding:6px 10px; flex-shrink:0; background:#fffef8; border-bottom:1px solid #d8ddd4; font-size:12px; }
+.boardToolbar button { padding:6px 9px; }
+.boardToolbar button[aria-pressed=true] { outline:2px solid #315f51; outline-offset:-2px; }
+.boardHint { margin-left:auto; color:#617168; }
+.boardCanvas { position:relative; flex:1; min-height:0; overflow:hidden; touch-action:none; background-color:#e8e8df; background-image:radial-gradient(#bfc6ba 1px,transparent 1px); background-size:18px 18px; }
+.boardPlane { position:absolute; transform-origin:0 0; }
+.boardImage { position:absolute; width:800px; height:534px; cursor:crosshair; border:2px solid #fffef8; overflow:hidden; }
+.imageLabel { position:absolute; left:14px; top:12px; border-radius:5px; background:#fffef8e8; padding:6px 10px; font-size:15px; pointer-events:none; }
+.connections { position:absolute; inset:0; pointer-events:none; z-index:2; }
+.sticky { position:absolute; width:224px; height:210px; box-shadow:2px 5px 12px #263b3433; border:1px solid #00000012; border-radius:2px 2px 12px 2px; display:flex; flex-direction:column; }
+.stickyHeader { display:flex; align-items:center; border-bottom:1px solid #0000000c; }
+.root .stickyHeader button { padding:8px; background:transparent; border:0; border-radius:0; font-size:14px; }
+.root .stickyHandle { flex:1; text-align:left; cursor:grab; touch-action:none; }
+.root .stickyHandle:active { cursor:grabbing; }
+.root .sticky textarea { flex:1; min-height:0; width:100%; border:0; border-radius:0; resize:none; padding:12px; background:transparent; font-size:17px; line-height:1.5; }
+.sticky footer { padding:6px 12px; font-size:12px; opacity:.7; }
+@media(max-width:700px) { .boardHint {display:none;} .root .header {flex-direction:row; align-items:center; gap:6px;} .header .status {font-size:10px;} }
+:global(body):has(.root) { overflow:hidden; }
+:global(body):has(.root) :global(nav) { display:none; }
+.game2d { position:relative; overflow:hidden; border-radius:12px; border:1px solid #b6c7b7; background:#e9eddf; }
+.gameTop,.gameControls { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; padding:10px 14px; font-size:13px; background:#fffdf2; }
+.gameTop span { color:#687967; }
+.gameViewport { position:relative; width:100%; aspect-ratio:1.5; overflow:hidden; outline-offset:-3px; }
+.gameViewport:focus-visible {outline:3px solid #b58944;}
+.gameBackdrop { position:absolute; inset:0; background-size:200% 200%; background-repeat:no-repeat; }
+.gameSprite { position:absolute; width:90px; height:90px; transform:translate(-50%,-85%); background-image:url('/history/character-walk.png'); background-size:400% 400%; background-repeat:no-repeat; pointer-events:none; }
+.gameSprite span { position:absolute; top:-12px; left:50%; transform:translateX(-50%); background:#245b48; color:white; padding:1px 8px; border-radius:8px; font-size:12px; }
+.gamePlace { position:absolute; transform:translateX(-50%); background:#fffbeeeb; border:1px solid #b7bf9a; border-radius:5px; padding:3px 7px; font-size:12px; white-space:nowrap; pointer-events:none; }
+.gameTarget { position:absolute; width:55px; height:32px; border:3px dashed #fff4ac; border-radius:50%; transform:translate(-50%,-50%); background:#f8e79144; pointer-events:none; }
+.gameTarget span { position:absolute; top:-35px; left:50%; transform:translateX(-50%); white-space:nowrap; font-size:14px; color:#234e43; background:#fffbe8; border-radius:4px; padding:2px 6px; }
+.gameControls button {touch-action:none; min-width:42px;}
+.gameDialog { position:absolute; bottom:66px; left:4%; width:92%; padding:18px; border:2px solid #97865d; border-radius:12px; box-shadow:0 5px 20px #213b3433; background:#fffced; }
+.gameDialog p {margin:8px 0;}
+.eraLabel {position:absolute; pointer-events:none; padding:4px 8px; background:#284e43e8; color:#fffbee; border-radius:4px; font-size:14px; font-weight:600;}
+.root .artifactSpot {position:absolute; transform:translate(-50%,-50%); width:38px; height:38px; padding:0; border:2px solid #ffe08b; border-radius:50%; background:#254e43b8; color:white; font-size:24px;}

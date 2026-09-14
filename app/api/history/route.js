@@ -52,7 +52,8 @@ export async function POST(request) {
       const {data:roster,error}=await db.from('users').select('id,name,role').in('id',body.students);
       if(error || roster?.length!==16 || roster.some(x=>x.role==='TEACHER')) throw Error('학생 배정을 확인해 주세요.');
       const ordered=body.students.map(id=>roster.find(x=>x.id===id));
-      const {data,error:insertError}=await db.from('history_sessions').insert({class_id:crypto.randomUUID(),teacher_id:user.id,title:typeof body.title==='string'?body.title.trim() || '역사 탐구 수업':'역사 탐구 수업',state:createLesson(ordered)}).select('id').single();
+      // The existing app has one global class roster. Keep a stable teacher-owned namespace across runs.
+      const {data,error:insertError}=await db.from('history_sessions').insert({class_id:user.id,teacher_id:user.id,title:typeof body.title==='string'?body.title.trim() || '역사 탐구 수업':'역사 탐구 수업',state:createLesson(ordered)}).select('id').single();
       if(insertError) throw Error('수업을 생성하지 못했습니다. DB 마이그레이션을 확인해 주세요.');
       const {error:memberError}=await db.from('history_members').insert(ordered.map(s=>({session_id:data.id,user_id:s.id})));
       if(memberError){await db.from('history_sessions').delete().eq('id',data.id);throw Error('수업 명단 저장에 실패했습니다. 다시 시도해 주세요.');}

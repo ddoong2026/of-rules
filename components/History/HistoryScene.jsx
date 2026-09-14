@@ -1,7 +1,8 @@
 'use client';
 
-import { Component, useEffect } from 'react';
+import { Component, Suspense, useEffect } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
+import { useGLTF } from '@react-three/drei';
 
 class SceneBoundary extends Component {
   state={failed:false};
@@ -35,12 +36,22 @@ function Camera({step,onFailure}) {
   },[camera,gl,invalidate,onFailure]);
   return null;
 }
-export default function HistoryScene({step,onFailure}) {
+function Guide() {
+  const {scene}=useGLTF('/history/character-web.glb');
+  return <primitive object={scene} position={[0,0,0]} dispose={null}/>;
+}
+function Hut({position}) {
+  return <group position={position}><mesh position={[0,.8,0]}><cylinderGeometry args={[1.25,1.3,1.6,8]}/><meshLambertMaterial color="#b8a780"/></mesh><mesh position={[0,2,0]}><coneGeometry args={[1.9,1.5,8]}/><meshLambertMaterial color="#a58951"/></mesh><mesh position={[0,.6,1.22]}><boxGeometry args={[.65,1.2,.1]}/><meshLambertMaterial color="#4d4939"/></mesh></group>;
+}
+export default function HistoryScene({step,onFailure,pathId}) {
   return <SceneBoundary onFailure={onFailure}><Canvas frameloop="demand" dpr={1} camera={{position:[0,1.6,6],fov:55,near:.1,far:40}} gl={{antialias:false,powerPreference:'low-power'}} fallback={<p>3D 미지원 환경입니다. 텍스트 대체 흐름을 선택해 주세요.</p>}>
     <color attach="background" args={['#dce8e1']}/><fog attach="fog" args={['#dce8e1',15,35]}/>
     <ambientLight intensity={1.6}/><directionalLight position={[5,8,3]} intensity={2}/>
     <mesh rotation={[-Math.PI/2,0,0]}><planeGeometry args={[30,30]}/><meshLambertMaterial color="#9da88a"/></mesh>
-    {[-6,-3,0,3,6].map((x,i)=><group key={x} position={[x,0,-1]}><mesh position={[0,.5,0]}><boxGeometry args={[1.1,1,1.1]}/><meshLambertMaterial color={i%2?'#bdb89c':'#c9c5ae'}/></mesh><mesh position={[0,1.5,0]}><icosahedronGeometry args={[.4,0]}/><meshLambertMaterial color={i%2?'#ba8e60':'#647f68'}/></mesh></group>)}
+    <mesh position={[-8,-.015,0]} rotation={[-Math.PI/2,0,0]}><planeGeometry args={[6,30]}/><meshLambertMaterial color="#7ba9ae"/></mesh>
+    {pathId==='1-A'?<group position={[-3,0,-3]}>{[-1,1].map(x=><mesh key={x} position={[x,1,0]}><icosahedronGeometry args={[1.6,0]}/><meshLambertMaterial color="#98998b"/></mesh>)}<mesh position={[0,2.3,0]}><icosahedronGeometry args={[1.8,0]}/><meshLambertMaterial color="#929789"/></mesh></group>:<><Hut position={[-3,0,-5]}/><Hut position={[5,0,-5]}/></>}
+    {[[-6,-8,1],[-3,-10,1.3],[1,-9,1],[7,-9,1.2],[9,-4,1],[8,3,.8],[-9,-12,1.3]].map(([x,z,size])=><group key={x} position={[x,0,z]} scale={size}><mesh position={[0,1,0]}><cylinderGeometry args={[.14,.25,2,5]}/><meshLambertMaterial color="#79684a"/></mesh><mesh position={[0,2.5,0]}><icosahedronGeometry args={[1.5,0]}/><meshLambertMaterial color="#688266"/></mesh></group>)}
+    <Suspense fallback={null}><Guide/></Suspense>
     <mesh position={[0,.015,4]} rotation={[-Math.PI/2,0,0]}><planeGeometry args={[1.5,8]}/><meshLambertMaterial color="#ddd0ac"/></mesh>
     <Camera step={step} onFailure={onFailure}/>
   </Canvas></SceneBoundary>;

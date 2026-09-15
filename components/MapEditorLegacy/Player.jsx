@@ -152,7 +152,7 @@ export default function Player() {
         let bestScore = -Infinity;
         let closestAssetId = null;
         
-        for (const asset of assets) {
+        for (const asset of useMapStore.getState().assets) {
           if (asset.minedAt) continue;
           
           const assetX = asset.position[0];
@@ -178,22 +178,15 @@ export default function Player() {
         }
         
         if (closestAssetId) {
-          const targetAsset = assets.find(a => a.id === closestAssetId);
+          const targetAsset = useMapStore.getState().assets.find(a => a.id === closestAssetId);
+          if (!targetAsset) return;
           const isTree = targetAsset?.type === 'tree';
           const isNPC = targetAsset?.type?.startsWith('caveman');
           
           // 사용자가 설치한 아이템 회수 처리 (더블클릭으로 회수)
           if (targetAsset.customItemId) {
             if (isDoubleClick) {
-              const baseId = targetAsset.customItemId.replace('_identified', '');
-              const customDef = useMapStore.getState().customItems?.find(c => c.id === baseId);
-              useMapStore.getState().addDroppedItem({
-                id: 'dropped_' + Date.now(),
-                itemId: baseId + '_identified', // 다시 획득 시 이모지가 보이도록 식별된 상태로 드롭
-                icon: customDef ? customDef.icon : '📦',
-                position: [...targetAsset.position]
-              });
-              useMapStore.getState().removeAsset(targetAsset.id);
+              useMapStore.getState().reclaimCustomAsset(targetAsset.id);
             }
             return;
           }
@@ -526,6 +519,7 @@ export default function Player() {
       const { items } = useInventoryStore.getState();
       
       for (const b of boundaries) {
+        if (b.isFarmland) continue;
         let isActive = true;
         if (b.condition && !b.isZone) {
           let currentAmount = 0;

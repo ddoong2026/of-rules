@@ -4,6 +4,7 @@ import { useRef, useEffect, useState } from 'react';
 import { useThree, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { CSG } from 'three-csg-ts';
+import { farmlandArea } from '@/lib/farmland.mjs';
 import useMapStore, { GRID_SIZE, VERTEX_COUNT } from '@/store/useMapStore';
 
 export default function Terrain() {
@@ -313,7 +314,7 @@ export default function Terrain() {
   };
 
   const handlePointerDown = (e) => {
-    if (isCameraMode || (e.button !== 0 && e.button !== 2)) return;
+    if ((isPlaying && mode === 'farmland') || isCameraMode || (e.button !== 0 && e.button !== 2)) return;
     setIsPointerDown(true);
     e.stopPropagation();
 
@@ -380,9 +381,9 @@ export default function Terrain() {
         position: [targetPoint.x, targetPoint.y, targetPoint.z],
         scale: [brushSize * 2, brushSize * 2, brushSize * 2] // Arbitrary scaling based on brush
       });
-    } else if (mode === 'boundary' || mode === 'zone') {
+    } else if (mode === 'boundary' || mode === 'zone' || mode === 'farmland') {
       const { setBoundaryDrawing } = useMapStore.getState();
-      setBoundaryDrawing({ points: [[targetPoint.x, targetPoint.z]], isZone: mode === 'zone' });
+      setBoundaryDrawing({ points: [[targetPoint.x, targetPoint.z]], isZone: mode === 'zone', isFarmland: mode === 'farmland' });
     } else if (mode === 'spawn') {
       const { setSpawnPoint } = useMapStore.getState();
       setSpawnPoint({ x: targetPoint.x, z: targetPoint.z });
@@ -468,7 +469,7 @@ export default function Terrain() {
           color: [r, g, b]
         });
       }
-    } else if (mode === 'boundary' || mode === 'zone') {
+    } else if (mode === 'boundary' || mode === 'zone' || mode === 'farmland') {
       const { boundaryDrawing, setBoundaryDrawing } = useMapStore.getState();
       if (boundaryDrawing) {
         const lastPoint = boundaryDrawing.points[boundaryDrawing.points.length - 1];
@@ -497,14 +498,20 @@ export default function Terrain() {
   const handlePointerUp = (e) => {
     setIsPointerDown(false);
     
-    if (mode === 'boundary' || mode === 'zone') {
+    if (mode === 'boundary' || mode === 'zone' || mode === 'farmland') {
       const { boundaryDrawing, setBoundaryDrawing, addBoundary } = useMapStore.getState();
       if (boundaryDrawing) {
-        if (boundaryDrawing.points.length > 1) {
+        const points = boundaryDrawing.points;
+        const area = farmlandArea(points);
+        if (boundaryDrawing.isFarmland && (points.length < 3 || area < 0.5)) {
+          window.alert('농경 구역은 선으로 둘러싸인 면적이 있어야 합니다. 더 넓게 그려주세요.');
+        } else if (points.length > 1) {
           addBoundary({
             id: crypto.randomUUID(),
             isZone: boundaryDrawing.isZone,
-            points: boundaryDrawing.points,
+            isFarmland: boundaryDrawing.isFarmland || false,
+            ...(boundaryDrawing.isFarmland ? { name: '신석기 농경 구역' } : {}),
+            points: boundaryDrawing.isFarmland ? [...points, points[0]] : points,
             condition: boundaryDrawing.isZone 
               ? { eventType: 'bubble', message: '' } 
               : { itemType: 'rock', amount: 3 }
@@ -516,7 +523,7 @@ export default function Terrain() {
   };
 
   const handlePointerOut = (e) => {
-    if ((mode === 'boundary' || mode === 'zone') && useMapStore.getState().boundaryDrawing) {
+    if ((mode === 'boundary' || mode === 'zone' || mode === 'farmland') && useMapStore.getState().boundaryDrawing) {
       handlePointerUp(e);
     }
     setIsPointerDown(false);

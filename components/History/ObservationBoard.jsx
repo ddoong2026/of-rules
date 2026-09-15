@@ -28,6 +28,12 @@ export default function ObservationBoard({state,draft,change,onMoveNote}) {
     const observer=new ResizeObserver(([entry])=>setSize({width:entry.contentRect.width,height:entry.contentRect.height}));
     observer.observe(host.current);return()=>observer.disconnect();
   },[]);
+  useEffect(()=>{
+    const element=host.current;
+    const wheel=e=>{if(e.target.closest('textarea'))return;e.preventDefault();e.stopPropagation();setView(v=>({...v,zoom:clamp(v.zoom+(e.deltaY<0?.1:-.1),.5,4)}));};
+    element.addEventListener('wheel',wheel,{passive:false});
+    return()=>element.removeEventListener('wheel',wheel);
+  },[]);
   const scale=Math.min(size.width/W,size.height/H)*view.zoom;
   const paperScale=Math.min(2,Math.max(1,.85/scale));
   const paperPosition=n=>{const p=position(n);return {x:clamp(p.x,0,W-224*paperScale),y:clamp(p.y,0,H-210*paperScale)};};
@@ -64,7 +70,7 @@ export default function ObservationBoard({state,draft,change,onMoveNote}) {
       <span className={styles.boardHint}>{tool==='note'?'그림을 눌러 메모 · 메모 상단을 끌어 이동':'빈 곳을 드래그 · 휠로 확대'}</span>
       <button aria-label="관찰 보드 축소" onClick={()=>zoom(-.25)}>−</button><span>{Math.round(view.zoom*100)}%</span><button aria-label="관찰 보드 확대" onClick={()=>zoom(.25)}>＋</button><button onClick={()=>setView({zoom:1,x:0,y:0})}>화면 맞춤</button>
     </div>
-    <div ref={host} className={styles.boardCanvas} onWheel={e=>zoom(e.deltaY<0?.1:-.1)} onPointerDown={e=>down(e,'pan')} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
+    <div ref={host} className={styles.boardCanvas} onPointerDown={e=>down(e,'pan')} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
       <div className={styles.boardPlane} style={{width:W,height:H,transform:`translate(${offset.x}px,${offset.y}px) scale(${scale})`}}>
         <aside className={styles.noteShelf} aria-hidden="true"><strong>메모지</strong><span>그림의 상하좌우·모서리 어디든 놓아 보세요</span></aside>
         {[1,2,3,4].map(image=><div key={image} className={styles.boardImage} style={{left:frame(image).x,top:frame(image).y}} role="button" tabIndex={0} aria-label={`그림 ${image}. 눌러 연결 메모 추가`} onPointerDown={e=>{if(tool==='note')e.stopPropagation();}} onClick={e=>{if(tool!=='note')return;const p=point(e),f=frame(image);add(image,clamp((p.x-f.x)/800,0,1),clamp((p.y-f.y)/534,0,1));}} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();add(image);}}}>

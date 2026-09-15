@@ -137,3 +137,26 @@
 .root .quizOption:hover { background:#edf5ed; border-color:#477b60; }
 .root .quizOption[aria-pressed=true] { background:#dceedd; border-color:#286448; box-shadow:0 0 0 1px #286448; font-weight:700; }
 .root .quizOption:focus-visible { outline:3px solid #2666c4; outline-offset:3px; }
+
+.gameDialog { max-height:80vh; padding:20px; background:#faf5e9; border-radius:20px; }
+.conversationHeader { display:flex; justify-content:space-between; gap:16px; margin-bottom:16px; color:#48614d; }
+.speechRow { display:flex; align-items:flex-start; gap:18px; margin:20px 0; }
+.playerSpeech { flex-direction:row-reverse; }
+.speakerPortrait { width:116px; height:116px; flex:0 0 116px; background-repeat:no-repeat; border:3px solid #cfb987; border-radius:20px; box-shadow:0 5px 14px #243f3020; }
+.speechBubble { position:relative; flex:1; min-width:0; background:#fff; border:2px solid #dacaa6; border-radius:20px; padding:18px 24px; box-shadow:0 4px 12px #243f3010; }
+.speechBubble::before { content:''; position:absolute; left:-11px; top:28px; width:18px; height:18px; background:inherit; border-left:2px solid #dacaa6; border-bottom:2px solid #dacaa6; transform:rotate(45deg); }
+.playerSpeech .speechBubble { background:#edf6ed; }
+.playerSpeech .speechBubble::before { left:auto; right:-11px; transform:rotate(225deg); }
+.speechBubble strong { font-size:19px; color:#254c38; }
+.speechBubble small { font-size:14px; margin-left:8px; font-weight:400; }
+.root .speechText { font-size:clamp(22px,2.3vw,28px); line-height:1.8; word-break:keep-all; overflow-wrap:anywhere; margin:10px 0 0; min-height:2em; }
+.speechAccessible { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+.typingCursor { color:#477b60; }
+.conversationActions { display:flex; justify-content:flex-end; margin:12px 0; }
+.conversationActions button { min-height:48px; font-size:18px; }
+.textConversation { margin-top:18px; }
+@media(max-width:600px) { .speechRow {gap:10px;} .speakerPortrait {width:68px; height:68px; flex-basis:68px;} .speechBubble {padding:12px 14px;} .gameDialog {left:1%;width:98%;padding:12px;} .speechBubble small {display:block;margin-left:0;} }
+
+.root .locationButton { pointer-events:auto; cursor:pointer; font-size:15px; padding:9px 12px; z-index:1; border:2px solid #b7bf9a; }
+.root .locationButton:hover { background:#e5f0d9; border-color:#406349; }
+.speakerPortrait { background-color:#edf0e1; }

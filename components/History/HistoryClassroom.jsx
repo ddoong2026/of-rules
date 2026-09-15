@@ -1,6 +1,6 @@
 'use client';
 
-import {STORIES,STORY_NOTICE,storyLines} from '@/lib/history/stories.mjs';
+import {STORIES,STORY_NOTICE} from '@/lib/history/stories.mjs';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
@@ -12,6 +12,7 @@ import { applyOperation, createLesson, studentView } from '@/lib/history/state.m
 import styles from './HistoryClassroom.module.css';
 import ObservationBoard from './ObservationBoard';
 import ArtifactReference from './ArtifactReference';
+import QuestConversation from './QuestConversation';
 import {PATH_CONTEXT} from '@/lib/history/references.mjs';
 import {ARTIFACT_SPOTS,explorationImage} from '@/lib/history/exploration.mjs';
 
@@ -200,7 +201,7 @@ function ResearchCard({artifact,index,card,research,changeResearch,operate}) {
 function Experience({path,research,attempt,operate,diary,onDiaryChange,versions}) {
   const [alternative,setAlternative]=useState(false),[extraDiary,setExtraDiary]=useState({answers:{},text:''}),[busy,setBusy]=useState(false);
   const record=diary || extraDiary,update=diary?onDiaryChange:setExtraDiary;
-  const step=attempt?.checkpoint || 0,story=STORIES[path.id],lines=storyLines(path);
+  const step=attempt?.checkpoint || 0,story=STORIES[path.id];
   const question=step===1?path.questions[0]:step===2?path.questions[1]:null;
   const correct=path.questions.every(q=>record.answers[q.id]===q.answer);
   async function run(operation){setBusy(true);try{await operate(operation);}finally{setBusy(false);}}
@@ -218,7 +219,7 @@ function Experience({path,research,attempt,operate,diary,onDiaryChange,versions}
   </>;
   return <section className={styles.panel}><h3>{story.title} · NPC와 함께 쓰는 일기</h3><p className={styles.muted}>{STORY_NOTICE}</p><p>NPC 대화 → 유물과 생활 퀴즈 → 내 생각 쓰기 → 일기 공유</p><button onClick={()=>setAlternative(v=>!v)}>{alternative?'2D 게임 보기':'텍스트 대체 흐름 사용'}</button>
     {!alternative&&<Game2D key={path.id} path={path} research={research} step={step} onInteract={()=>{}}>{actions}</Game2D>}
-    {alternative&&step<7&&<section className={styles.gameDialog}><h3>{STEPS[step]}</h3><p>{lines[step]}</p>{path.clues.map(c=><p className={styles.clue} key={c}>{c}</p>)}{step===2&&path.artifacts.map(a=><ArtifactReference key={a} artifact={a}/>)}{actions}</section>}
+    {alternative&&step<7&&<section className={styles.textConversation}><QuestConversation key={`${path.id}-${step}`} path={path} step={step}>{path.clues.map(c=><p className={styles.clue} key={c}>{c}</p>)}{step===2&&path.artifacts.map(a=><ArtifactReference key={a} artifact={a}/>)}{actions}</QuestConversation></section>}
     {step<5&&<details><summary>지금까지 쓴 일기 펼치기</summary>{diaryPage}</details>}
     {step>=7&&<><p role="status">탐험을 마쳤어요. 일기를 확인하고 공유해 주세요.</p>{diaryPage}</>}
   </section>;

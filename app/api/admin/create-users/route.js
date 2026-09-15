@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase-admin';
+import { supabaseAdmin, requireTeacher } from '@/lib/supabase-admin';
 
 export async function POST(request) {
+  const auth = await requireTeacher(request);
+  if (auth.error) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
   try {
     const { users } = await request.json();
 

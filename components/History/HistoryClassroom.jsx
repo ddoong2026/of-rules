@@ -22,7 +22,7 @@ async function request(body,query='') {
   const {data:{session}}=await supabase.auth.getSession();
   const response=await fetch(`/api/history${query}`,{method:body?'POST':'GET',headers:{'Content-Type':'application/json',Authorization:`Bearer ${session?.access_token || ''}`},...(body?{body:JSON.stringify(body)}:{})});
   const data=await response.json();
-  if(!response.ok)throw Error(data.error || '연결하지 못했습니다.');
+  if(!response.ok){const error=Error(data.error || '연결하지 못했습니다.');error.status=response.status;throw error;}
   return data;
 }
 const previewRoster=()=>Array.from({length:16},(_,i)=>({id:`preview-${i}`,name:`학생 ${String(i+1).padStart(2,'0')}`}));
@@ -32,9 +32,27 @@ export default function HistoryClassroom({user,teacher,previewOnly=false}) {
   const [sessionId,setSessionId]=useState(''),[row,setRow]=useState(null),[error,setError]=useState(''),[status,setStatus]=useState('연결 확인 중');
   const [preview,setPreview]=useState(()=>previewOnly?createLesson(previewRoster()):null),[previewId,setPreviewId]=useState('preview-0');
   const [draft,setDraft]=useState(null),[conflict,setConflict]=useState(false);
+  const [managing,setManaging]=useState(false),[deleteTarget,setDeleteTarget]=useState(null);
   const pending=useRef(null),queue=useRef(Promise.resolve()),rowRef=useRef(null),saveTimer=useRef(null),polling=useRef(false),previewRef=useRef(preview);
   const key=`history:${user.id}:${sessionId}`;
   useEffect(()=>{if(previewOnly)return;request().then(data=>{setSessions(data.sessions);setRoster(data.roster);setStatus('연결됨');}).catch(e=>{setError(e.message);setStatus('설정 확인 필요');});},[previewOnly]);
+  useEffect(()=>{
+    if(previewOnly||sessionId||preview)return;
+    let stopped=false;
+    const refresh=()=>request().then(data=>{if(!stopped){setSessions(data.sessions);setRoster(data.roster);}}).catch(e=>{if(!stopped)setError(e.message);});
+    refresh();const timer=setInterval(refresh,3000);
+    return()=>{stopped=true;clearInterval(timer);};
+  },[previewOnly,sessionId,preview]);
+  async function manageSession(session,type) {
+    if(managing)return;
+    setManaging(true);setError('');
+    try {
+      await request(type==='delete'?{type,session:session.id}:{session:session.id,operation:{id:crypto.randomUUID(),type:'distribution',distributed:!session.distributed}});
+      setDeleteTarget(null);
+      const data=await request();setSessions(data.sessions);
+      setStatus(type==='delete'?'수업 삭제됨':session.distributed?'배포 중단됨':'학생에게 배포됨');
+    }catch(e){setError(e.message);}finally{setManaging(false);}
+  }
   const receive=useCallback(data=>{
     rowRef.current=data;setRow(data);
     if(data.state.me && pending.current) {
@@ -107,7 +125,11 @@ export default function HistoryClassroom({user,teacher,previewOnly=false}) {
           });
         } else if(pending.current && !pending.current.conflict) await flush();
         if(!pending.current)setStatus('저장됨');
-      }catch(e){if(!stopped){setStatus('연결이 끊겨 임시 저장 중');setError(e.message);}}finally{polling.current=false;}
+      }catch(e){if(!stopped){
+        if(e.status===403||e.status===404){pending.current=null;rowRef.current=null;setRow(null);setSessionId('');setDraft(null);setConflict(false);setStatus('수업 목록');}
+        else setStatus('연결이 끊겨 임시 저장 중');
+        setError(e.message);
+      }}finally{polling.current=false;}
     };
     poll();const timer=setInterval(poll,1100);
     const online=()=>poll();window.addEventListener('online',online);
@@ -144,7 +166,13 @@ export default function HistoryClassroom({user,teacher,previewOnly=false}) {
     {!sessionId && !preview ? <>
       <section className={styles.hero}><div><div className={styles.eyebrow} style={{color:'#b9cfb9'}}>우리의 탐구 · 40분</div><h2>아주 오래전, 나는 어떻게 살았을까?</h2><p>그림을 관찰하고, 유물을 조사하고, 당시 사람의 처지에서 일기를 써 보세요.<br/>친구의 생각을 읽으면 또 다른 역사 탐구가 열립니다.</p></div><div className={styles.seal}>관찰<br/><small style={{fontSize:13}}>에서 이해로</small></div></section>
       <div className={styles.steps}>{['01 관찰 · 5분','02 조사 · 8분','03 체험·일기 · 19분','04 피드백 · 5분','05 정리 · 3분'].map(a=><span key={a}>{a}</span>)}</div>
-      <div className={styles.layout}><section className={styles.panel}><h2>{teacher?'수업 준비':'나의 수업'}</h2>{sessions.length? sessions.map(s=><div key={s.id} className={styles.row}><button className={styles.primary} onClick={()=>{rowRef.current=null;setSessionId(s.id);}}>{s.title} →</button><span className={styles.muted}>{new Date(s.created_at).toLocaleDateString('ko-KR')}</span></div>):<p>아직 배정된 역사 수업이 없습니다.</p>}
+      <div className={styles.layout}><section className={styles.panel}><h2>{teacher?'수업 준비':'나의 수업'}</h2>{teacher&&<p>수업을 만든 뒤 ‘학생에게 배포’를 누르면 배정된 학생의 수업 목록에 나타납니다. 기존 수업은 배포 상태가 유지됩니다.</p>}
+      {sessions.length?sessions.map(s=><section key={s.id} className={styles.panel}>
+        <div className={styles.row}><button className={styles.primary} onClick={()=>{rowRef.current=null;setSessionId(s.id);}}>{s.title} →</button><span className={styles.muted}>{new Date(s.created_at).toLocaleString('ko-KR')}</span></div>
+        {teacher&&<div className={styles.row}><span className={styles.badge}>{s.distributed?'학생 배포 중':'미배포'}</span><button disabled={managing} onClick={()=>manageSession(s,'distribution')}>{s.distributed?'배포 중단':'학생에게 배포'}</button><button disabled={managing} onClick={()=>setDeleteTarget(s.id)}>수업 삭제</button></div>}
+        {teacher&&deleteTarget===s.id&&<div className={styles.notice}><p>‘{s.title}’ 수업과 학생들의 관찰·조사·일기 기록을 모두 삭제합니다. 되돌릴 수 없습니다.</p><button disabled={managing} onClick={()=>manageSession(s,'delete')}>기록까지 삭제하기</button><button disabled={managing} onClick={()=>setDeleteTarget(null)}>취소</button></div>}
+      </section>):<p>{teacher?'생성된 역사 수업이 없습니다.':'선생님이 배포한 수업이 없습니다. 배포되면 여기에 표시됩니다.'}</p>}
+
       {teacher && <><div className={styles.row}><button onClick={startPreview}>16개 배정 기능 미리보기</button></div><h3>기존 학생 16명 선택 · {selected.length}/16</h3><p className={styles.muted}>선택 순서대로 1-A부터 4-D까지 배정됩니다. 별도 학생 계정을 만들지 않습니다.</p><div className={styles.roster}>{roster.map(s=><label key={s.id}><input type="checkbox" checked={selected.includes(s.id)} onChange={e=>setSelected(e.target.checked?[...selected,s.id]:selected.filter(id=>id!==s.id))}/>{s.student_number}. {s.name}{selected.includes(s.id)&&<small>{PATHS[selected.indexOf(s.id)]?.id}</small>}</label>)}</div><button className={styles.primary} disabled={selected.length!==16} onClick={create}>이 배정으로 수업 만들기</button></>}
       </section><aside className={styles.panel}><span className={styles.badge}>학생 노트북 기준</span><h3 style={{marginTop:14}}>가볍게, 차근차근</h3><p className={styles.muted}>i5 13세대 · 메모리 16GB<br/>Iris Xe · 1920 × 1080<br/>스프라이트 기반 2D 탐험<br/>키보드·화면 버튼 이동</p>{teacher&&<details open><summary>수업 사용 전 확인</summary>{readiness().map(t=><p className={styles.muted} key={t}>{t}</p>)}</details>}</aside></div>
     </>:active ? <>
@@ -160,7 +188,7 @@ function TeacherBoard({state,operate}) {
   const [targets,setTargets]=useState([]),[activity,setActivity]=useState('관찰'),[inspect,setInspect]=useState('');
   const students=Object.values(state.students);
   const student=state.students[inspect];
-  return <><div className={styles.notice}><strong>준비 상태: 시각 자료 검수 대기</strong>{readiness().map(t=><p key={t}>{t}</p>)}</div><section className={styles.panel}><h2>수업 진행</h2><div className={styles.row}><button aria-pressed={!!state.locked} onClick={()=>operate({type:'lock',locked:!state.locked})}>{state.locked?'학생 조작 다시 시작':'전체 학생 조작 멈춤'}</button><button onClick={()=>operate({type:'reveal'})}>지정한 모둠·주제 공개</button><button onClick={()=>operate({type:'publish'})}>메모 전체 공개</button><button aria-pressed={!!(state.liveNotes??state.published)} onClick={()=>operate({type:'noteVisibility',mode:(state.liveNotes??state.published)?'hidden':'live'})}>메모 실시간 공개 {(state.liveNotes??state.published)?'끄기':'켜기'}</button><button onClick={()=>operate({type:'noteVisibility',mode:'hidden'})}>친구 메모 숨김</button><button onClick={()=>operate({type:'assignFeedback'})}>피드백 대상 배정 / 재배정</button><button className={styles.primary} onClick={()=>operate({type:'approve'})}>피드백한 맵 열기(전체 승인)</button></div><div className={styles.row}><select aria-label="이동할 활동" value={activity} onChange={e=>setActivity(e.target.value)}>{ACTIVITIES.map(a=><option key={a} value={a}>{a==='3D'?'2D 체험·일기':a}</option>)}</select><button onClick={()=>operate({type:'move',activity,targets:students.map(s=>s.id)})}>전체 학생 보내기</button><button disabled={!targets.length} onClick={()=>operate({type:'move',activity,targets})}>선택한 {targets.length}명 보내기</button></div><p className={styles.muted}>현재 입력을 보존하고 지정한 활동으로 이동합니다. 미체험 단서는 보충으로 제공하며 퀘스트 완료로 처리하지 않습니다.</p></section>
+  return <><div className={styles.notice}><strong>시각 자료 검수 대기 · 수업 진행 가능</strong><p>검수 상태와 관계없이 아래에서 활동을 선택해 학생들과 수업을 진행할 수 있습니다.</p>{readiness().map(t=><p key={t}>{t}</p>)}</div><section className={styles.panel}><h2>수업 진행</h2><div className={styles.row}><button aria-pressed={!!state.locked} onClick={()=>operate({type:'lock',locked:!state.locked})}>{state.locked?'학생 조작 다시 시작':'전체 학생 조작 멈춤'}</button><button onClick={()=>operate({type:'reveal'})}>지정한 모둠·주제 공개</button><button onClick={()=>operate({type:'publish'})}>메모 전체 공개</button><button aria-pressed={!!(state.liveNotes??state.published)} onClick={()=>operate({type:'noteVisibility',mode:(state.liveNotes??state.published)?'hidden':'live'})}>메모 실시간 공개 {(state.liveNotes??state.published)?'끄기':'켜기'}</button><button onClick={()=>operate({type:'noteVisibility',mode:'hidden'})}>친구 메모 숨김</button><button onClick={()=>operate({type:'assignFeedback'})}>피드백 대상 배정 / 재배정</button><button className={styles.primary} onClick={()=>operate({type:'approve'})}>피드백한 맵 열기(전체 승인)</button></div><div className={styles.row}><select aria-label="이동할 활동" value={activity} onChange={e=>setActivity(e.target.value)}>{ACTIVITIES.map(a=><option key={a} value={a}>{a==='3D'?'2D 체험·일기':a}</option>)}</select><button onClick={()=>operate({type:'move',activity,targets:students.map(s=>s.id)})}>전체 학생 보내기</button><button disabled={!targets.length} onClick={()=>operate({type:'move',activity,targets})}>선택한 {targets.length}명 보내기</button></div><p className={styles.muted}>현재 입력을 보존하고 지정한 활동으로 이동합니다. 미체험 단서는 보충으로 제공하며 퀘스트 완료로 처리하지 않습니다.</p></section>
     <details open className={styles.panel}><summary>실시간 전체 관찰 메모 · 교사가 위치 옮기기</summary><div className={styles.teacherObservation}><ObservationBoard state={{published:state.published,notes:students.flatMap(s=>s.notes.map(n=>({...n,author:s.name,authorId:s.id})))}} draft={{notes:[]}} onMoveNote={(note,patch)=>operate({type:'moveNote',owner:note.authorId,noteId:note.id,...patch})}/></div></details><section className={styles.panel}><h2>학생별 진행</h2><div className={styles.tableWrap}><table className={styles.table}><thead><tr><th>선택</th><th>학생</th><th>개인 주제</th><th>활동</th><th>명령 수신</th><th>저장</th><th>연결</th><th>체험</th><th>해금</th><th>기록</th></tr></thead><tbody>{students.map(s=><tr key={s.id}><td><input type="checkbox" aria-label={`${s.name} 선택`} checked={targets.includes(s.id)} onChange={e=>setTargets(e.target.checked?[...targets,s.id]:targets.filter(id=>id!==s.id))}/></td><td>{s.name}</td><td>{s.path} {pathById(s.path).title}</td><td>{s.activity==='3D'?'2D 체험·일기':s.activity}</td><td>{s.command?.sequence>s.ack?'미수신':'적용됨'}</td><td>{s.saveState || '미작성'}</td><td>{s.lastSeen && now-Date.parse(s.lastSeen)<30000?'연결됨':'응답 대기'}</td><td>{s.attempts[s.path]?.complete?'완료':s.attempts[s.path]?.interrupted?'중단':'미완료'}</td><td>{s.grants.length}개</td><td><button onClick={()=>setInspect(s.id)}>열람</button></td></tr>)}</tbody></table></div></section>
     {student && <section className={styles.panel}><h2>{student.name}의 연결 기록</h2><p>{student.path} · {pathById(student.path).title}</p><h3>관찰</h3>{student.notes.map(n=><p key={n.id}>{n.kind}: {n.text}</p>)}<h3>조사</h3>{Object.values(state.cards).filter(c=>c.owner===student.id || c.helpers.includes(student.id)).map(c=><p key={c.id}>{c.name || '명칭 미입력'} — {c.usage || '쓰임 미입력'} / 출처: {c.source || '미기입'} / {c.status}</p>)}<h3>퀘스트</h3><p>{student.attempts[student.path]?.checkpoint || 0}/{STEPS.length} · {student.attempts[student.path]?.mode || '미시작'}</p><h3>일기 선택 · 감정과 생각</h3>{pathById(student.path).questions.map(q=><p key={q.id}>{q.prompt} {q.options[student.diary.answers[q.id]] || '미입력'}</p>)}<p style={{whiteSpace:'pre-wrap'}}>{student.diary.text || '작성 내용 없음'}</p><h3>받은 / 남긴 피드백</h3>{Object.values(state.feedback).filter(f=>f.author===student.id || f.recipient===student.id).map(f=><p key={f.author}>{state.students[f.author].name} → {state.students[f.recipient].name}: {f.reaction} {f.text || '작성 내용 없음'} · {f.approved?'승인됨':'승인 전'}</p>)}</section>}
   </>;
@@ -177,7 +205,7 @@ function StudentWorkspace({state,draft,change,operate,preview}) {
   return <><div className={styles.steps}>{ACTIVITIES.map((a,i)=><span key={a} className={a===activity?styles.active:''}>{String(i+1).padStart(2,'0')} {a==='3D'?'2D 체험·일기':a}</span>)}</div>
     <div className={styles.layout}><div>
       {activity==='준비' && <section className={styles.hero}><div><span className={styles.badge}>수업 준비</span><h2 style={{marginTop:18}}>단서를 발견할 준비가 되었나요?</h2><p>선생님이 수업을 시작하면 네 장의 그림이 함께 열립니다.</p>{state.revealed && <h3>{s.group}모둠 · {path.title}</h3>}</div><div className={styles.seal}>나의<br/>발견</div></section>}
-      {activity==='조사' && <><h2>유물이 들려주는 이야기</h2>{PATH_CONTEXT[path.id]&&<p className={styles.notice}>{PATH_CONTEXT[path.id]}</p>}<p className={styles.muted}>자기 모둠의 그림에서 유물을 골라 명칭과 쓰임을 조사해요. 실물 사진은 조사 카드에서 펼쳐 볼 수 있어요.</p><div className={styles.notice}>그림 속 표시를 눌러 조사할 자료를 찾으세요. 생성된 학습 그림이므로 실물 형태는 교과서와 함께 확인해요.</div><Observation index={s.group} notes={[]} onPin={n=>document.getElementById(`research-${n.artifact}`)?.scrollIntoView({block:'center'})}/><div className={styles.grid} style={{marginTop:18}}>{path.artifacts.map((a,i)=><ResearchCard key={a} artifact={a} index={i+1} card={state.cards.find(c=>c.group===s.group&&c.artifact===a)} research={draft.research || {}} changeResearch={(id,r)=>change({...draft,research:{...draft.research,[id]:r}})} operate={operate}/>)}</div>{!path.artifacts.length&&<section className={styles.panel}><h3>교과서 생활 단서 조사</h3>{path.clues.map(c=><p className={styles.clue} key={c}>{c}</p>)}<label>단서에서 알게 된 생활과 그 근거<textarea value={draft.notes.find(n=>n.id===`inquiry-${path.id}`)?.text||''} onChange={e=>{const id=`inquiry-${path.id}`,note={id,image:s.group,x:.5,y:.5,kind:'내 생각·추측',text:e.target.value};change({...draft,notes:[...draft.notes.filter(n=>n.id!==id),note]});}}/></label><p className={styles.muted}>조사 기록은 자동 저장되어 정리 단계에서 다시 볼 수 있어요.</p></section>}<h3>{state.canHelpResearch?'친구 조사 도와주기':'우리 모둠 공동보드'}</h3><p>{state.canHelpResearch?'내 조사를 마쳤어요! 친구의 카드를 골라 자료와 출처를 보태고 조사 제출을 눌러 주세요.':'내 조사 카드를 모두 제출하면 다른 모둠 친구의 조사도 도울 수 있어요.'}</p>{state.cards.filter(c=>c.group!==s.group||!path.artifacts.includes(c.artifact)).map(c=><ResearchCard key={c.id} artifact={c.artifact} card={c} research={draft.research || {}} changeResearch={(id,r)=>change({...draft,research:{...draft.research,[id]:r}})} operate={operate}/>)}</>}
+      {activity==='조사' && <ResearchWorkspace key={s.path} state={state} draft={draft} change={change} operate={operate}/>}
       {activity==='3D' && <><h2>{currentPath.title} · 개인 추체험</h2><div className={styles.row}><select aria-label="승인된 체험 맵" value={activePath} onChange={e=>setActivePath(e.target.value)}>{[...new Set([s.path,...s.grants])].map(id=><option key={id} value={id}>{pathById(id).title}{id===s.path?' · 나의 배정':' · 승인된 추가 체험'}</option>)}</select></div><Experience key={activePath} path={currentPath} research={[...Object.values(draft.research || {}),...state.cards]} attempt={attempt} operate={operate} preview={preview} diary={activePath===s.path?draft.diary:undefined} onDiaryChange={diary=>change({...draft,diary})} versions={s.diary.versions.length}/></>}
       {activity==='피드백' && <><h2>친구의 하루에 답장을 보내요</h2>{version?<section className={styles.panel}><span className={styles.badge}>{target.name} · {pathById(target.path).title} · 일기 v{version.version}</span>{pathById(target.path).questions.map(q=><p key={q.id}>{q.prompt} {q.options[version.answers[q.id]] || '미입력'}</p>)}<p className={styles.quote} style={{whiteSpace:'pre-wrap'}}>{version.text || '작성 내용 없음'}</p><div className={styles.row}>{REACTIONS.map(r=><button key={r} disabled={ownFeedback?.valid} aria-pressed={draft.feedbackDraft.reaction===r} className={draft.feedbackDraft.reaction===r?styles.primary:''} onClick={()=>change({...draft,feedbackDraft:{...draft.feedbackDraft,reaction:r}})}>{r}</button>)}</div><label>친구에게 남길 말<textarea disabled={ownFeedback?.valid} value={draft.feedbackDraft.text} onChange={e=>change({...draft,feedbackDraft:{...draft.feedbackDraft,text:e.target.value}})} placeholder="친구의 일기를 읽고 떠오른 말을 남겨 주세요."/></label><button className={styles.primary} disabled={ownFeedback?.valid} onClick={()=>operate({type:'feedback'})}>{ownFeedback?.approved?'맵 승인됨':ownFeedback?.valid?'제출 완료 · 교사 승인 대기':'피드백 제출하기'}</button><p className={styles.muted}>선생님이 승인하면 피드백한 친구의 개인 맵이 열립니다.</p></section>:<section className={styles.panel}>공유된 일기에서 피드백 대상을 배정하고 있어요. 잠시 기다려 주세요.</section>}</>}
       {activity==='정리' && <section className={styles.panel}><h2>작은 단서가 역사가 되었어요</h2><p>관찰한 모습, 조사한 유물의 쓰임, 시대의 생활을 서로 연결해 이야기해 봅시다.</p><h3>나의 탐구 기록</h3><p>관찰 메모 {draft.notes.length}개 · 조사 기록 {Object.keys(draft.research||{}).length}개 · 퀴즈 {path.questions.filter(q=>draft.diary.answers[q.id]===q.answer).length}/{path.questions.length} · 공유한 일기 {s.diary.versions.length}개</p>{draft.notes.map(n=><p key={n.id}>{n.kind}: {n.text}</p>)}<h3>완성한 나의 일기</h3>{path.questions.map(q=><p key={q.id}>{q.prompt} {q.options[draft.diary.answers[q.id]]||'미작성'}</p>)}<p style={{whiteSpace:'pre-wrap'}}>{draft.diary.text||'아직 감정과 생각을 기록하지 않았어요.'}</p><h3>내가 받은 피드백</h3>{state.feedback.filter(f=>f.recipient===s.id).map(f=><p className={styles.note} key={f.author}>{f.reaction}<br/>{f.text}</p>)}<h3>승인된 추가 맵</h3>{s.grants.length?s.grants.map(id=><p key={id}>{pathById(id).title} · 선생님이 추체험 활동으로 보내면 들어갈 수 있어요.</p>):<p>아직 추가로 승인된 맵이 없어요.</p>}</section>}
@@ -185,16 +213,37 @@ function StudentWorkspace({state,draft,change,operate,preview}) {
   </>;
 }
 
-function Observation({index,notes,onPin}) {
-  const [view,setView]=useState({zoom:1,x:0,y:0});const drag=useRef(null),picture=useRef(null);
-  const zoom=amount=>setView(v=>({...v,zoom:Math.max(1,Math.min(5,v.zoom+amount))}));
-  useEffect(()=>{
-    const element=picture.current;
-    const wheel=e=>{e.preventDefault();e.stopPropagation();setView(v=>({...v,zoom:Math.max(1,Math.min(5,v.zoom+(e.deltaY<0?.2:-.2)))}));};
-    element.addEventListener('wheel',wheel,{passive:false});
-    return()=>element.removeEventListener('wheel',wheel);
-  },[]);
-  return <section><div ref={picture} className={styles.picture} role="button" tabIndex={0} aria-label={`그림 ${index} 관찰 영역. Enter로 가운데 메모 추가`} onKeyDown={e=>{if(e.key==='Enter')onPin({id:crypto.randomUUID(),image:index,x:.5,y:.5});}} onPointerDown={e=>{if(e.target.closest('button'))return;drag.current={x:e.clientX,y:e.clientY,v:view};e.currentTarget.setPointerCapture(e.pointerId);}} onPointerMove={e=>{if(!drag.current)return;const d=drag.current;setView({...d.v,x:d.v.x+e.clientX-d.x,y:d.v.y+e.clientY-d.y});}} onPointerUp={e=>{const d=drag.current;drag.current=null;if(!d)return;if(Math.hypot(e.clientX-d.x,e.clientY-d.y)>5)return;const r=e.currentTarget.getBoundingClientRect();onPin({id:crypto.randomUUID(),image:index,x:Math.max(0,Math.min(1,(e.clientX-r.left-view.x)/(r.width*view.zoom))),y:Math.max(0,Math.min(1,(e.clientY-r.top-view.y)/(r.height*view.zoom)))});}} onPointerCancel={()=>{drag.current=null;}}><div className={styles.pictureContent} style={{transform:`translate(${view.x}px,${view.y}px) scale(${view.zoom})`}}><Image src={explorationImage(index)} alt={`그림 ${index} · 검수용 역사 장면 초안`} fill sizes={view.zoom>1?'1536px':'(max-width: 1000px) 90vw, 70vw'} draggable={false} style={{objectFit:'contain',pointerEvents:'none'}} loading="eager"/>{(ARTIFACT_SPOTS[index] || []).map(([artifact,x,y],i)=><button key={`${artifact}-${i}`} className={styles.artifactSpot} style={{left:`${x*100}%`,top:`${y*100}%`}} title={artifact} aria-label={`${artifact} 조사 위치`} onClick={e=>{e.stopPropagation();onPin({artifact});}}>⌕</button>)}{notes.filter(n=>n.image===index).map(n=><button key={n.id} className={styles.pin} style={{left:`${n.x*100}%`,top:`${n.y*100}%`}} title={`${n.kind}: ${n.text}`} onClick={e=>{e.stopPropagation();onPin(n);}}>●</button>)}</div></div><div className={styles.tools}><strong>그림 {String(index).padStart(2,'0')} <small className={styles.muted}>검수용 초안</small></strong><div><button aria-label={`그림 ${index} 축소`} onClick={()=>zoom(-.25)}>−</button><button aria-label={`그림 ${index} 확대`} onClick={()=>zoom(.25)}>＋</button><button onClick={()=>setView({zoom:1,x:0,y:0})}>초기화</button></div></div></section>;
+function ResearchWorkspace({state,draft,change,operate}) {
+  const s=state.me,path=pathById(s.path);
+  const [selected,setSelected]=useState(null);
+  const opposite=selected?(selected.group%2?selected.group+1:selected.group-1):0;
+  const select=(group,artifact)=>setSelected({group,artifact});
+  const card=selected&&state.cards.find(c=>c.group===selected.group&&c.artifact===selected.artifact);
+  const changeResearch=(id,r)=>change({...draft,research:{...draft.research,[id]:r}});
+  return <>
+    <h2>유물이 들려주는 이야기</h2>
+    <p className={styles.notice}>노란 테두리가 내가 맡은 그림이에요. 돋보기를 누르면 그림 반대편에 조사 카드가 열려요.</p>
+    {PATH_CONTEXT[path.id]&&<p className={styles.muted}>{PATH_CONTEXT[path.id]}</p>}
+    <div className={styles.researchGrid}>
+      {[1,2,3,4].map(group=>group===opposite?<div key={group} className={styles.researchDrawer} role="region" aria-label="선택한 유물 조사 카드">
+        <button onClick={()=>setSelected(null)}>카드 닫기 ×</button>
+        <ResearchCard key={selected.group+'-'+selected.artifact} artifact={selected.artifact} card={card} research={draft.research||{}} changeResearch={changeResearch} operate={operate}/>
+      </div>:<section key={group} className={group===s.group?styles.assignedPicture:styles.researchPicture}>
+        <h3>그림 {group}{group===s.group?' · 내가 맡은 그림':''}</h3>
+        <div className={styles.picture}>
+          <Image src={explorationImage(group)} alt={`그림 ${group} · 역사 조사 장면`} fill sizes="(max-width: 700px) 90vw, 45vw" draggable={false} style={{objectFit:'contain'}}/>
+          {(ARTIFACT_SPOTS[group]||[]).map(([artifact,x,y],i)=>{
+            const enabled=group===s.group||(state.canHelpResearch&&state.cards.some(c=>c.group===group&&c.artifact===artifact));
+            return <button key={artifact+i} className={styles.artifactSpot} style={{left:`${x*100}%`,top:`${y*100}%`}} disabled={!enabled} title={enabled?artifact:'내 조사 완료 후 친구가 작성한 카드를 도울 수 있어요'} aria-label={`그림 ${group} · ${artifact} 조사 카드 열기`} aria-pressed={selected?.group===group&&selected?.artifact===artifact} onClick={()=>select(group,artifact)}>⌕</button>;
+          })}
+        </div>
+      </section>)}
+    </div>
+    {!path.artifacts.length&&<section className={styles.panel}><h3>교과서 생활 단서 조사</h3>{path.clues.map(c=><p className={styles.clue} key={c}>{c}</p>)}<label>단서에서 알게 된 생활과 그 근거<textarea value={draft.notes.find(n=>n.id===`inquiry-${path.id}`)?.text||''} onChange={e=>{const id=`inquiry-${path.id}`,note={id,image:s.group,x:.5,y:.5,kind:'내 생각·추측',text:e.target.value};change({...draft,notes:[...draft.notes.filter(n=>n.id!==id),note]});}}/></label><p>조사 기록은 자동 저장돼요.</p></section>}
+    <h3>{state.canHelpResearch?'친구 조사 도와주기':'우리 모둠 공동보드'}</h3>
+    <p>{state.canHelpResearch?'친구의 그림에 있는 돋보기나 아래 카드 이름을 눌러 조사에 내용을 보태 주세요.':'내 조사 카드를 모두 제출하면 다른 모둠 친구의 조사도 도울 수 있어요.'}</p>
+    <div className={styles.row}>{state.cards.map(c=><button key={c.id} onClick={()=>select(c.group,c.artifact)}>{c.group}모둠 · {c.artifact} · {c.status}</button>)}</div>
+  </>;
 }
 
 function ResearchCard({artifact,index,card,research,changeResearch,operate}) {

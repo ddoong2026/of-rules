@@ -98,9 +98,20 @@
 .gameViewport { position:relative; width:100%; aspect-ratio:1.5; overflow:hidden; outline-offset:-3px; }
 .gameViewport:focus-visible {outline:3px solid #b58944;}
 .gameBackdrop { position:absolute; inset:0; background-size:200% 200%; background-repeat:no-repeat; }
-.gameSprite { position:absolute; width:90px; height:90px; transform:translate(-50%,-85%); background-image:url('/history/character-walk.png'); background-size:400% 400%; background-repeat:no-repeat; pointer-events:none; }
+.questTracker { position:absolute; z-index:2; top:12px; right:12px; width:min(310px,38%); padding:11px 12px; border:1px solid #d6c28b; border-radius:9px; background:#fffdf2ed; box-shadow:0 3px 12px #243d3626; color:#30483d; pointer-events:none; }
+.questTracker strong { display:block; margin-bottom:7px; color:#70551c; font-size:13px; }
+.questTracker ol { display:grid; gap:5px; margin:0; padding:0; list-style:none; }
+.questTracker li { display:grid; grid-template-columns:23px 1fr; column-gap:6px; align-items:start; color:#748078; font-size:11px; line-height:1.25; }
+.questTracker li span { display:grid; place-items:center; width:19px; height:19px; border:1px solid #b8c1ae; border-radius:50%; font-size:9px; }
+.questTracker li small { grid-column:2; color:#87713b; font-size:10px; }
+.questTracker .questActive { color:#214e40; font-weight:700; }
+.questTracker .questActive span { border-color:#245b48; background:#245b48; color:white; }
+.questTracker .questDone { color:#5d7863; }
+.questTracker .questDone span { border-color:#86a285; background:#e7f0e5; }
+.gameSprite { position:absolute; width:90px; height:90px; transform:translate(-50%,-85%); background-repeat:no-repeat; pointer-events:none; }
 .gameSprite span { position:absolute; top:-12px; left:50%; transform:translateX(-50%); background:#245b48; color:white; padding:1px 8px; border-radius:8px; font-size:12px; }
 .gamePlace { position:absolute; transform:translateX(-50%); background:#fffbeeeb; border:1px solid #b7bf9a; border-radius:5px; padding:3px 7px; font-size:12px; white-space:nowrap; pointer-events:none; }
+.npcLabel { max-width:28%; white-space:normal; text-align:center; line-height:1.35; }
 .gameTarget { position:absolute; width:55px; height:32px; border:3px dashed #fff4ac; border-radius:50%; transform:translate(-50%,-50%); background:#f8e79144; pointer-events:none; }
 .gameTarget span { position:absolute; top:-35px; left:50%; transform:translateX(-50%); white-space:nowrap; font-size:14px; color:#234e43; background:#fffbe8; border-radius:4px; padding:2px 6px; }
 .gameControls button {touch-action:none; min-width:42px;}
@@ -112,3 +123,4 @@
 .artifactReference figcaption {font-size:12px; color:#657064; margin-top:8px;}
 .eraLabel {position:absolute; pointer-events:none; padding:4px 8px; background:#284e43e8; color:#fffbee; border-radius:4px; font-size:14px; font-weight:600;}
 .root .artifactSpot {position:absolute; transform:translate(-50%,-50%); width:38px; height:38px; padding:0; border:2px solid #ffe08b; border-radius:50%; background:#254e43b8; color:white; font-size:24px;}
+@media(max-width:600px) { .questTracker { top:7px; right:7px; width:48%; padding:7px 8px; } .questTracker strong { margin-bottom:4px; font-size:11px; } .questTracker ol { gap:3px; } .questTracker li { grid-template-columns:18px 1fr; column-gap:4px; font-size:9px; } .questTracker li span { width:15px; height:15px; font-size:7px; } .questTracker li small { font-size:8px; } }

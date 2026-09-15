@@ -19,6 +19,7 @@ export default function HistoryGame2D({path,step,onInteract}) {
   const keys=useRef(new Set()),position=useRef(pos),frame=useRef(null),last=useRef(0);
   const close=Math.hypot(pos.x-target.x,pos.y-target.y)<90;
   const story=STORIES[path.id],message=storyLines(path)[step] || story.reflection;
+  const quests=['주변을 살펴 단서를 찾기',`${cast.companion.name}에게 이야기 듣기`,path.artifacts.length?`조사한 유물 확인: ${path.artifacts.join(' · ')}`:'교과서 단서 다시 확인하기','다른 장면의 변화 살피기','질문에 근거를 연결하기','단서로 내 생각 정리하기','상황 속 마음을 기록하기'];
   useEffect(()=>{
     const heldKeys=keys.current;
     function pause(){heldKeys.clear();cancelAnimationFrame(frame.current);frame.current=null;last.current=0;setSpriteFrame(0);}
@@ -44,13 +45,17 @@ export default function HistoryGame2D({path,step,onInteract}) {
     <div className={styles.gameTop}><strong>{path.title} · {map.title}</strong><span>방향키 / WASD 이동 · E 대화</span></div>
     <div className={styles.gameViewport} tabIndex={0} role="application" aria-label={`${path.title} 2D 탐험 지도. 방향키 이동, E 상호작용`} onBlur={stop} onKeyDown={e=>{const key=e.key.toLowerCase()==='e'?'e':e.key.length===1?e.key.toLowerCase():e.key;if(key==='e'){e.preventDefault();interact();}else if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d'].includes(key)){e.preventDefault();start(key);}}} onKeyUp={e=>keys.current.delete(e.key.length===1?e.key.toLowerCase():e.key)}>
       <div className={styles.gameBackdrop} style={{backgroundImage:`url(${gameMapImage(path.group)})`,backgroundPosition:`${quadrant%2*100}% ${Math.floor(quadrant/2)*100}%`}}/>
+      <aside className={styles.questTracker} aria-label="체험 퀘스트 목록">
+        <strong>탐험 퀘스트</strong>
+        <ol>{quests.map((quest,index)=><li key={quest} className={index<step?styles.questDone:index===step?styles.questActive:''}><span>{index<step?'✓':String(index+1).padStart(2,'0')}</span>{quest}{index===2&&path.artifacts.length>0&&<small>조사한 자료와 연결</small>}</li>)}</ol>
+      </aside>
       <span className={styles.gamePlace} style={{left:'20%',top:'30%'}}>{map.left}</span><span className={styles.gamePlace} style={{left:'80%',top:'30%'}}>{map.right}</span>
-      <Sprite x={340} y={270} appearance={cast.companion}/><span className={styles.gamePlace} style={{left:'35.4%',top:'47%'}}>{cast.companion.name} · {cast.companion.role}</span>
-      <Sprite x={630} y={320} appearance={cast.expert}/><span className={styles.gamePlace} style={{left:'65.6%',top:'55%'}}>{cast.expert.name} · {cast.expert.role}</span><span className={styles.gamePlace} style={{left:'78.1%',top:'75%'}}>다른 장면</span><span className={styles.gamePlace} style={{left:'52.1%',top:'84%'}}>생각 정리</span>
+      <Sprite x={340} y={270} appearance={cast.companion}/><span className={`${styles.gamePlace} ${styles.npcLabel}`} style={{left:'35.4%',top:'47%'}}>{cast.companion.name} · {cast.companion.role}</span>
+      <Sprite x={630} y={320} appearance={cast.expert}/><span className={`${styles.gamePlace} ${styles.npcLabel}`} style={{left:'65.6%',top:'55%'}}>{cast.expert.name} · {cast.expert.role}</span><span className={styles.gamePlace} style={{left:'78.1%',top:'75%'}}>다른 장면</span><span className={styles.gamePlace} style={{left:'52.1%',top:'84%'}}>생각 정리</span>
       {step<7&&<div className={styles.gameTarget} style={{left:`${target.x/9.6}%`,top:`${target.y/6.4}%`}}><span>▼ 여기로</span></div>}
       <Sprite x={pos.x} y={pos.y} facing={facing} frame={spriteFrame} player appearance={cast.player}/>
     </div>
     <div className={styles.gameControls}><span>{close?'E 키 또는 상호작용 버튼을 누르세요.':'표시된 장소 가까이 이동해 주세요.'}</span>{[['←','ArrowLeft'],['↑','ArrowUp'],['↓','ArrowDown'],['→','ArrowRight']].map(([label,key])=><button key={key} aria-label={`캐릭터 ${label} 이동`} onClick={e=>{if(e.detail===0)nudge(key);}} onPointerDown={e=>{e.currentTarget.setPointerCapture(e.pointerId);start(key);}} onPointerUp={stop} onPointerCancel={stop} onBlur={stop}>{label}</button>)}<button disabled={!close||step>=7} onClick={interact}>상호작용 · E</button></div>
-    {dialog===step&&<div className={styles.gameDialog} role="region" aria-label="NPC 대화"><strong>{step===2?`${cast.expert.name} · ${cast.expert.role}`:step===1||step===4?`${cast.companion.name} · ${cast.companion.role}`:'나의 생각'}</strong>{[1,2,4].includes(step)&&<small className={styles.muted}>이야기 속 가상 인물</small>}<p>{step===2?`나는 ${cast.expert.name}, ${cast.expert.role}이야. 이 자료를 함께 살펴보며 네 고민에 도움이 될 단서를 찾아보자.`:message}</p>{[1,3,4].includes(step)&&<p className={styles.clue}>교과서 단서: {path.clues[step===3?1:0]}</p>}{step===2&&<>{PATH_CONTEXT[path.id]&&<p className={styles.muted}>{PATH_CONTEXT[path.id]}</p>}{path.artifacts.map(a=><ArtifactReference key={a} artifact={a}/>)}{!path.artifacts.length&&path.clues.map(c=><p key={c}>{c}</p>)}</>}<button onClick={()=>setDialog(-1)}>닫기</button></div>}
+    {dialog===step&&<div className={styles.gameDialog} role="region" aria-label="NPC 대화"><strong>{step===2?`${cast.expert.name} · ${cast.expert.role}`:step===1||step===4?`${cast.companion.name} · ${cast.companion.role}`:'나의 생각'}</strong>{[1,2,4].includes(step)&&<small className={styles.muted}>이야기 속 가상 인물</small>}<p>{step===2?cast.expert.dialogue:message}</p>{[1,3,4].includes(step)&&<p className={styles.clue}>교과서 단서: {path.clues[step===3?1:0]}</p>}{step===2&&<>{PATH_CONTEXT[path.id]&&<p className={styles.muted}>{PATH_CONTEXT[path.id]}</p>}{path.artifacts.map(a=><ArtifactReference key={a} artifact={a}/>)}{!path.artifacts.length&&path.clues.map(c=><p key={c}>{c}</p>)}</>}<button onClick={()=>setDialog(-1)}>닫기</button></div>}
   </div>;
 }

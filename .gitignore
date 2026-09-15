@@ -43,3 +43,6 @@ next-env.d.ts
 
 # Intermediate extraction of user-provided textbook images
 /tmp/history-reference/
+/tmp/sprite-tools/
+/tmp/sprite-models/
+/tmp/sprite-review/

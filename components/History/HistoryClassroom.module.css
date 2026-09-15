@@ -132,3 +132,8 @@
 .gameDialog { z-index:3; }
 
 .teacherObservation { height:75vh; min-height:500px; display:flex; flex-direction:column; }
+
+.root .quizOption { display:flex; align-items:center; gap:12px; width:100%; min-height:56px; margin:10px 0; padding:16px; border:2px solid #c9d3ca; border-radius:12px; background:#fffef8; color:#213f34; text-align:left; font-size:17px; line-height:1.5; white-space:normal; }
+.root .quizOption:hover { background:#edf5ed; border-color:#477b60; }
+.root .quizOption[aria-pressed=true] { background:#dceedd; border-color:#286448; box-shadow:0 0 0 1px #286448; font-weight:700; }
+.root .quizOption:focus-visible { outline:3px solid #2666c4; outline-offset:3px; }

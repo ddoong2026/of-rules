@@ -58,7 +58,7 @@ export default function ObservationBoard({state,draft,change,onMoveNote}) {
   const zoom=amount=>setView(v=>({...v,zoom:clamp(v.zoom+amount,.5,4)}));
   return <section className={styles.observationWorkspace} aria-label="그림과 연결 메모 보드">
     <div className={styles.boardToolbar}>
-      <strong>관찰 보드</strong><span className={styles.muted}>{onMoveNote?'교사 · 모든 학생 메모 이동 가능':state.published?'우리 반 메모 공개됨':'내 메모만 보여요'}</span>
+      <strong>관찰 보드</strong><span className={styles.muted}>{onMoveNote?'교사 · 모든 학생 메모 이동 가능':state.liveNotes?'친구 메모 실시간 공개 중':state.published?'선생님이 전체 공개한 메모':'내 메모만 보여요'}</span>
       {!onMoveNote&&kinds.map((k,i)=><button key={k} aria-pressed={tool==='note'&&kind===k} style={{background:colors[i]}} onClick={()=>{setKind(k);setTool('note');}}>{k}</button>)}
       <button aria-pressed={tool==='pan'} onClick={()=>setTool(t=>t==='pan'?'note':'pan')}>✥ 화면 이동</button>
       <span className={styles.boardHint}>{tool==='note'?'그림을 눌러 메모 · 메모 상단을 끌어 이동':'빈 곳을 드래그 · 휠로 확대'}</span>

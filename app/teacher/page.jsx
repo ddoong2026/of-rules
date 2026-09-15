@@ -184,9 +184,10 @@ export default function TeacherDashboard() {
     }
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch('/api/admin/create-users', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` },
         body: JSON.stringify({ users: usersToCreate })
       });
       
@@ -220,9 +221,10 @@ export default function TeacherDashboard() {
     setUpdateResult(null);
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch('/api/admin/update-users', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` },
         body: JSON.stringify({ updates: students }) // 전체 학생 데이터 전송
       });
       

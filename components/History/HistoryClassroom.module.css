@@ -118,7 +118,17 @@
 .gameDialog { position:absolute; bottom:66px; left:4%; width:92%; padding:18px; border:2px solid #97865d; border-radius:12px; box-shadow:0 5px 20px #213b3433; background:#fffced; }
 .gameDialog p {margin:8px 0;}
 .gameDialog {max-height:min(60vh,500px); overflow:auto; overscroll-behavior:contain;}
-.artifactReference {border-top:1px solid #ddd5bd; padding:8px 0;}
+.artifactReference {border:2px solid #d4b24c; border-radius:12px; padding:12px; margin:14px 0; background:#fffbea;}
+.artifactReference summary {list-style:none; cursor:pointer; border-radius:8px;}
+.artifactReference summary::-webkit-details-marker {display:none;}
+.artifactReference summary:focus-visible {outline:3px solid #28684b; outline-offset:5px;}
+.referenceHeading {display:block; font-weight:750; color:#354b32; font-size:17px;}
+.referenceHeading small {white-space:nowrap; font-weight:400;}
+.referenceInvitation {display:block; font-size:14px; line-height:1.6; margin:8px 0; color:#62563d;}
+.referenceAction {display:block; padding:10px 12px; min-height:44px; border-radius:8px; background:#28583f; color:#fff; text-align:center; font-weight:700;}
+.artifactReference summary:hover .referenceAction {background:#193e2b;}
+.artifactReference[open] .referenceAction {background:#e6ecd9; color:#354b32;}
+.referenceFocus {padding:12px; border-left:4px solid #d4b24c; background:#fff; line-height:1.7;}
 .artifactReference figure {margin:12px 0; background:white; padding:10px; border-radius:8px;}
 .artifactReference figcaption {font-size:12px; color:#657064; margin-top:8px;}
 .eraLabel {position:absolute; pointer-events:none; padding:4px 8px; background:#284e43e8; color:#fffbee; border-radius:4px; font-size:14px; font-weight:600;}
@@ -162,3 +172,18 @@
 .speakerPortrait { background-color:#edf0e1; }
 
 .boardCanvas textarea { overscroll-behavior:contain; }
+.researchGrid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; align-items:start; }
+.researchPicture,.assignedPicture { min-width:0; padding:12px; border:4px solid transparent; border-radius:16px; }
+.assignedPicture { border-color:#f2c316; background:#fff9d9; box-shadow:0 0 0 2px #a77b16; }
+.assignedPicture h3 { color:#725000; }
+.researchGrid .picture { touch-action:auto; }
+.researchDrawer { min-width:0; padding:12px; border:2px solid #d8bd5e; border-radius:16px; background:#fffdf0; }
+.researchDrawer .panel { margin:12px 0 0; }
+.questScrollCue { position:sticky; bottom:0; z-index:5; padding:10px 0; background:linear-gradient(transparent,#fffdf0 20%); }
+.questScrollCue button { width:100%; background:#fff0a1; border:2px solid #b18a16; color:#423710; font-size:18px; font-weight:700; box-shadow:0 3px 10px #0002; }
+.questScrollCue small { display:block; font-weight:400; margin-top:4px; }
+.questScrollCue span { display:inline-block; font-size:28px; animation:questArrow 1s ease-in-out infinite alternate; }
+.questActivity { scroll-margin-top:20px; }
+@keyframes questArrow { to { transform:translateY(5px); } }
+@media(prefers-reduced-motion:reduce) { .questScrollCue span { animation:none; } }
+@media(max-width:700px) { .researchGrid { gap:8px; } .researchPicture,.assignedPicture,.researchDrawer { padding:6px; } .researchDrawer .panel { padding:10px; } }

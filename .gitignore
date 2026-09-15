@@ -40,3 +40,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Intermediate extraction of user-provided textbook images
+/tmp/history-reference/

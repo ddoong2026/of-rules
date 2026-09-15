@@ -10,10 +10,15 @@ const kinds=['보이는 것','궁금한 것','내 생각·추측'];
 const colors=['#fff0a6','#dbeaff','#f6dce9'];
 const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
 // One shared coordinate plane keeps pins, paper notes and connectors aligned at every zoom.
-const W=1600,H=1068;
+// The image area and the paper-note area are deliberately separate: a pin belongs on a picture,
+// while its readable note belongs beside the pictures.
+const IMAGE_W=1600,W=2140,H=1068;
 const frame=image=>({x:((image-1)%2)*800,y:Math.floor((image-1)/2)*534});
 const anchor=n=>({x:frame(n.image).x+n.x*800,y:frame(n.image).y+n.y*534});
-const position=n=>({x:(n.noteX??clamp((anchor(n).x+35)/W,0,.86))*W,y:(n.noteY??clamp((anchor(n).y+25)/H,0,.81))*H});
+const position=n=>({
+  x:(n.noteX??clamp((IMAGE_W+32+((n.image-1)%2)*244)/W,0,.86))*W,
+  y:(n.noteY??clamp((anchor(n).y-70)/H,0,.81))*H,
+});
 
 export default function ObservationBoard({state,draft,change}) {
   const host=useRef(null),drag=useRef(null);
@@ -62,6 +67,7 @@ export default function ObservationBoard({state,draft,change}) {
     </div>
     <div ref={host} className={styles.boardCanvas} onWheel={e=>zoom(e.deltaY<0?.1:-.1)} onPointerDown={e=>down(e,'pan')} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
       <div className={styles.boardPlane} style={{width:W,height:H,transform:`translate(${offset.x}px,${offset.y}px) scale(${scale})`}}>
+        <aside className={styles.noteShelf} aria-hidden="true"><strong>메모지</strong><span>그림의 점과 연결해 기록해요</span></aside>
         {[1,2,3,4].map(image=><div key={image} className={styles.boardImage} style={{left:frame(image).x,top:frame(image).y}} role="button" tabIndex={0} aria-label={`그림 ${image}. 눌러 연결 메모 추가`} onPointerDown={e=>{if(tool==='note')e.stopPropagation();}} onClick={e=>{if(tool!=='note')return;const p=point(e),f=frame(image);add(image,clamp((p.x-f.x)/800,0,1),clamp((p.y-f.y)/534,0,1));}} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();add(image);}}}>
           <Image src={explorationImage(image)} alt={`역사 관찰 그림 ${image}`} fill sizes={view.zoom>1?'1536px':'50vw'} draggable={false} style={{pointerEvents:'none'}} loading="eager"/>
           <span className={styles.imageLabel}>그림 {image} · 학습용 재구성</span>{PATHS.filter(p=>p.group===image).map((p,i)=><span key={p.id} className={styles.eraLabel} style={{left:`${i%2*50+2}%`,top:`${Math.floor(i/2)*50+7}%`}}>{p.title}</span>)}

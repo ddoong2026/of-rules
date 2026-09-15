@@ -77,6 +77,9 @@
 .boardCanvas { position:relative; flex:1; min-height:0; overflow:hidden; touch-action:none; background-color:#e8e8df; background-image:radial-gradient(#bfc6ba 1px,transparent 1px); background-size:18px 18px; }
 .boardPlane { position:absolute; transform-origin:0 0; }
 .boardImage { position:absolute; width:800px; height:534px; cursor:crosshair; border:2px solid #fffef8; overflow:hidden; }
+.noteShelf { position:absolute; left:1620px; top:0; width:500px; height:1068px; box-sizing:border-box; padding:24px; border:2px dashed #bdc9b8; border-radius:12px; background:#f7f4e9; color:#52675b; pointer-events:none; display:flex; flex-direction:column; gap:6px; }
+.noteShelf strong { font-size:20px; color:#385b54; }
+.noteShelf span { font-size:14px; }
 .imageLabel { position:absolute; left:14px; top:12px; border-radius:5px; background:#fffef8e8; padding:6px 10px; font-size:15px; pointer-events:none; }
 .connections { position:absolute; inset:0; pointer-events:none; z-index:2; }
 .sticky { position:absolute; width:224px; height:210px; box-shadow:2px 5px 12px #263b3433; border:1px solid #00000012; border-radius:2px 2px 12px 2px; display:flex; flex-direction:column; }

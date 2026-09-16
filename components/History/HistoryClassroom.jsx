@@ -8,7 +8,7 @@ import Image from 'next/image';
 import dynamic from 'next/dynamic';
 import { supabase } from '@/lib/supabase';
 import { ACTIVITIES, PATHS, STEPS, pathById, readiness } from '@/lib/history/content.mjs';
-import { applyOperation, createLesson, studentView, groupComplete, unlockStatus, reviewQuizScore, reviewQuizRecord, reviewQuestions, groupScores } from '@/lib/history/state.mjs';
+import { applyOperation, createLesson, studentView, groupComplete, chainQuizProgress, groupScores } from '@/lib/history/state.mjs';
 import styles from './HistoryClassroom.module.css';
 import ObservationChat from './ObservationChat';
 import ArtifactReference from './ArtifactReference';
@@ -170,7 +170,7 @@ export default function HistoryClassroom({user,teacher,previewOnly=false}) {
     <header className={styles.header}><Link href="/fieldtrip" className={styles.back}>← 나가기</Link><h1>역사 탐구 교실</h1><span className={styles.status} role="status">{preview?'교사 미리보기 · 저장하지 않음':status}</span><button onClick={async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();}catch{setError('브라우저 전체화면을 열지 못했습니다. F11을 이용해 주세요.');}}}>전체화면</button></header>
     {error && <div role="alert" className={styles.error}>{error}</div>}
     {conflict && <section className={styles.notice}><strong>다른 탭의 기록과 충돌했습니다. 초안은 이 기기에 남아 있습니다.</strong><p>아래 초안을 복사한 뒤 서버 기록을 불러오고 필요한 내용을 합쳐 주세요.</p><textarea readOnly aria-label="보존된 로컬 초안" value={JSON.stringify(draft,null,2)}/><button onClick={()=>{pending.current=null;localStorage.removeItem(key);setDraft(draftOf(row.state.me));setConflict(false);setError('');}}>서버 기록 불러오기</button></section>}
-    {preview && <details className={styles.previewControls}><summary>교사 도구 · 활동 전환</summary><strong>교사용 기능 미리보기 — 역사 시각 자료 검수 대기</strong><div className={styles.row}><select aria-label="미리볼 배정" value={previewId} onChange={e=>{setPreviewId(e.target.value);setDraft(draftOf(preview.students[e.target.value]));}}>{Object.values(preview.students).map(s=><option key={s.id} value={s.id}>{s.name} · {pathById(s.path).title}</option>)}</select>{ACTIVITIES.map(a=><button key={a} onClick={()=>operate({type:'move',targets:[previewId],activity:a})}>{a==='3D'?'2D 체험·일기':a}</button>)}<button aria-pressed={!!preview.locked} onClick={()=>operate({type:'lock',locked:!preview.locked})}>{preview.locked?'학생 조작 다시 시작':'전체 학생 조작 멈춤'}</button><button onClick={()=>operate({type:'publish'})}>메모 전체 공개</button><button aria-pressed={!!(preview.liveNotes??preview.published)} onClick={()=>operate({type:'noteVisibility',mode:(preview.liveNotes??preview.published)?'hidden':'live'})}>메모 실시간 공개 {(preview.liveNotes??preview.published)?'끄기':'켜기'}</button><button onClick={()=>operate({type:'noteVisibility',mode:'hidden'})}>친구 메모 숨김</button><button onClick={()=>operate({type:'reveal'})}>배정 공개</button><button aria-pressed={!!preview.scoreVisible} onClick={()=>operate({type:'scoreVisibility',visible:!preview.scoreVisible})}>모둠 점수 {preview.scoreVisible?'숨기기':'공개'}</button>{!previewOnly && <button onClick={()=>{previewRef.current=null;setPreview(null);setDraft(null);}}>미리보기 닫기</button>}</div></details>}
+    {preview && <details className={styles.previewControls}><summary>교사 도구 · 활동 전환</summary><strong>교사용 기능 미리보기 — 역사 시각 자료 검수 대기</strong><div className={styles.row}><select aria-label="미리볼 배정" value={previewId} onChange={e=>{setPreviewId(e.target.value);setDraft(draftOf(preview.students[e.target.value]));}}>{Object.values(preview.students).map(s=><option key={s.id} value={s.id}>{s.name} · {pathById(s.path).title}</option>)}</select>{ACTIVITIES.map(a=><button key={a} onClick={()=>operate({type:'move',targets:[previewId],activity:a})}>{a==='3D'?'2D 체험·일기':a}</button>)}<button aria-pressed={!!preview.locked} onClick={()=>operate({type:'lock',locked:!preview.locked})}>{preview.locked?'학생 조작 다시 시작':'전체 학생 조작 멈춤'}</button><button onClick={()=>operate({type:'publish'})}>메모 전체 공개</button><button aria-pressed={!!(preview.liveNotes??preview.published)} onClick={()=>operate({type:'noteVisibility',mode:(preview.liveNotes??preview.published)?'hidden':'live'})}>메모 실시간 공개 {(preview.liveNotes??preview.published)?'끄기':'켜기'}</button><button onClick={()=>operate({type:'noteVisibility',mode:'hidden'})}>친구 메모 숨김</button><button onClick={()=>operate({type:'reveal'})}>배정 공개</button><button aria-pressed={!!preview.scoreVisible} onClick={()=>operate({type:'scoreVisibility',visible:!preview.scoreVisible})}>모둠 점수 {preview.scoreVisible?'숨기기':'공개'}</button><button aria-pressed={!!preview.freeMode} onClick={()=>operate({type:'freeMode',enabled:!preview.freeMode})}>모두 잠금 해제 모드 {preview.freeMode?'끄기':'켜기'}</button>{!previewOnly && <button onClick={()=>{previewRef.current=null;setPreview(null);setDraft(null);}}>미리보기 닫기</button>}</div></details>}
     {!sessionId && !preview ? <>
       <section className={styles.hero}><div><div className={styles.eyebrow} style={{color:'#b9cfb9'}}>우리의 탐구 · 40분</div><h2>아주 오래전, 나는 어떻게 살았을까?</h2><p>그림을 관찰하고, 유물을 조사하고, 당시 사람의 처지에서 일기를 써 보세요.<br/>맵을 모두 체험하면 다른 모둠의 이야기도 만날 수 있어요.</p></div><div className={styles.seal}>관찰<br/><small style={{fontSize:13}}>에서 이해로</small></div></section>
       <div className={styles.steps}>{['01 관찰 · 5분','02 조사 · 8분','03 체험·일기 · 24분','04 정리 · 3분'].map(a=><span key={a}>{a}</span>)}</div>
@@ -198,12 +198,12 @@ function TeacherBoard({state,operate}) {
   const student=state.students[inspect];
   const scores=groupScores(state);
   const cardsByGroup=group=>Object.values(state.cards).filter(c=>c.group===group);
-  return <><div className={styles.notice}><strong>시각 자료 검수 대기 · 수업 진행 가능</strong><p>검수 상태와 관계없이 아래에서 활동을 선택해 학생들과 수업을 진행할 수 있습니다.</p>{readiness().map(t=><p key={t}>{t}</p>)}</div><section className={styles.panel}><h2>수업 진행</h2><div className={styles.row}><button aria-pressed={!!state.locked} onClick={()=>operate({type:'lock',locked:!state.locked})}>{state.locked?'학생 조작 다시 시작':'전체 학생 조작 멈춤'}</button><button onClick={()=>operate({type:'reveal'})}>지정한 모둠·주제 공개</button><button onClick={()=>operate({type:'publish'})}>메모 전체 공개</button><button aria-pressed={!!(state.liveNotes??state.published)} onClick={()=>operate({type:'noteVisibility',mode:(state.liveNotes??state.published)?'hidden':'live'})}>메모 실시간 공개 {(state.liveNotes??state.published)?'끄기':'켜기'}</button><button onClick={()=>operate({type:'noteVisibility',mode:'hidden'})}>친구 메모 숨김</button><button aria-pressed={!!state.scoreVisible} onClick={()=>operate({type:'scoreVisibility',visible:!state.scoreVisible})}>모둠 점수 {state.scoreVisible?'학생에게 숨기기':'학생에게 공개'}</button></div><div className={styles.row}><select aria-label="이동할 활동" value={activity} onChange={e=>setActivity(e.target.value)}>{ACTIVITIES.map(a=><option key={a} value={a}>{a==='3D'?'2D 체험·일기':a}</option>)}</select><button onClick={()=>operate({type:'move',activity,targets:students.map(s=>s.id)})}>전체 학생 보내기</button><button disabled={!targets.length} onClick={()=>operate({type:'move',activity,targets})}>선택한 {targets.length}명 보내기</button></div><p className={styles.muted}>현재 입력을 보존하고 지정한 활동으로 이동합니다. 미체험 단서는 보충으로 제공하며 퀘스트 완료로 처리하지 않습니다.</p></section>
+  return <><div className={styles.notice}><strong>시각 자료 검수 대기 · 수업 진행 가능</strong><p>검수 상태와 관계없이 아래에서 활동을 선택해 학생들과 수업을 진행할 수 있습니다.</p>{readiness().map(t=><p key={t}>{t}</p>)}</div><section className={styles.panel}><h2>수업 진행</h2><div className={styles.row}><button aria-pressed={!!state.locked} onClick={()=>operate({type:'lock',locked:!state.locked})}>{state.locked?'학생 조작 다시 시작':'전체 학생 조작 멈춤'}</button><button onClick={()=>operate({type:'reveal'})}>지정한 모둠·주제 공개</button><button onClick={()=>operate({type:'publish'})}>메모 전체 공개</button><button aria-pressed={!!(state.liveNotes??state.published)} onClick={()=>operate({type:'noteVisibility',mode:(state.liveNotes??state.published)?'hidden':'live'})}>메모 실시간 공개 {(state.liveNotes??state.published)?'끄기':'켜기'}</button><button onClick={()=>operate({type:'noteVisibility',mode:'hidden'})}>친구 메모 숨김</button><button aria-pressed={!!state.scoreVisible} onClick={()=>operate({type:'scoreVisibility',visible:!state.scoreVisible})}>모둠 점수 {state.scoreVisible?'학생에게 숨기기':'학생에게 공개'}</button><button aria-pressed={!!state.freeMode} onClick={()=>operate({type:'freeMode',enabled:!state.freeMode})}>모두 잠금 해제 모드 {state.freeMode?'끄기':'켜기'}</button></div><div className={styles.row}><select aria-label="이동할 활동" value={activity} onChange={e=>setActivity(e.target.value)}>{ACTIVITIES.map(a=><option key={a} value={a}>{a==='3D'?'2D 체험·일기':a}</option>)}</select><button onClick={()=>operate({type:'move',activity,targets:students.map(s=>s.id)})}>전체 학생 보내기</button><button disabled={!targets.length} onClick={()=>operate({type:'move',activity,targets})}>선택한 {targets.length}명 보내기</button></div><p className={styles.muted}>현재 입력을 보존하고 지정한 활동으로 이동합니다. 미체험 단서는 보충으로 제공하며 퀘스트 완료로 처리하지 않습니다.</p></section>
     <section className={styles.panel}><h2>모둠 경쟁 점수 · {state.scoreVisible?'학생에게 공개 중':'학생에게는 숨김'}</h2><p className={styles.muted}>완료한 맵 개수를 모둠원 전체 합산으로 집계합니다.</p><div className={styles.row}>{scores.map(({group,score})=><span key={group} className={styles.badge}>{group}모둠 · {score}점</span>)}</div></section>
     <details open className={styles.panel}><summary>실시간 관찰 채팅 모니터링</summary><div className={styles.teacherObservation}><ObservationChat state={state} readOnly/></div></details>
     <details open className={styles.panel}><summary>모둠별 조사 카드 실시간 확인</summary><div className={styles.researchGrid}>{[1,2,3,4].map(group=><div key={group} className={styles.panel}><h3>{group}모둠</h3>{cardsByGroup(group).length?cardsByGroup(group).map(c=><p key={c.id}>{c.artifact} — {c.name||'명칭 미입력'} / {c.usage||'쓰임 미입력'} · {c.status}</p>):<p className={styles.muted}>아직 제출된 조사 카드가 없습니다.</p>}</div>)}</div></details>
     <section className={styles.panel}><h2>학생별 진행</h2><div className={styles.tableWrap}><table className={styles.table}><thead><tr><th>선택</th><th>학생</th><th>개인 주제</th><th>활동</th><th>명령 수신</th><th>저장</th><th>연결</th><th>체험</th><th>해금</th><th>기록</th></tr></thead><tbody>{students.map(s=><tr key={s.id}><td><input type="checkbox" aria-label={`${s.name} 선택`} checked={targets.includes(s.id)} onChange={e=>setTargets(e.target.checked?[...targets,s.id]:targets.filter(id=>id!==s.id))}/></td><td>{s.name}</td><td>{s.path} {pathById(s.path).title}</td><td>{s.activity==='3D'?'2D 체험·일기':s.activity}</td><td>{s.command?.sequence>s.ack?'미수신':'적용됨'}</td><td>{s.saveState || '미작성'}</td><td>{s.lastSeen && now-Date.parse(s.lastSeen)<30000?'연결됨':'응답 대기'}</td><td>{s.attempts[s.path]?.complete?'완료':s.attempts[s.path]?.interrupted?'중단':'미완료'}</td><td>{s.grants.length}개</td><td><button onClick={()=>setInspect(s.id)}>열람</button></td></tr>)}</tbody></table></div></section>
-    {student && <section className={styles.panel}><h2>{student.name}의 연결 기록</h2><p>{student.path} · {pathById(student.path).title}</p><h3>관찰</h3>{student.notes.map(n=><p key={n.id}>{n.kind}: {n.text}</p>)}<h3>조사</h3>{Object.values(state.cards).filter(c=>c.owner===student.id || c.helpers.includes(student.id)).map(c=><p key={c.id}>{c.name || '명칭 미입력'} — {c.usage || '쓰임 미입력'} / 출처: {c.source || '미기입'} / {c.status}</p>)}<h3>퀘스트</h3><p>{student.attempts[student.path]?.checkpoint || 0}/{STEPS.length} · {student.attempts[student.path]?.mode || '미시작'}</p><h3>일기 선택 · 감정과 생각</h3>{pathById(student.path).questions.map(q=><p key={q.id}>{q.prompt} {q.options[student.diary.answers[q.id]] || '미입력'}</p>)}<p style={{whiteSpace:'pre-wrap'}}>{student.diary.text || '작성 내용 없음'}</p><h3>체험한 맵</h3>{[student.path,...student.grants].map(id=><p key={id}>{pathById(id).title}{student.attempts[id]?.complete?' · 완료':' · 진행 중'}</p>)}<h3>모둠 복습 퀴즈</h3>{[1,2,3,4].map(g=><p key={g}>{g}모둠 · {reviewQuizScore(student,g)}/{reviewQuestions(g).length}문제</p>)}</section>}
+    {student && <section className={styles.panel}><h2>{student.name}의 연결 기록</h2><p>{student.path} · {pathById(student.path).title}</p><h3>관찰</h3>{student.notes.map(n=><p key={n.id}>{n.kind}: {n.text}</p>)}<h3>조사</h3>{Object.values(state.cards).filter(c=>c.owner===student.id || c.helpers.includes(student.id)).map(c=><p key={c.id}>{c.name || '명칭 미입력'} — {c.usage || '쓰임 미입력'} / 출처: {c.source || '미기입'} / {c.status}</p>)}<h3>퀘스트</h3><p>{student.attempts[student.path]?.checkpoint || 0}/{STEPS.length} · {student.attempts[student.path]?.mode || '미시작'}</p><h3>일기 선택 · 감정과 생각</h3>{pathById(student.path).questions.map(q=><p key={q.id}>{q.prompt} {q.options[student.diary.answers[q.id]] || '미입력'}</p>)}<p style={{whiteSpace:'pre-wrap'}}>{student.diary.text || '작성 내용 없음'}</p><h3>체험한 맵</h3>{[student.path,...student.grants].map(id=><p key={id}>{pathById(id).title}{student.attempts[id]?.complete?' · 완료':' · 진행 중'}</p>)}<h3>다음 맵 잠금 해제 퀴즈</h3>{(()=>{const q=chainQuizProgress(student);return q.current?<p>{pathById(q.current).title} 기준 · {q.score}/{q.needed}문제 {q.passed?'통과':'진행 중'}</p>:<p className={styles.muted}>아직 자신의 맵을 완료하지 않았습니다.</p>;})()}</section>}
   </>;
 }
 
@@ -222,38 +222,45 @@ function StudentWorkspace({state,draft,change,operate,preview}) {
     <div className={styles.layout}><div>
       {activity==='준비' && <section className={styles.hero}><div><span className={styles.badge}>수업 준비</span><h2 style={{marginTop:18}}>단서를 발견할 준비가 되었나요?</h2><p>선생님이 수업을 시작하면 네 장의 그림이 함께 열립니다.</p>{state.revealed && <h3>{s.group}모둠 · {path.title}</h3>}</div><div className={styles.seal}>나의<br/>발견</div></section>}
       {activity==='조사' && <ResearchWorkspace key={s.path} state={state} draft={draft} change={change} operate={operate}/>}
-      {activity==='3D' && <><h2>{currentPath.title} · 개인 추체험</h2><div className={styles.row}><select aria-label="체험할 맵" value={activePath} onChange={e=>operate({type:'enterExperience',path:e.target.value})}>{[...new Set([s.path,...s.grants])].map(id=><option key={id} value={id}>{pathById(id).title}{id===s.path?' · 나의 배정':' · 잠금 해제한 체험'}</option>)}</select></div><Experience key={activePath} path={currentPath} research={[...Object.values(draft.research || {}),...state.cards]} attempt={attempt} operate={operate} preview={preview} diary={activePath===s.path?draft.diary:undefined} onDiaryChange={diary=>change({...draft,diary})} versions={s.diary.versions.length}/><MapUnlocks state={state} operate={operate}/></>}
+      {activity==='3D' && <><h2>{currentPath.title} · 개인 추체험</h2><div className={styles.row}><select aria-label="체험할 맵" value={activePath} onChange={e=>operate({type:'enterExperience',path:e.target.value})}>{[...new Set([s.path,...s.grants,...(state.freeMode?PATHS.map(p=>p.id):[])])].map(id=><option key={id} value={id}>{pathById(id).title}{id===s.path?' · 나의 배정':state.freeMode&&!s.grants.includes(id)?' · 자유 체험':' · 잠금 해제한 체험'}</option>)}</select></div><Experience key={activePath} path={currentPath} research={[...Object.values(draft.research || {}),...state.cards]} attempt={attempt} operate={operate} preview={preview} diary={activePath===s.path?draft.diary:undefined} onDiaryChange={diary=>change({...draft,diary})} versions={s.diary.versions.length}/><MapUnlocks state={state} operate={operate}/></>}
       {activity==='정리' && <section className={styles.panel}><h2>작은 단서가 역사가 되었어요</h2><p>관찰한 모습, 조사한 유물의 쓰임, 시대의 생활을 서로 연결해 이야기해 봅시다.</p><h3>나의 탐구 기록</h3><p>관찰 메모 {draft.notes.length}개 · 조사 기록 {Object.keys(draft.research||{}).length}개 · 퀴즈 {path.questions.filter(q=>draft.diary.answers[q.id]===q.answer).length}/{path.questions.length} · 공유한 일기 {s.diary.versions.length}개</p>{draft.notes.map(n=><p key={n.id}>{n.kind}: {n.text}</p>)}<h3>완성한 나의 일기</h3>{path.questions.map(q=><p key={q.id}>{q.prompt} {q.options[draft.diary.answers[q.id]]||'미작성'}</p>)}<p style={{whiteSpace:'pre-wrap'}}>{draft.diary.text||'아직 감정과 생각을 기록하지 않았어요.'}</p><h3>체험한 맵</h3>{[s.path,...s.grants].map(id=><p key={id}>{pathById(id).title}{s.attempts[id]?.complete?' · 완료':' · 진행 중'} · 위의 체험 시작 버튼으로 들어갈 수 있어요.</p>)}{state.scores&&<><h3>모둠 경쟁 점수</h3>{state.scores.map(({group,score})=><p key={group}>{group}모둠{group===s.group?' · 우리 모둠':''} · {score}점</p>)}</>}</section>}
     </div><aside><section className={styles.panel}><span className={styles.badge}>{state.revealed?`${s.group}모둠 · ${s.path}`:'나의 탐구'}</span><h3 style={{marginTop:14}}>{state.revealed?path.title:'곧 주제가 공개돼요'}</h3><p className={styles.muted}>{s.name}<br/>관찰 → 유물 → 생활 → 마음</p></section>{state.scores&&<section className={styles.panel}><h3>모둠 경쟁 점수</h3>{state.scores.map(({group,score})=><p key={group} className={group===s.group?styles.badge:styles.muted}>{group}모둠 · {score}점</p>)}</section>}{activity!=='준비'&&<section className={styles.panel}><h3>탐구 도움말</h3><p className={styles.muted}>보이는 사실과 내 추측을 구분해요. 정답이 떠오르지 않으면 단서를 다시 읽어도 괜찮아요.</p>{(s.supplement || ['일기','3D','정리'].includes(activity)) && <details open={s.supplement}><summary>놓친 단서 / 다시 읽기</summary>{path.clues.map((c,i)=><div className={styles.clue} key={c}><small>{s.attempts[s.path]?.seen.includes(i)?'체험에서 확인':'미체험 보충'}</small><p>{c}</p></div>)}<p className={styles.muted}>교과서 {path.pages}쪽 · 학습용으로 재구성한 설명</p></details>}</section>}</aside></div>
   </>;
 }
 
-// Same-group siblings unlock once the student's own map is complete; other groups unlock only
-// after every map in the student's own group is complete AND that group's research cards have
-// been reviewed. Either way, the review-quiz bank already used for 복습 doubles as the 3-correct
-// gate, so no new quiz content is needed.
+// Finishing a map unlocks nothing by itself: the student must first pass a small quiz built
+// from the map they just finished (plus one question from whichever map came right before it,
+// once there is one), and passing it lets them pick exactly one further map to unlock. Only one
+// unlocked-but-unfinished map may exist at a time, which keeps "the map I just finished" well
+// defined for the next quiz. Crossing into another group additionally needs that group's
+// research cards reviewed first.
 function MapUnlocks({state,operate}) {
   const s=state.me;
-  const ownDone=!!s.attempts[s.path]?.complete;
-  if(!ownDone) return <section className={styles.panel}><h3>다른 맵 체험하기</h3><p className={styles.muted}>내 맵을 완료하면 같은 모둠의 다른 맵을 체험할 수 있어요.</p></section>;
-  const siblings=PATHS.filter(p=>p.group===s.group&&p.id!==s.path);
+  if(state.freeMode)return <FreeModeMapList state={state} operate={operate}/>;
+  const pendingId=s.grants.find(id=>!s.attempts[id]?.complete);
+  if(pendingId)return <section className={styles.panel}><h3>다른 맵 체험하기</h3><p className={styles.muted}>지금 <strong>{pathById(pendingId).title}</strong>을(를) 체험하고 있어요. 완료하면 다음 맵을 잠금 해제할 수 있어요.</p></section>;
+  const quiz=chainQuizProgress(s);
+  if(!quiz.current)return <section className={styles.panel}><h3>다른 맵 체험하기</h3><p className={styles.muted}>내 맵을 완료하면 대화를 떠올리는 문제를 풀고 체험할 다른 맵을 고를 수 있어요.</p></section>;
+  const ownedOrOwn=new Set([s.path,...s.grants]);
+  const siblingChoices=PATHS.filter(p=>p.group===s.group&&!ownedOrOwn.has(p.id));
   const homeDone=groupComplete(s,s.group);
   const otherGroups=[1,2,3,4].filter(g=>g!==s.group);
-  const unlockRow=p=>{
-    const owned=s.grants.includes(p.id);
-    const status=unlockStatus(s,p.id);
-    return <li key={p.id}>{p.title}{s.attempts[p.id]?.complete?' · 완료':''} {owned?<button onClick={()=>operate({type:'enterExperience',path:p.id})}>체험하기</button>:<button disabled={status.quizScore<status.quizNeeded} onClick={()=>operate({type:'unlockMap',path:p.id})}>잠금 해제 ({status.quizScore}/{status.quizNeeded})</button>}</li>;
-  };
+  const remainingElsewhere=otherGroups.some(g=>PATHS.some(p=>p.group===g&&!ownedOrOwn.has(p.id)));
+  if(!siblingChoices.length && homeDone && !remainingElsewhere)return <section className={styles.panel}><h3>다른 맵 체험하기</h3><p className={styles.muted}>16개 맵을 모두 체험했어요! 정말 대단해요.</p></section>;
+  if(!quiz.passed)return <section className={styles.panel}>
+    <h3>다음 맵 잠금 해제 퀴즈</h3>
+    <p className={styles.muted}><strong>{pathById(quiz.current).title}</strong>의 대화를 떠올리며 문제를 모두 맞혀 보세요. 다 맞히면 체험할 맵을 하나 골라 잠금 해제할 수 있어요.</p>
+    <ReviewQuiz quiz={quiz} operate={operate}/>
+  </section>;
+  const unlockRow=p=><li key={p.id}>{p.title} <button onClick={()=>operate({type:'unlockMap',path:p.id})}>이 맵 선택</button></li>;
   return <section className={styles.panel}>
-    <h3>다른 맵 체험하기</h3>
-    <h4>같은 모둠</h4>
-    <p className={styles.muted}>복습 퀴즈에서 3문제 이상 맞히면 같은 모둠의 다른 맵을 체험할 수 있어요.</p>
-    <ReviewQuiz group={s.group} record={reviewQuizRecord(s,s.group)} operate={operate}/>
-    <ul>{siblings.map(unlockRow)}</ul>
+    <h3>체험할 맵을 하나 선택하세요</h3>
+    {siblingChoices.length>0&&<><h4>같은 모둠</h4><ul>{siblingChoices.map(unlockRow)}</ul></>}
     {homeDone?<>
       <h4>다른 모둠</h4>
-      <p className={styles.muted}>우리 모둠 맵을 모두 체험했어요! 다른 모둠의 조사 카드를 먼저 확인하면 그 모둠의 맵도 체험할 수 있어요.</p>
       {otherGroups.map(group=>{
+        const groupChoices=PATHS.filter(p=>p.group===group&&!ownedOrOwn.has(p.id));
+        if(!groupChoices.length)return null;
         const reviewed=(s.reviewedGroups||[]).includes(group);
         const cards=state.cards.filter(c=>c.group===group);
         return <div key={group} className={styles.panel}>
@@ -261,27 +268,53 @@ function MapUnlocks({state,operate}) {
           {!reviewed?<>
             {cards.length?cards.map(c=><p key={c.id}>{c.artifact} — {c.name||'명칭 미입력'} / {c.usage||'쓰임 미입력'}</p>):<p className={styles.muted}>아직 제출된 조사 카드가 없습니다.</p>}
             <button disabled={!cards.length} onClick={()=>operate({type:'reviewGroup',group})}>조사 카드 확인 완료</button>
-          </>:<>
-            <ReviewQuiz group={group} record={reviewQuizRecord(s,group)} operate={operate}/>
-            <ul>{PATHS.filter(p=>p.group===group).map(unlockRow)}</ul>
-          </>}
+          </>:<ul>{groupChoices.map(unlockRow)}</ul>}
         </div>;
       })}
-    </>:<p className={styles.muted}>우리 모둠 맵을 모두 체험하면 다른 모둠의 맵도 체험할 수 있어요.</p>}
+    </>:<p className={styles.muted}>우리 모둠 맵을 모두 체험하면 다른 모둠의 맵도 선택할 수 있어요.</p>}
   </section>;
 }
 
-function ReviewQuiz({group,record,operate}) {
+// The teacher's all-unlock mode: every map is directly selectable with no quiz gate, and a
+// separate, purely optional quiz-by-topic list is offered for students who still want practice.
+function FreeModeMapList({state,operate}) {
+  const s=state.me;
+  const [quizPath,setQuizPath]=useState(null);
+  return <section className={styles.panel}>
+    <h3>모두 잠금 해제 모드</h3>
+    <p className={styles.muted}>선생님이 모든 맵을 열어 두었어요. 퀴즈를 풀지 않아도 목록에서 자유롭게 골라 체험할 수 있어요.</p>
+    {[1,2,3,4].map(group=><div key={group} className={styles.row}><strong>{group}모둠</strong>{PATHS.filter(p=>p.group===group).map(p=><button key={p.id} onClick={()=>operate({type:'enterExperience',path:p.id})}>{p.title}{p.id===s.path?' · 나의 배정':''}{s.attempts[p.id]?.complete?' · 완료':''}</button>)}</div>)}
+    <h3>복습 퀴즈 · 자유롭게 풀어보기</h3>
+    <p className={styles.muted}>주제를 골라 언제든 풀어 볼 수 있어요. 체험과는 별개로, 원할 때만 풀면 됩니다.</p>
+    <div className={styles.row}>{PATHS.map(p=><button key={p.id} aria-pressed={quizPath===p.id} className={quizPath===p.id?styles.primary:''} onClick={()=>setQuizPath(quizPath===p.id?null:p.id)}>{p.title}</button>)}</div>
+    {quizPath&&<FreeQuiz path={quizPath} record={s.reviewQuizzes?.[quizPath]||{}} operate={operate}/>}
+  </section>;
+}
+
+function FreeQuiz({path,record,operate}) {
   const [busy,setBusy]=useState(false);
-  const questions=reviewQuestions(group),score=questions.filter(q=>record[q.id]?.choice===q.answer).length;
+  const questions=PATHS.find(p=>p.id===path).questions;
   async function answer(questionId,choice) {
     setBusy(true);
-    try {await operate({type:'answerReviewQuiz',group,questionId,choice});} finally {setBusy(false);}
+    try {await operate({type:'answerReviewQuiz',path,questionId,choice});} finally {setBusy(false);}
   }
-  return <details open={score<3} className={styles.panel}><summary>{group}모둠 복습 퀴즈 · {score}/{questions.length}문제 완료</summary>{questions.map((q,index)=>{
+  return <>{questions.map((q,index)=>{
     const selected=record[q.id]?.choice,correct=selected===q.answer;
-    return <fieldset key={q.id}><legend>{index+1}. {q.title} · {q.prompt}</legend>{q.options.map((option,choice)=><button type="button" key={option} className={styles.quizOption} aria-pressed={selected===choice} disabled={busy||correct} onClick={()=>answer(q.id,choice)}>{choice+1}. {option}</button>)}{selected!==undefined&&<p role="status" className={styles.clue}>{correct?'정답이에요!':'다시 생각해 보세요.'} {q.hint}</p>}</fieldset>;
-  })}</details>;
+    return <fieldset key={q.id}><legend>{index+1}. {q.prompt}</legend>{q.options.map((option,choice)=><button type="button" key={option} className={styles.quizOption} aria-pressed={selected===choice} disabled={busy||correct} onClick={()=>answer(q.id,choice)}>{choice+1}. {option}</button>)}{selected!==undefined&&<p role="status" className={styles.clue}>{correct?'정답이에요!':'다시 생각해 보세요.'} {q.hint}</p>}</fieldset>;
+  })}</>;
+}
+
+function ReviewQuiz({quiz,operate}) {
+  const [busy,setBusy]=useState(false);
+  async function answer(questionId,choice) {
+    setBusy(true);
+    try {await operate({type:'answerReviewQuiz',questionId,choice});} finally {setBusy(false);}
+  }
+  return <>{quiz.questions.map((q,index)=>{
+    const selected=quiz.record[q.id]?.choice,correct=selected===q.answer;
+    const source=PATHS.find(p=>p.questions.some(pq=>pq.id===q.id));
+    return <fieldset key={q.id}><legend>{index+1}. {source&&source.id!==quiz.current?`${source.title} · `:''}{q.prompt}</legend>{q.options.map((option,choice)=><button type="button" key={option} className={styles.quizOption} aria-pressed={selected===choice} disabled={busy||correct} onClick={()=>answer(q.id,choice)}>{choice+1}. {option}</button>)}{selected!==undefined&&<p role="status" className={styles.clue}>{correct?'정답이에요!':'다시 생각해 보세요.'} {q.hint}</p>}</fieldset>;
+  })}</>;
 }
 
 function ResearchWorkspace({state,draft,change,operate}) {

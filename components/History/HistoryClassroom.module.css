@@ -28,7 +28,9 @@
 .notice { border:1px solid #e6cf9b; background:#fff6df; border-radius:10px; padding:14px 18px; margin:16px 0; font-size:14px; }
 .error { background:#fff0ee; color:#943c31; padding:14px; border-radius:8px; margin:12px 0; }
 .grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
-.observationGrid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; width:100%; max-width:max(360px,calc(150dvh - 690px)); }
+.observationLayout { display:grid; grid-template-columns:minmax(0,1.3fr) minmax(280px,1fr); gap:16px; align-items:start; }
+.observationPictures { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+@media(max-width:900px) { .observationLayout { grid-template-columns:1fr; } }
 .inSession { padding-top:14px; }
 .inSession .header { margin:10px 0 16px; }
 .inSession .header h1 { font-size:28px; }
@@ -69,27 +71,10 @@
 .previewControls > strong,.previewControls > .row { margin:8px 12px; }
 .root .steps { flex-shrink:0; border-radius:0; margin:0; padding:2px; }
 .root .layout { padding:12px; }
-.observationWorkspace { flex:1; display:flex; flex-direction:column; min-height:360px; overflow:hidden; }
 .boardToolbar { display:flex; align-items:center; flex-wrap:wrap; gap:6px; padding:6px 10px; flex-shrink:0; background:#fffef8; border-bottom:1px solid #d8ddd4; font-size:12px; }
 .boardToolbar button { padding:6px 9px; }
-.boardToolbar button[aria-pressed=true] { outline:2px solid #315f51; outline-offset:-2px; }
-.boardHint { margin-left:auto; color:#617168; }
-.boardCanvas { position:relative; flex:1; min-height:0; overflow:hidden; touch-action:none; background-color:#e8e8df; background-image:radial-gradient(#bfc6ba 1px,transparent 1px); background-size:18px 18px; }
-.boardPlane { position:absolute; transform-origin:0 0; }
-.boardImage { position:absolute; width:800px; height:534px; cursor:crosshair; border:2px solid #fffef8; overflow:hidden; }
-.noteShelf { position:absolute; inset:20px; box-sizing:border-box; padding:24px; border:2px dashed #bdc9b8; border-radius:12px; background:#f7f4e9; color:#52675b; pointer-events:none; display:flex; flex-direction:column; gap:6px; }
-.noteShelf strong { font-size:20px; color:#385b54; }
-.noteShelf span { font-size:14px; }
 .imageLabel { position:absolute; left:14px; top:12px; border-radius:5px; background:#fffef8e8; padding:6px 10px; font-size:15px; pointer-events:none; }
-.connections { position:absolute; inset:0; pointer-events:none; z-index:2; }
-.sticky { position:absolute; width:224px; height:210px; box-shadow:2px 5px 12px #263b3433; border:1px solid #00000012; border-radius:2px 2px 12px 2px; display:flex; flex-direction:column; }
-.stickyHeader { display:flex; align-items:center; border-bottom:1px solid #0000000c; }
-.root .stickyHeader button { padding:8px; background:transparent; border:0; border-radius:0; font-size:14px; }
-.root .stickyHandle { flex:1; text-align:left; cursor:grab; touch-action:none; }
-.root .stickyHandle:active { cursor:grabbing; }
-.root .sticky textarea { flex:1; min-height:0; width:100%; border:0; border-radius:0; resize:none; padding:12px; background:transparent; font-size:17px; line-height:1.5; }
-.sticky footer { padding:6px 12px; font-size:12px; opacity:.7; }
-@media(max-width:700px) { .boardHint {display:none;} .root .header {flex-direction:row; align-items:center; gap:6px;} .header .status {font-size:10px;} }
+@media(max-width:700px) { .root .header {flex-direction:row; align-items:center; gap:6px;} .header .status {font-size:10px;} }
 :global(body):has(.root) { overflow:hidden; }
 :global(body):has(.root) :global(nav) { display:none; }
 .game2d { position:relative; container-type:inline-size; container-name:historyGame; overflow:hidden; border-radius:12px; border:1px solid #b6c7b7; background:#e9eddf; }
@@ -145,7 +130,8 @@
 .questTracker li button:enabled:hover { text-decoration:underline; }
 .gameViewport { cursor:crosshair; }
 
-.teacherObservation { height:75vh; min-height:500px; display:flex; flex-direction:column; }
+.teacherObservation { max-height:80vh; overflow:auto; }
+.teacherObservation .observationChat { min-height:360px; }
 
 .root .quizOption { display:flex; align-items:center; gap:12px; width:100%; min-height:56px; margin:10px 0; padding:16px; border:2px solid #c9d3ca; border-radius:12px; background:#fffef8; color:#213f34; text-align:left; font-size:17px; line-height:1.5; white-space:normal; }
 .root .quizOption:hover { background:#edf5ed; border-color:#477b60; }
@@ -181,7 +167,6 @@
 
 .speakerPortrait { background-color:#edf0e1; }
 
-.boardCanvas textarea { overscroll-behavior:contain; }
 .researchGrid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; align-items:start; }
 .researchPicture,.assignedPicture { min-width:0; padding:12px; border:4px solid transparent; border-radius:16px; }
 .assignedPicture { border-color:#f2c316; background:#fff9d9; box-shadow:0 0 0 2px #a77b16; }

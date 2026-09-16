@@ -9,7 +9,9 @@ import ArtifactReference from './ArtifactReference';
 import styles from './HistoryClassroom.module.css';
 
 function Sprite({x,y,facing=0,frame=0,player=false,appearance}) {
-  return <div className={`${styles.gameSprite} ${player?styles.playerSprite:''}`} role="img" aria-label={player?'나의 캐릭터':`${appearance.name} · ${appearance.role}`} style={{...spriteStyle(appearance,facing,frame),left:`${x/9.6}%`,top:`${y/6.4}%`}}/>;
+  return <div className={`${styles.gameSprite} ${player?styles.playerSprite:''}`} role="img" aria-label={player?'나의 캐릭터':`${appearance.name} · ${appearance.role}`} style={{...spriteStyle(appearance,facing,frame),left:`${x/9.6}%`,top:`${y/6.4}%`}}>
+    {!player&&<span className={styles.spriteName} aria-hidden="true">{appearance.name}</span>}
+  </div>;
 }
 export default function HistoryGame2D({path,research=[],step,onInteract,children}) {
   const cast=charactersFor(path.id),map=mapFor(path.id),target=STATIONS[Math.min(step,6)];
@@ -68,7 +70,7 @@ export default function HistoryGame2D({path,research=[],step,onInteract,children
       <div className={styles.gameBackdrop} style={{backgroundImage:`url(${gameMapImage(path.group)})`,backgroundPosition:`${quadrant%2*100}% ${Math.floor(quadrant/2)*100}%`}}/>
       <Sprite x={340} y={270} appearance={cast.companion}/>
       <Sprite x={630} y={320} appearance={cast.expert}/>
-      {step<7&&<button aria-label={`${quests[step]} · 이동하고 상호작용`} onClick={()=>moveTo(target,true)} className={styles.gameTarget} style={{left:`${target.x/9.6}%`,top:`${target.y/6.4}%`}}/>}
+      {step<7&&<button aria-label={`${quests[step]} · 이동하고 상호작용`} onClick={()=>moveTo(target,true)} className={styles.gameTarget} style={{left:`${target.x/9.6}%`,top:`${target.y/6.4}%`}}><span className={styles.gameTargetLabel} aria-hidden="true">여기를 눌러 조사하기</span></button>}
       <Sprite x={pos.x} y={pos.y} facing={facing} frame={spriteFrame} player appearance={cast.player}/>
     </div>
       <aside className={styles.questTracker} aria-label="체험 퀘스트 목록">

@@ -2,22 +2,30 @@
 
 import {STORIES,STORY_NOTICE} from '@/lib/history/stories.mjs';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Component, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
 import { supabase } from '@/lib/supabase';
-import { ACTIVITIES, PATHS, REACTIONS, STEPS, pathById, readiness } from '@/lib/history/content.mjs';
-import { applyOperation, createLesson, studentView, canReflectWhileWaiting, completedFeedbackPath, reviewQuizPath, reviewQuizPaths, reviewQuizComplete, reviewQuizRecord, reviewQuestions, feedbackRecords } from '@/lib/history/state.mjs';
+import { ACTIVITIES, PATHS, STEPS, pathById, readiness } from '@/lib/history/content.mjs';
+import { applyOperation, createLesson, studentView, groupComplete, unlockStatus, reviewQuizScore, reviewQuizRecord, reviewQuestions, groupScores } from '@/lib/history/state.mjs';
 import styles from './HistoryClassroom.module.css';
-import ObservationBoard from './ObservationBoard';
+import ObservationChat from './ObservationChat';
 import ArtifactReference from './ArtifactReference';
 import QuestConversation from './QuestConversation';
 import {PATH_CONTEXT} from '@/lib/history/references.mjs';
 import {ARTIFACT_SPOTS,explorationImage} from '@/lib/history/exploration.mjs';
 
 const Game2D=dynamic(()=>import('./HistoryGame2D'),{ssr:false,loading:()=> <p>2D 탐험 지도를 준비하고 있어요…</p>});
-const draftOf=s=>({notes:s.notes,diary:{answers:s.diary.answers,text:s.diary.text},feedbackDraft:s.feedbackDraft,feedbackTarget:s.target?`${s.target.recipient}:${s.target.version}`:'',reflection:s.reflection||{},friendReflections:s.friendReflections||{},research:s.research || {}});
+// A dialogue-rendering crash must not blank the whole quest screen; let the
+// student retry the current step instead of getting stuck with no way forward.
+class QuestBoundary extends Component {
+  state={failed:false};
+  static getDerivedStateFromError(){return {failed:true};}
+  componentDidUpdate(prev){if(this.state.failed && prev.resetKey!==this.props.resetKey)this.setState({failed:false});}
+  render(){return this.state.failed?<section className={styles.notice} role="alert"><strong>대화 화면을 불러오지 못했습니다.</strong><p>아래에서 이 장소를 다시 눌러 대화를 다시 열어 보세요.</p></section>:this.props.children;}
+}
+const draftOf=s=>({notes:s.notes,diary:{answers:s.diary.answers,text:s.diary.text},research:s.research || {}});
 async function request(body,query='') {
   const {data:{session}}=await supabase.auth.getSession();
   const response=await fetch(`/api/history${query}`,{method:body?'POST':'GET',headers:{'Content-Type':'application/json',Authorization:`Bearer ${session?.access_token || ''}`},...(body?{body:JSON.stringify(body)}:{})});
@@ -57,8 +65,6 @@ export default function HistoryClassroom({user,teacher,previewOnly=false}) {
     rowRef.current=data;setRow(data);
     if(data.state.me && pending.current) {
       const item=pending.current;
-      const currentFeedback=draftOf(data.state.me);
-      if(item.draft.feedbackTarget!==currentFeedback.feedbackTarget)item.draft={...item.draft,feedbackTarget:currentFeedback.feedbackTarget,feedbackDraft:currentFeedback.feedbackDraft};
       item.draft={...item.draft,notes:item.draft.notes.map(n=>{
         const server=data.state.me.notes.find(x=>x.id===n.id);
         return (server?.positionRevision||0)>(n.positionRevision||0)?{...n,noteX:server.noteX,noteY:server.noteY,boardVersion:server.boardVersion,positionRevision:server.positionRevision}:n;
@@ -164,10 +170,10 @@ export default function HistoryClassroom({user,teacher,previewOnly=false}) {
     <header className={styles.header}><Link href="/fieldtrip" className={styles.back}>← 나가기</Link><h1>역사 탐구 교실</h1><span className={styles.status} role="status">{preview?'교사 미리보기 · 저장하지 않음':status}</span><button onClick={async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();}catch{setError('브라우저 전체화면을 열지 못했습니다. F11을 이용해 주세요.');}}}>전체화면</button></header>
     {error && <div role="alert" className={styles.error}>{error}</div>}
     {conflict && <section className={styles.notice}><strong>다른 탭의 기록과 충돌했습니다. 초안은 이 기기에 남아 있습니다.</strong><p>아래 초안을 복사한 뒤 서버 기록을 불러오고 필요한 내용을 합쳐 주세요.</p><textarea readOnly aria-label="보존된 로컬 초안" value={JSON.stringify(draft,null,2)}/><button onClick={()=>{pending.current=null;localStorage.removeItem(key);setDraft(draftOf(row.state.me));setConflict(false);setError('');}}>서버 기록 불러오기</button></section>}
-    {preview && <details className={styles.previewControls}><summary>교사 도구 · 활동 전환</summary><strong>교사용 기능 미리보기 — 역사 시각 자료 검수 대기</strong><div className={styles.row}><select aria-label="미리볼 배정" value={previewId} onChange={e=>{setPreviewId(e.target.value);setDraft(draftOf(preview.students[e.target.value]));}}>{Object.values(preview.students).map(s=><option key={s.id} value={s.id}>{s.name} · {pathById(s.path).title}</option>)}</select>{ACTIVITIES.map(a=><button key={a} onClick={()=>operate({type:'move',targets:[previewId],activity:a})}>{a==='3D'?'2D 체험·일기':a}</button>)}<button aria-pressed={!!preview.locked} onClick={()=>operate({type:'lock',locked:!preview.locked})}>{preview.locked?'학생 조작 다시 시작':'전체 학생 조작 멈춤'}</button><button onClick={()=>operate({type:'publish'})}>메모 전체 공개</button><button aria-pressed={!!(preview.liveNotes??preview.published)} onClick={()=>operate({type:'noteVisibility',mode:(preview.liveNotes??preview.published)?'hidden':'live'})}>메모 실시간 공개 {(preview.liveNotes??preview.published)?'끄기':'켜기'}</button><button onClick={()=>operate({type:'noteVisibility',mode:'hidden'})}>친구 메모 숨김</button><button onClick={()=>operate({type:'reveal'})}>배정 공개</button><button onClick={()=>operate({type:'assignFeedback'})}>자동 매칭 확인</button><button onClick={()=>operate({type:'approve'})}>피드백한 맵 승인</button>{!previewOnly && <button onClick={()=>{previewRef.current=null;setPreview(null);setDraft(null);}}>미리보기 닫기</button>}</div></details>}
+    {preview && <details className={styles.previewControls}><summary>교사 도구 · 활동 전환</summary><strong>교사용 기능 미리보기 — 역사 시각 자료 검수 대기</strong><div className={styles.row}><select aria-label="미리볼 배정" value={previewId} onChange={e=>{setPreviewId(e.target.value);setDraft(draftOf(preview.students[e.target.value]));}}>{Object.values(preview.students).map(s=><option key={s.id} value={s.id}>{s.name} · {pathById(s.path).title}</option>)}</select>{ACTIVITIES.map(a=><button key={a} onClick={()=>operate({type:'move',targets:[previewId],activity:a})}>{a==='3D'?'2D 체험·일기':a}</button>)}<button aria-pressed={!!preview.locked} onClick={()=>operate({type:'lock',locked:!preview.locked})}>{preview.locked?'학생 조작 다시 시작':'전체 학생 조작 멈춤'}</button><button onClick={()=>operate({type:'publish'})}>메모 전체 공개</button><button aria-pressed={!!(preview.liveNotes??preview.published)} onClick={()=>operate({type:'noteVisibility',mode:(preview.liveNotes??preview.published)?'hidden':'live'})}>메모 실시간 공개 {(preview.liveNotes??preview.published)?'끄기':'켜기'}</button><button onClick={()=>operate({type:'noteVisibility',mode:'hidden'})}>친구 메모 숨김</button><button onClick={()=>operate({type:'reveal'})}>배정 공개</button><button aria-pressed={!!preview.scoreVisible} onClick={()=>operate({type:'scoreVisibility',visible:!preview.scoreVisible})}>모둠 점수 {preview.scoreVisible?'숨기기':'공개'}</button>{!previewOnly && <button onClick={()=>{previewRef.current=null;setPreview(null);setDraft(null);}}>미리보기 닫기</button>}</div></details>}
     {!sessionId && !preview ? <>
-      <section className={styles.hero}><div><div className={styles.eyebrow} style={{color:'#b9cfb9'}}>우리의 탐구 · 40분</div><h2>아주 오래전, 나는 어떻게 살았을까?</h2><p>그림을 관찰하고, 유물을 조사하고, 당시 사람의 처지에서 일기를 써 보세요.<br/>친구의 생각을 읽으면 또 다른 역사 탐구가 열립니다.</p></div><div className={styles.seal}>관찰<br/><small style={{fontSize:13}}>에서 이해로</small></div></section>
-      <div className={styles.steps}>{['01 관찰 · 5분','02 조사 · 8분','03 체험·일기 · 19분','04 피드백 · 5분','05 정리 · 3분'].map(a=><span key={a}>{a}</span>)}</div>
+      <section className={styles.hero}><div><div className={styles.eyebrow} style={{color:'#b9cfb9'}}>우리의 탐구 · 40분</div><h2>아주 오래전, 나는 어떻게 살았을까?</h2><p>그림을 관찰하고, 유물을 조사하고, 당시 사람의 처지에서 일기를 써 보세요.<br/>맵을 모두 체험하면 다른 모둠의 이야기도 만날 수 있어요.</p></div><div className={styles.seal}>관찰<br/><small style={{fontSize:13}}>에서 이해로</small></div></section>
+      <div className={styles.steps}>{['01 관찰 · 5분','02 조사 · 8분','03 체험·일기 · 24분','04 정리 · 3분'].map(a=><span key={a}>{a}</span>)}</div>
       <div className={styles.layout}><section className={styles.panel}><h2>{teacher?'수업 준비':'나의 수업'}</h2>{teacher&&<p>수업을 만든 뒤 ‘학생에게 배포’를 누르면 배정된 학생의 수업 목록에 나타납니다. 기존 수업은 배포 상태가 유지됩니다.</p>}
       {sessions.length?sessions.map(s=><section key={s.id} className={styles.panel}>
         <div className={styles.row}><button className={styles.primary} onClick={()=>{rowRef.current=null;setSessionId(s.id);}}>{s.title} →</button><span className={styles.muted}>{new Date(s.created_at).toLocaleString('ko-KR')}</span></div>
@@ -190,62 +196,92 @@ function TeacherBoard({state,operate}) {
   const [targets,setTargets]=useState([]),[activity,setActivity]=useState('관찰'),[inspect,setInspect]=useState('');
   const students=Object.values(state.students);
   const student=state.students[inspect];
-  return <><div className={styles.notice}><strong>시각 자료 검수 대기 · 수업 진행 가능</strong><p>검수 상태와 관계없이 아래에서 활동을 선택해 학생들과 수업을 진행할 수 있습니다.</p>{readiness().map(t=><p key={t}>{t}</p>)}</div><section className={styles.panel}><h2>수업 진행</h2><div className={styles.row}><button aria-pressed={!!state.locked} onClick={()=>operate({type:'lock',locked:!state.locked})}>{state.locked?'학생 조작 다시 시작':'전체 학생 조작 멈춤'}</button><button onClick={()=>operate({type:'reveal'})}>지정한 모둠·주제 공개</button><button onClick={()=>operate({type:'publish'})}>메모 전체 공개</button><button aria-pressed={!!(state.liveNotes??state.published)} onClick={()=>operate({type:'noteVisibility',mode:(state.liveNotes??state.published)?'hidden':'live'})}>메모 실시간 공개 {(state.liveNotes??state.published)?'끄기':'켜기'}</button><button onClick={()=>operate({type:'noteVisibility',mode:'hidden'})}>친구 메모 숨김</button><button onClick={()=>operate({type:'assignFeedback'})}>미배정 학생 자동 매칭 확인</button><button className={styles.primary} onClick={()=>operate({type:'approve'})}>피드백한 맵 열기(전체 승인)</button></div><div className={styles.row}><select aria-label="이동할 활동" value={activity} onChange={e=>setActivity(e.target.value)}>{ACTIVITIES.map(a=><option key={a} value={a}>{a==='3D'?'2D 체험·일기':a}</option>)}</select><button onClick={()=>operate({type:'move',activity,targets:students.map(s=>s.id)})}>전체 학생 보내기</button><button disabled={!targets.length} onClick={()=>operate({type:'move',activity,targets})}>선택한 {targets.length}명 보내기</button></div><p className={styles.muted}>현재 입력을 보존하고 지정한 활동으로 이동합니다. 미체험 단서는 보충으로 제공하며 퀘스트 완료로 처리하지 않습니다.</p></section>
-    <details open className={styles.panel}><summary>실시간 전체 관찰 메모 · 교사가 위치 옮기기</summary><div className={styles.teacherObservation}><ObservationBoard state={{published:state.published,notes:students.flatMap(s=>s.notes.map(n=>({...n,author:s.name,authorId:s.id})))}} draft={{notes:[]}} onMoveNote={(note,patch)=>operate({type:'moveNote',owner:note.authorId,noteId:note.id,...patch})}/></div></details><section className={styles.panel}><h2>학생별 진행</h2><div className={styles.tableWrap}><table className={styles.table}><thead><tr><th>선택</th><th>학생</th><th>개인 주제</th><th>활동</th><th>명령 수신</th><th>저장</th><th>연결</th><th>체험</th><th>해금</th><th>기록</th></tr></thead><tbody>{students.map(s=><tr key={s.id}><td><input type="checkbox" aria-label={`${s.name} 선택`} checked={targets.includes(s.id)} onChange={e=>setTargets(e.target.checked?[...targets,s.id]:targets.filter(id=>id!==s.id))}/></td><td>{s.name}</td><td>{s.path} {pathById(s.path).title}</td><td>{s.activity==='3D'?'2D 체험·일기':s.activity}</td><td>{s.command?.sequence>s.ack?'미수신':'적용됨'}</td><td>{s.saveState || '미작성'}</td><td>{s.lastSeen && now-Date.parse(s.lastSeen)<30000?'연결됨':'응답 대기'}</td><td>{s.attempts[s.path]?.complete?'완료':s.attempts[s.path]?.interrupted?'중단':'미완료'}</td><td>{s.grants.length}개</td><td><button onClick={()=>setInspect(s.id)}>열람</button></td></tr>)}</tbody></table></div></section>
-    {student && <section className={styles.panel}><h2>{student.name}의 연결 기록</h2><p>{student.path} · {pathById(student.path).title}</p><h3>관찰</h3>{student.notes.map(n=><p key={n.id}>{n.kind}: {n.text}</p>)}<h3>조사</h3>{Object.values(state.cards).filter(c=>c.owner===student.id || c.helpers.includes(student.id)).map(c=><p key={c.id}>{c.name || '명칭 미입력'} — {c.usage || '쓰임 미입력'} / 출처: {c.source || '미기입'} / {c.status}</p>)}<h3>퀘스트</h3><p>{student.attempts[student.path]?.checkpoint || 0}/{STEPS.length} · {student.attempts[student.path]?.mode || '미시작'}</p><h3>일기 선택 · 감정과 생각</h3>{pathById(student.path).questions.map(q=><p key={q.id}>{q.prompt} {q.options[student.diary.answers[q.id]] || '미입력'}</p>)}<p style={{whiteSpace:'pre-wrap'}}>{student.diary.text || '작성 내용 없음'}</p><h3>받은 / 남긴 피드백</h3>{feedbackRecords(state).filter(f=>f.author===student.id || f.recipient===student.id).map(f=><p key={`${f.author}-${f.recipient}-${f.version}`}>{state.students[f.author].name} → {state.students[f.recipient].name}: {f.reaction} {f.text || '작성 내용 없음'} · {f.approved?'승인됨':'승인 전'}</p>)}</section>}
+  const scores=groupScores(state);
+  const cardsByGroup=group=>Object.values(state.cards).filter(c=>c.group===group);
+  return <><div className={styles.notice}><strong>시각 자료 검수 대기 · 수업 진행 가능</strong><p>검수 상태와 관계없이 아래에서 활동을 선택해 학생들과 수업을 진행할 수 있습니다.</p>{readiness().map(t=><p key={t}>{t}</p>)}</div><section className={styles.panel}><h2>수업 진행</h2><div className={styles.row}><button aria-pressed={!!state.locked} onClick={()=>operate({type:'lock',locked:!state.locked})}>{state.locked?'학생 조작 다시 시작':'전체 학생 조작 멈춤'}</button><button onClick={()=>operate({type:'reveal'})}>지정한 모둠·주제 공개</button><button onClick={()=>operate({type:'publish'})}>메모 전체 공개</button><button aria-pressed={!!(state.liveNotes??state.published)} onClick={()=>operate({type:'noteVisibility',mode:(state.liveNotes??state.published)?'hidden':'live'})}>메모 실시간 공개 {(state.liveNotes??state.published)?'끄기':'켜기'}</button><button onClick={()=>operate({type:'noteVisibility',mode:'hidden'})}>친구 메모 숨김</button><button aria-pressed={!!state.scoreVisible} onClick={()=>operate({type:'scoreVisibility',visible:!state.scoreVisible})}>모둠 점수 {state.scoreVisible?'학생에게 숨기기':'학생에게 공개'}</button></div><div className={styles.row}><select aria-label="이동할 활동" value={activity} onChange={e=>setActivity(e.target.value)}>{ACTIVITIES.map(a=><option key={a} value={a}>{a==='3D'?'2D 체험·일기':a}</option>)}</select><button onClick={()=>operate({type:'move',activity,targets:students.map(s=>s.id)})}>전체 학생 보내기</button><button disabled={!targets.length} onClick={()=>operate({type:'move',activity,targets})}>선택한 {targets.length}명 보내기</button></div><p className={styles.muted}>현재 입력을 보존하고 지정한 활동으로 이동합니다. 미체험 단서는 보충으로 제공하며 퀘스트 완료로 처리하지 않습니다.</p></section>
+    <section className={styles.panel}><h2>모둠 경쟁 점수 · {state.scoreVisible?'학생에게 공개 중':'학생에게는 숨김'}</h2><p className={styles.muted}>완료한 맵 개수를 모둠원 전체 합산으로 집계합니다.</p><div className={styles.row}>{scores.map(({group,score})=><span key={group} className={styles.badge}>{group}모둠 · {score}점</span>)}</div></section>
+    <details open className={styles.panel}><summary>실시간 관찰 채팅 모니터링</summary><div className={styles.teacherObservation}><ObservationChat state={state} readOnly/></div></details>
+    <details open className={styles.panel}><summary>모둠별 조사 카드 실시간 확인</summary><div className={styles.researchGrid}>{[1,2,3,4].map(group=><div key={group} className={styles.panel}><h3>{group}모둠</h3>{cardsByGroup(group).length?cardsByGroup(group).map(c=><p key={c.id}>{c.artifact} — {c.name||'명칭 미입력'} / {c.usage||'쓰임 미입력'} · {c.status}</p>):<p className={styles.muted}>아직 제출된 조사 카드가 없습니다.</p>}</div>)}</div></details>
+    <section className={styles.panel}><h2>학생별 진행</h2><div className={styles.tableWrap}><table className={styles.table}><thead><tr><th>선택</th><th>학생</th><th>개인 주제</th><th>활동</th><th>명령 수신</th><th>저장</th><th>연결</th><th>체험</th><th>해금</th><th>기록</th></tr></thead><tbody>{students.map(s=><tr key={s.id}><td><input type="checkbox" aria-label={`${s.name} 선택`} checked={targets.includes(s.id)} onChange={e=>setTargets(e.target.checked?[...targets,s.id]:targets.filter(id=>id!==s.id))}/></td><td>{s.name}</td><td>{s.path} {pathById(s.path).title}</td><td>{s.activity==='3D'?'2D 체험·일기':s.activity}</td><td>{s.command?.sequence>s.ack?'미수신':'적용됨'}</td><td>{s.saveState || '미작성'}</td><td>{s.lastSeen && now-Date.parse(s.lastSeen)<30000?'연결됨':'응답 대기'}</td><td>{s.attempts[s.path]?.complete?'완료':s.attempts[s.path]?.interrupted?'중단':'미완료'}</td><td>{s.grants.length}개</td><td><button onClick={()=>setInspect(s.id)}>열람</button></td></tr>)}</tbody></table></div></section>
+    {student && <section className={styles.panel}><h2>{student.name}의 연결 기록</h2><p>{student.path} · {pathById(student.path).title}</p><h3>관찰</h3>{student.notes.map(n=><p key={n.id}>{n.kind}: {n.text}</p>)}<h3>조사</h3>{Object.values(state.cards).filter(c=>c.owner===student.id || c.helpers.includes(student.id)).map(c=><p key={c.id}>{c.name || '명칭 미입력'} — {c.usage || '쓰임 미입력'} / 출처: {c.source || '미기입'} / {c.status}</p>)}<h3>퀘스트</h3><p>{student.attempts[student.path]?.checkpoint || 0}/{STEPS.length} · {student.attempts[student.path]?.mode || '미시작'}</p><h3>일기 선택 · 감정과 생각</h3>{pathById(student.path).questions.map(q=><p key={q.id}>{q.prompt} {q.options[student.diary.answers[q.id]] || '미입력'}</p>)}<p style={{whiteSpace:'pre-wrap'}}>{student.diary.text || '작성 내용 없음'}</p><h3>체험한 맵</h3>{[student.path,...student.grants].map(id=><p key={id}>{pathById(id).title}{student.attempts[id]?.complete?' · 완료':' · 진행 중'}</p>)}<h3>모둠 복습 퀴즈</h3>{[1,2,3,4].map(g=><p key={g}>{g}모둠 · {reviewQuizScore(student,g)}/{reviewQuestions(g).length}문제</p>)}</section>}
   </>;
+}
+
+// Students can jump to any tab and back at will; nothing is force-submitted on the way out.
+function ActivityTabs({activity,operate}) {
+  return <div className={styles.steps}>{ACTIVITIES.map((a,i)=><button key={a} type="button" aria-current={a===activity?'step':undefined} className={a===activity?styles.active:''} onClick={()=>a!==activity&&operate({type:'selfMove',activity:a})}>{String(i+1).padStart(2,'0')} {a==='3D'?'2D 체험·일기':a}</button>)}</div>;
 }
 
 function StudentWorkspace({state,draft,change,operate,preview}) {
   const s=state.me,path=pathById(s.path),activePath=s.activePath||s.path;
   const activity=s.activity==='일기'?'3D':s.activity;
   const currentPath=pathById(activePath),attempt=s.attempts[activePath];
-  const target=state.diaries.find(d=>d.id===s.target?.recipient),version=target?.versions.find(v=>v.version===s.target.version);
-  const myFeedback=state.feedback.filter(f=>f.author===s.id);
-  const ownFeedback=myFeedback.find(f=>f.recipient===s.target?.recipient);
-  const friendPath=completedFeedbackPath(s,ownFeedback);
-  const quizStudent={...s,diary:{...s.diary,...draft.diary}};
-  const quizPath=reviewQuizPath(quizStudent,myFeedback),quizPaths=reviewQuizPaths(quizStudent,myFeedback);
-  const friendName=state.diaries.find(d=>d.id===ownFeedback?.recipient)?.name||'친구';
-  const waitingReflection=canReflectWhileWaiting({...s,diary:draft.diary},version);
   if(state.locked)return <section className={styles.notice} role="status"><h2>선생님이 조작을 잠시 멈췄어요.</h2><p>작성 중인 내용은 보관되어 있어요. 선생님이 다시 시작하면 이어서 활동할 수 있어요.</p></section>;
-  if(activity==='관찰')return <ObservationBoard state={state} draft={draft} change={change}/>;
-  return <><div className={styles.steps}>{ACTIVITIES.map((a,i)=><span key={a} className={a===activity?styles.active:''}>{String(i+1).padStart(2,'0')} {a==='3D'?'2D 체험·일기':a}</span>)}</div>
+  if(activity==='관찰')return <><ActivityTabs activity={activity} operate={operate}/><ObservationChat state={state} operate={operate}/></>;
+  return <><ActivityTabs activity={activity} operate={operate}/>
     <div className={styles.layout}><div>
-      {['3D','피드백','정리'].includes(activity)&&myFeedback.some(f=>f.valid)&&<section className={styles.panel}><h3>피드백한 친구의 체험</h3>{myFeedback.filter(f=>f.valid).map(f=><div key={`${f.recipient}-${f.version}`}><span>{state.diaries.find(d=>d.id===f.recipient)?.name||'친구'} · {pathById(f.path).title} </span>{f.approved?<button onClick={()=>operate({type:'enterExperience',path:f.path})}>{s.attempts[f.path]?.complete?'체험 다시 보기':'친구 체험 시작하기'}</button>:<span>교사 승인 대기 · 아래 복습 퀴즈를 풀 수 있어요.</span>}</div>)}</section>}
-      {activity==='3D'&&!ownFeedback?.valid&&version&&s.diary.versions.some(v=>v.text?.trim())&&<section className={styles.notice} role="status"><strong>{target.name} 친구의 일기가 자동으로 연결되었어요.</strong><p>후속 기록은 저장됩니다. 준비되면 친구의 일기를 읽고 답장을 보내세요.</p><button className={styles.primary} onClick={()=>operate({type:'enterFeedback'})}>친구 일기 읽고 피드백하기</button></section>}
       {activity==='준비' && <section className={styles.hero}><div><span className={styles.badge}>수업 준비</span><h2 style={{marginTop:18}}>단서를 발견할 준비가 되었나요?</h2><p>선생님이 수업을 시작하면 네 장의 그림이 함께 열립니다.</p>{state.revealed && <h3>{s.group}모둠 · {path.title}</h3>}</div><div className={styles.seal}>나의<br/>발견</div></section>}
       {activity==='조사' && <ResearchWorkspace key={s.path} state={state} draft={draft} change={change} operate={operate}/>}
-      {activity==='3D' && <><h2>{currentPath.title} · 개인 추체험</h2><div className={styles.row}><select aria-label="승인된 체험 맵" value={activePath} onChange={e=>operate({type:'enterExperience',path:e.target.value})}>{[...new Set([s.path,...s.grants])].map(id=><option key={id} value={id}>{pathById(id).title}{id===s.path?' · 나의 배정':' · 승인된 추가 체험'}</option>)}</select></div><Experience key={activePath} path={currentPath} research={[...Object.values(draft.research || {}),...state.cards]} attempt={attempt} operate={operate} preview={preview} diary={activePath===s.path?draft.diary:undefined} onDiaryChange={diary=>change({...draft,diary})} versions={s.diary.versions.length}/>{activePath!==s.path&&attempt?.complete&&<button className={styles.primary} onClick={()=>operate({type:'enterFeedback'})}>체험 마치고 피드백·추가 활동으로 돌아가기</button>}</>}
-      {activity==='피드백' && <><h2>친구의 하루에 답장을 보내요</h2>{friendPath?<p className={styles.notice}>피드백과 친구의 체험을 모두 마쳤어요. 새로운 피드백 대상이 없으니 아래에서 {friendName}의 주제로 추가 활동을 해 보세요.</p>:version?<section className={styles.panel}><span className={styles.badge}>{target.name} · {pathById(target.path).title} · 일기 v{version.version}</span>{pathById(target.path).questions.map(q=><p key={q.id}>{q.prompt} {q.options[version.answers[q.id]] || '미입력'}</p>)}<p className={styles.quote} style={{whiteSpace:'pre-wrap'}}>{version.text || '작성 내용 없음'}</p><div className={styles.row}>{REACTIONS.map(r=><button key={r} disabled={ownFeedback?.valid} aria-pressed={draft.feedbackDraft.reaction===r} className={draft.feedbackDraft.reaction===r?styles.primary:''} onClick={()=>change({...draft,feedbackDraft:{...draft.feedbackDraft,reaction:r}})}>{r}</button>)}</div><label>친구에게 남길 말<textarea disabled={ownFeedback?.valid} value={draft.feedbackDraft.text} onChange={e=>change({...draft,feedbackDraft:{...draft.feedbackDraft,text:e.target.value}})} placeholder="친구의 일기를 읽고 떠오른 말을 남겨 주세요."/></label><button className={styles.primary} disabled={ownFeedback?.valid} onClick={()=>operate({type:'feedback',recipient:s.target?.recipient})}>{ownFeedback?.approved?'맵 승인됨':ownFeedback?.valid?'제출 완료 · 교사 승인 대기':'피드백 제출하기'}</button><p className={styles.muted}>선생님이 승인하면 피드백한 친구의 개인 맵이 열립니다.</p></section>:<section className={styles.panel}>{waitingReflection?'친구가 일기를 공유하면 자동으로 연결돼요. 아래 후속 기록 활동을 해 보세요.':'피드백 대상을 기다리는 동안 내 일기를 확인하고 완성해 보세요.'}</section>}</>}
-      {activity==='정리' && <section className={styles.panel}><h2>작은 단서가 역사가 되었어요</h2><p>관찰한 모습, 조사한 유물의 쓰임, 시대의 생활을 서로 연결해 이야기해 봅시다.</p><h3>나의 탐구 기록</h3><p>관찰 메모 {draft.notes.length}개 · 조사 기록 {Object.keys(draft.research||{}).length}개 · 퀴즈 {path.questions.filter(q=>draft.diary.answers[q.id]===q.answer).length}/{path.questions.length} · 공유한 일기 {s.diary.versions.length}개</p>{draft.notes.map(n=><p key={n.id}>{n.kind}: {n.text}</p>)}<h3>완성한 나의 일기</h3>{path.questions.map(q=><p key={q.id}>{q.prompt} {q.options[draft.diary.answers[q.id]]||'미작성'}</p>)}<p style={{whiteSpace:'pre-wrap'}}>{draft.diary.text||'아직 감정과 생각을 기록하지 않았어요.'}</p><h3>내가 받은 피드백</h3>{state.feedback.filter(f=>f.recipient===s.id).map(f=><p className={styles.note} key={`${f.author}-${f.recipient}-${f.version}`}>{f.reaction}<br/>{f.text}</p>)}<h3>승인된 추가 맵</h3>{s.grants.length?s.grants.map(id=><p key={id}>{pathById(id).title} · 위의 체험 시작 버튼으로 직접 들어갈 수 있어요.</p>):<p>아직 추가로 승인된 맵이 없어요.</p>}</section>}
-      {['3D','피드백','정리'].includes(activity)&&friendPath&&<ReflectionActivity key={friendPath} value={draft.friendReflections?.[friendPath]||{}} onChange={record=>change({...draft,friendReflections:{...draft.friendReflections,[friendPath]:record}})} path={pathById(friendPath)} friendName={friendName}/>}
-      {['3D','피드백','정리'].includes(activity)&&quizPaths.length>0&&<section className={styles.panel}><h2>기다리는 동안 이어 푸는 복습 퀴즈</h2><p>내 모둠 복습 → 피드백한 친구의 모둠 → 아직 피드백하지 않은 주제 순서로 풀어요. 이미 푼 문제는 다시 풀지 않아도 됩니다.</p>{quizPath?<ReviewQuiz key={quizPath} path={quizPath} record={reviewQuizRecord(s)} operate={operate}/>:<p role='status'>16개 주제의 32문제를 모두 풀었어요. 아래에서 해설을 다시 읽을 수 있어요.</p>}{quizPaths.filter(id=>reviewQuizComplete(s,id)).map(id=><ReviewQuiz key={id} path={id} record={reviewQuizRecord(s)} operate={operate} completed/>)}</section>}
-      {['3D','피드백','정리'].includes(activity)&&!friendPath&&(waitingReflection||Object.values(draft.reflection||{}).some(v=>v.trim()))&&<ReflectionActivity value={draft.reflection||{}} onChange={reflection=>change({...draft,reflection})} waiting={waitingReflection} path={path}/>}
-    </div><aside><section className={styles.panel}><span className={styles.badge}>{state.revealed?`${s.group}모둠 · ${s.path}`:'나의 탐구'}</span><h3 style={{marginTop:14}}>{state.revealed?path.title:'곧 주제가 공개돼요'}</h3><p className={styles.muted}>{s.name}<br/>관찰 → 유물 → 생활 → 마음</p></section>{activity!=='준비'&&<section className={styles.panel}><h3>탐구 도움말</h3><p className={styles.muted}>보이는 사실과 내 추측을 구분해요. 정답이 떠오르지 않으면 단서를 다시 읽어도 괜찮아요.</p>{(s.supplement || ['일기','3D','피드백','정리'].includes(activity)) && <details open={s.supplement}><summary>놓친 단서 / 다시 읽기</summary>{path.clues.map((c,i)=><div className={styles.clue} key={c}><small>{s.attempts[s.path]?.seen.includes(i)?'체험에서 확인':'미체험 보충'}</small><p>{c}</p></div>)}<p className={styles.muted}>교과서 {path.pages}쪽 · 학습용으로 재구성한 설명</p></details>}</section>}</aside></div>
+      {activity==='3D' && <><h2>{currentPath.title} · 개인 추체험</h2><div className={styles.row}><select aria-label="체험할 맵" value={activePath} onChange={e=>operate({type:'enterExperience',path:e.target.value})}>{[...new Set([s.path,...s.grants])].map(id=><option key={id} value={id}>{pathById(id).title}{id===s.path?' · 나의 배정':' · 잠금 해제한 체험'}</option>)}</select></div><Experience key={activePath} path={currentPath} research={[...Object.values(draft.research || {}),...state.cards]} attempt={attempt} operate={operate} preview={preview} diary={activePath===s.path?draft.diary:undefined} onDiaryChange={diary=>change({...draft,diary})} versions={s.diary.versions.length}/><MapUnlocks state={state} operate={operate}/></>}
+      {activity==='정리' && <section className={styles.panel}><h2>작은 단서가 역사가 되었어요</h2><p>관찰한 모습, 조사한 유물의 쓰임, 시대의 생활을 서로 연결해 이야기해 봅시다.</p><h3>나의 탐구 기록</h3><p>관찰 메모 {draft.notes.length}개 · 조사 기록 {Object.keys(draft.research||{}).length}개 · 퀴즈 {path.questions.filter(q=>draft.diary.answers[q.id]===q.answer).length}/{path.questions.length} · 공유한 일기 {s.diary.versions.length}개</p>{draft.notes.map(n=><p key={n.id}>{n.kind}: {n.text}</p>)}<h3>완성한 나의 일기</h3>{path.questions.map(q=><p key={q.id}>{q.prompt} {q.options[draft.diary.answers[q.id]]||'미작성'}</p>)}<p style={{whiteSpace:'pre-wrap'}}>{draft.diary.text||'아직 감정과 생각을 기록하지 않았어요.'}</p><h3>체험한 맵</h3>{[s.path,...s.grants].map(id=><p key={id}>{pathById(id).title}{s.attempts[id]?.complete?' · 완료':' · 진행 중'} · 위의 체험 시작 버튼으로 들어갈 수 있어요.</p>)}{state.scores&&<><h3>모둠 경쟁 점수</h3>{state.scores.map(({group,score})=><p key={group}>{group}모둠{group===s.group?' · 우리 모둠':''} · {score}점</p>)}</>}</section>}
+    </div><aside><section className={styles.panel}><span className={styles.badge}>{state.revealed?`${s.group}모둠 · ${s.path}`:'나의 탐구'}</span><h3 style={{marginTop:14}}>{state.revealed?path.title:'곧 주제가 공개돼요'}</h3><p className={styles.muted}>{s.name}<br/>관찰 → 유물 → 생활 → 마음</p></section>{state.scores&&<section className={styles.panel}><h3>모둠 경쟁 점수</h3>{state.scores.map(({group,score})=><p key={group} className={group===s.group?styles.badge:styles.muted}>{group}모둠 · {score}점</p>)}</section>}{activity!=='준비'&&<section className={styles.panel}><h3>탐구 도움말</h3><p className={styles.muted}>보이는 사실과 내 추측을 구분해요. 정답이 떠오르지 않으면 단서를 다시 읽어도 괜찮아요.</p>{(s.supplement || ['일기','3D','정리'].includes(activity)) && <details open={s.supplement}><summary>놓친 단서 / 다시 읽기</summary>{path.clues.map((c,i)=><div className={styles.clue} key={c}><small>{s.attempts[s.path]?.seen.includes(i)?'체험에서 확인':'미체험 보충'}</small><p>{c}</p></div>)}<p className={styles.muted}>교과서 {path.pages}쪽 · 학습용으로 재구성한 설명</p></details>}</section>}</aside></div>
   </>;
 }
 
-function ReviewQuiz({path,record,operate,completed=false}) {
-  const [busy,setBusy]=useState(false);
-  const questions=reviewQuestions(path),score=questions.filter(q=>record[q.id]?.choice===q.answer).length;
-  async function answer(questionId,choice) {
-    setBusy(true);
-    try {await operate({type:'answerReviewQuiz',path,questionId,choice});} finally {setBusy(false);}
-  }
-  return <details open={!completed} className={styles.panel}><summary>관련 퀴즈 풀기 · {score}/{questions.length}문제 완료</summary><h2>{pathById(path).title}와 연결된 시대 복습</h2><p>새 피드백 대상을 기다리며 같은 모둠 그림의 주제를 복습해요. 틀리면 단서를 읽고 다시 도전할 수 있어요. 풀이 결과는 자동 저장됩니다.</p>{questions.map((q,index)=>{
-    const selected=record[q.id]?.choice,correct=selected===q.answer;
-    return <fieldset key={q.id}><legend>{index+1}. {q.title} · {q.prompt}</legend>{q.options.map((option,choice)=><button type="button" key={option} className={styles.quizOption} aria-pressed={selected===choice} disabled={busy||correct} onClick={()=>answer(q.id,choice)}>{choice+1}. {option}</button>)}{selected!==undefined&&<p role="status" className={styles.clue}>{correct?'정답이에요!':'다시 생각해 보세요.'} {q.hint}</p>}</fieldset>;
-  })}{score===questions.length&&<p role="status" className={styles.notice}>복습 퀴즈를 모두 풀었어요! 단서를 다시 읽으며 새롭게 알게 된 점을 친구에게 설명할 준비를 해 보세요.</p>}</details>;
+// Same-group siblings unlock once the student's own map is complete; other groups unlock only
+// after every map in the student's own group is complete AND that group's research cards have
+// been reviewed. Either way, the review-quiz bank already used for 복습 doubles as the 3-correct
+// gate, so no new quiz content is needed.
+function MapUnlocks({state,operate}) {
+  const s=state.me;
+  const ownDone=!!s.attempts[s.path]?.complete;
+  if(!ownDone) return <section className={styles.panel}><h3>다른 맵 체험하기</h3><p className={styles.muted}>내 맵을 완료하면 같은 모둠의 다른 맵을 체험할 수 있어요.</p></section>;
+  const siblings=PATHS.filter(p=>p.group===s.group&&p.id!==s.path);
+  const homeDone=groupComplete(s,s.group);
+  const otherGroups=[1,2,3,4].filter(g=>g!==s.group);
+  const unlockRow=p=>{
+    const owned=s.grants.includes(p.id);
+    const status=unlockStatus(s,p.id);
+    return <li key={p.id}>{p.title}{s.attempts[p.id]?.complete?' · 완료':''} {owned?<button onClick={()=>operate({type:'enterExperience',path:p.id})}>체험하기</button>:<button disabled={status.quizScore<status.quizNeeded} onClick={()=>operate({type:'unlockMap',path:p.id})}>잠금 해제 ({status.quizScore}/{status.quizNeeded})</button>}</li>;
+  };
+  return <section className={styles.panel}>
+    <h3>다른 맵 체험하기</h3>
+    <h4>같은 모둠</h4>
+    <p className={styles.muted}>복습 퀴즈에서 3문제 이상 맞히면 같은 모둠의 다른 맵을 체험할 수 있어요.</p>
+    <ReviewQuiz group={s.group} record={reviewQuizRecord(s,s.group)} operate={operate}/>
+    <ul>{siblings.map(unlockRow)}</ul>
+    {homeDone?<>
+      <h4>다른 모둠</h4>
+      <p className={styles.muted}>우리 모둠 맵을 모두 체험했어요! 다른 모둠의 조사 카드를 먼저 확인하면 그 모둠의 맵도 체험할 수 있어요.</p>
+      {otherGroups.map(group=>{
+        const reviewed=(s.reviewedGroups||[]).includes(group);
+        const cards=state.cards.filter(c=>c.group===group);
+        return <div key={group} className={styles.panel}>
+          <strong>{group}모둠</strong>
+          {!reviewed?<>
+            {cards.length?cards.map(c=><p key={c.id}>{c.artifact} — {c.name||'명칭 미입력'} / {c.usage||'쓰임 미입력'}</p>):<p className={styles.muted}>아직 제출된 조사 카드가 없습니다.</p>}
+            <button disabled={!cards.length} onClick={()=>operate({type:'reviewGroup',group})}>조사 카드 확인 완료</button>
+          </>:<>
+            <ReviewQuiz group={group} record={reviewQuizRecord(s,group)} operate={operate}/>
+            <ul>{PATHS.filter(p=>p.group===group).map(unlockRow)}</ul>
+          </>}
+        </div>;
+      })}
+    </>:<p className={styles.muted}>우리 모둠 맵을 모두 체험하면 다른 모둠의 맵도 체험할 수 있어요.</p>}
+  </section>;
 }
 
-function ReflectionActivity({value,onChange,waiting,path,friendName}) {
-  const prompts=friendName?[
-    ['evidence','1. 친구의 시대에서 발견한 사실','방금 체험한 시대의 유물이나 생활 모습을 하나 고르고, 교과서·대화에서 찾은 근거를 적어 보세요.'],
-    ['perspective','2. 나의 시대와 친구의 시대 비교하기','내가 처음 체험한 시대와 무엇이 같고 다른가요? 친구의 처지가 되어 느낀 마음도 적어 보세요.'],
-    ['question','3. 체험 뒤 새롭게 궁금해진 점','친구의 일기를 읽을 때와 직접 체험한 뒤 생각이 어떻게 달라졌나요? 더 알아보고 싶은 질문을 적어 보세요.'],
-  ]:[['evidence','1. 역사적 사실과 근거 찾기','내 일기 속 역사적 사실 하나와 그 근거가 되는 유물·교과서 쪽·대화 내용을 적어 보세요.'],['perspective','2. 다른 사람의 마음 상상하기','같은 상황에 있던 가족이나 이웃은 어떤 마음이었을까요? 역사적 사실과 나의 상상을 구분해 적어 보세요.'],['question','3. 친구에게 물어볼 질문 만들기','친구의 일기를 읽을 때 비교하고 싶은 점이나 물어보고 싶은 질문을 한 가지 적어 보세요.']];
-  return <section className={styles.panel}><span className={styles.badge}>선택 활동 · 3~5분</span><h2>{friendName?`${friendName}의 주제 · ${path.title} 추가 활동`:'역사 탐정의 후속 기록'}</h2><p>{friendName?'피드백과 체험을 마쳤어요! 방금 만난 친구의 시대를 더 깊이 탐구해 보세요. 기록은 나의 추가 활동으로 따로 저장됩니다.':waiting?'일기를 다 썼군요! 친구가 일기를 공유하면 자동으로 연결돼요. 그동안 아래 활동 중 마음에 드는 것부터 해 보세요.':'작성한 후속 기록이 보관되어 있어요. 피드백 대상이 배정되었다면 친구의 일기를 읽고 준비한 질문을 활용해 보세요.'}</p><details><summary>{path.title} · 근거 단서 다시 읽기</summary>{path.clues.map(clue=><p key={clue}>{clue}</p>)}<p>교과서 {path.pages}쪽</p></details>{prompts.map(([key,title,placeholder])=><label key={key}>{title}<textarea readOnly={!onChange} value={value[key]||''} placeholder={placeholder} onChange={e=>onChange?.({...value,[key]:e.target.value})}/></label>)}<p className={styles.muted}>기록은 자동 저장돼요. 친구가 배정되면 언제든 피드백으로 넘어가도 괜찮아요.</p></section>;
+function ReviewQuiz({group,record,operate}) {
+  const [busy,setBusy]=useState(false);
+  const questions=reviewQuestions(group),score=questions.filter(q=>record[q.id]?.choice===q.answer).length;
+  async function answer(questionId,choice) {
+    setBusy(true);
+    try {await operate({type:'answerReviewQuiz',group,questionId,choice});} finally {setBusy(false);}
+  }
+  return <details open={score<3} className={styles.panel}><summary>{group}모둠 복습 퀴즈 · {score}/{questions.length}문제 완료</summary>{questions.map((q,index)=>{
+    const selected=record[q.id]?.choice,correct=selected===q.answer;
+    return <fieldset key={q.id}><legend>{index+1}. {q.title} · {q.prompt}</legend>{q.options.map((option,choice)=><button type="button" key={option} className={styles.quizOption} aria-pressed={selected===choice} disabled={busy||correct} onClick={()=>answer(q.id,choice)}>{choice+1}. {option}</button>)}{selected!==undefined&&<p role="status" className={styles.clue}>{correct?'정답이에요!':'다시 생각해 보세요.'} {q.hint}</p>}</fieldset>;
+  })}</details>;
 }
 
 function ResearchWorkspace({state,draft,change,operate}) {
@@ -283,7 +319,7 @@ function ResearchWorkspace({state,draft,change,operate}) {
           <Image src={explorationImage(group)} alt={`그림 ${group} · 역사 조사 장면`} fill sizes="(max-width: 700px) 90vw, 45vw" draggable={false} style={{objectFit:'contain'}}/>
           {(ARTIFACT_SPOTS[group]||[]).map(([artifact,x,y],i)=>{
             const enabled=group===s.group||(state.canHelpResearch&&state.cards.some(c=>c.group===group&&c.artifact===artifact));
-            return <button key={artifact+i} className={styles.artifactSpot} style={{left:`${x*100}%`,top:`${y*100}%`}} disabled={!enabled} title={enabled?artifact:'내 조사 완료 후 친구가 작성한 카드를 도울 수 있어요'} aria-label={`그림 ${group} · ${artifact} 조사 카드 열기`} aria-pressed={selected?.group===group&&selected?.artifact===artifact} onClick={()=>select(group,artifact)}>⌕</button>;
+            return <button key={artifact+i} className={styles.artifactSpot} style={{left:`${x*100}%`,top:`${y*100}%`}} disabled={!enabled} title={enabled?artifact:'내 조사 완료 후 친구가 작성한 카드를 도울 수 있어요'} aria-label={`그림 ${group} · ${artifact} 조사 카드 열기`} aria-pressed={selected?.group===group&&selected?.artifact===artifact} onClick={()=>select(group,artifact)}>⌕{enabled&&<span className={styles.artifactSpotLabel} aria-hidden="true">{artifact} · 눌러서 조사하기</span>}</button>;
           })}
         </div>
       </section>)}
@@ -322,8 +358,8 @@ function Experience({path,research,attempt,operate,diary,onDiaryChange,versions}
     {step<7&&<button className={styles.primary} disabled={busy||(question&&record.answers[question.id]!==question.answer)||(step===6&&(!correct||!record.text.trim()))} onClick={()=>run({type:'step',path:path.id,step,mode:alternative?'alternative':'2D'})}>{step===6?'탐험과 일기 완성':question?'일기에 기록하고 다음 장소로 →':'읽고 다음 장소로 →'}</button>}
   </>;
   return <section className={styles.panel}><h3>{story.title} · NPC와 함께 쓰는 일기</h3><p className={styles.muted}>{STORY_NOTICE}</p><p>NPC 대화 → 유물과 생활 퀴즈 → 내 생각 쓰기 → 일기 공유</p><button onClick={()=>setAlternative(v=>!v)}>{alternative?'2D 게임 보기':'텍스트 대체 흐름 사용'}</button>
-    {!alternative&&<Game2D key={path.id} path={path} research={research} step={step} onInteract={()=>{}}>{actions}</Game2D>}
-    {alternative&&step<7&&<section className={styles.textConversation}><QuestConversation key={`${path.id}-${step}`} path={path} step={step}><details><summary>필요할 때 단서 다시 보기</summary>{path.clues.map(c=><p className={styles.clue} key={c}>{c}</p>)}</details>{step===2&&path.artifacts.map(a=><ArtifactReference key={a} artifact={a}/>)}{actions}</QuestConversation></section>}
+    {!alternative&&<QuestBoundary resetKey={`${path.id}-${step}`}><Game2D key={path.id} path={path} research={research} step={step} onInteract={()=>{}}>{actions}</Game2D></QuestBoundary>}
+    {alternative&&step<7&&<section className={styles.textConversation}><QuestBoundary resetKey={`${path.id}-${step}`}><QuestConversation key={`${path.id}-${step}`} path={path} step={step}><details><summary>필요할 때 단서 다시 보기</summary>{path.clues.map(c=><p className={styles.clue} key={c}>{c}</p>)}</details>{step===2&&path.artifacts.map(a=><ArtifactReference key={a} artifact={a}/>)}{actions}</QuestConversation></QuestBoundary></section>}
     {step<5&&<details><summary>지금까지 쓴 일기 펼치기</summary>{diaryPage}</details>}
     {step>=7&&<><p role="status">탐험을 마쳤어요. 일기를 확인하고 공유해 주세요.</p>{diaryPage}</>}
   </section>;

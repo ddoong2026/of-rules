@@ -33,10 +33,10 @@ export default function QuestConversation({path,step,children}) {
   return <section className={styles.conversation} aria-label="캐릭터 대화">
     <header className={styles.conversationHeader}><strong>{path.title} · 퀘스트 {step+1}</strong><span>대화 {turn+1} / {lines.length}</span></header>
     {lines.slice(0,turn+1).map((line,index)=>{
-      const player=line.speaker==='player',name=player?'나':cast[line.speaker].name;
+      const player=line.speaker==='player',speaker=cast[line.speaker]||{name:'??',role:''},name=player?'나':speaker.name;
       return <div key={index} className={`${styles.speechRow} ${player?styles.playerSpeech:''}`}>
         <div className={styles.speakerPortrait} role="img" aria-label={`${name}의 대화 초상`} style={portraitStyle(path.id,line.speaker)}/>
-        <div className={styles.speechBubble}><strong>{name} <small>{player?'나의 생각':cast[line.speaker].role}</small></strong>{index===turn?<TypedSpeech key={index} text={line.text} onFinished={finishTyping}/>:<p className={styles.speechText}>{line.text}</p>}</div>
+        <div className={styles.speechBubble}><strong>{name} <small>{player?'나의 생각':speaker.role}</small></strong>{index===turn?<TypedSpeech key={index} text={line.text} onFinished={finishTyping}/>:<p className={styles.speechText}>{line.text}</p>}</div>
       </div>;
     })}
     <div className={styles.conversationActions}>{turn<lines.length-1?<button disabled={!finished} onClick={()=>{setFinished(false);setTurn(turn+1);}}>다음 대화 →</button>:!finished?<span>이야기를 듣고 있어요…</span>:<p role="status">이제 배운 내용을 퀘스트에 기록해 보세요.</p>}</div>
